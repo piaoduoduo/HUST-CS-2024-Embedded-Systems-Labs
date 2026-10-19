@@ -1,6 +1,6 @@
 {
   "updatedOn": "2026-10-19",
-  "remotePublished": false,
+  "remotePublished": true,
   "lab1": {
     "boardTested": true,
     "taAccepted": true,
@@ -57,5 +57,6 @@
     "taAccepted": false,
     "state": "实测通过，待助教验收",
     "evidence": "results/board/trial-20261019.json"
-  }
+  },
+  "repository": "https://github.com/piaoduoduo/HUST-CS-2024-Embedded-Systems-Labs"
 }
