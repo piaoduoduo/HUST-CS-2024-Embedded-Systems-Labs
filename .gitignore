@@ -1,0 +1,15 @@
+.work/
+build/
+out/
+__pycache__/
+*.py[cod]
+*.o
+*.exe
+*.tgz
+*.img
+*.ttc
+*.ttf
+*.so*
+.env
+*.pem
+*.key

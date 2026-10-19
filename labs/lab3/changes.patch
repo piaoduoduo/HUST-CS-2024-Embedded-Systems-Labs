@@ -1,0 +1,418 @@
+--- a/common/graphic.c
++++ b/common/graphic.c
+@@ -146,77 +146,150 @@
+ 
+ void fb_draw_rect(int x, int y, int w, int h, int color)
+ {
+-	if(x < 0) { w += x; x = 0;}
+-	if(x+w > SCREEN_WIDTH) { w = SCREEN_WIDTH-x;}
+-	if(y < 0) { h += y; y = 0;}
+-	if(y+h >SCREEN_HEIGHT) { h = SCREEN_HEIGHT-y;}
+-	if(w<=0 || h<=0) return;
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_rect()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    if(w <= 0 || h <= 0) return;
++
++    /* Clip before indexing. Widen the sums to avoid signed-int overflow. */
++    int64_t left = x;
++    int64_t top = y;
++    int64_t right = (int64_t)x + w;
++    int64_t bottom = (int64_t)y + h;
++
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++
++    x = (int)left;
++    y = (int)top;
++    w = (int)(right - left);
++    h = (int)(bottom - top);
++    int *buf = _begin_draw(x, y, w, h);
++
++    for(int row = y; row < y + h; ++row) {
++        int *pixel = buf + row * SCREEN_WIDTH + x;
++        for(int column = 0; column < w; ++column) {
++            pixel[column] = color;
++        }
++    }
++    return;
+ }
+ 
+ void fb_draw_line(int x1, int y1, int x2, int y2, int color)
+ {
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_line()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++
++    /* Use the longer axis, ordered consistently for reversed endpoints. */
++    int64_t major1 = steep ? y1 : x1;
++    int64_t major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1;
++    int64_t minor2 = steep ? x2 : y2;
++    if(major1 > major2) {
++        int64_t temporary = major1;
++        major1 = major2;
++        major2 = temporary;
++        temporary = minor1;
++        minor1 = minor2;
++        minor2 = temporary;
++    }
++
++    uint64_t length = (uint64_t)(major2 - major1);
++    if(length == 0) {
++        fb_draw_pixel(x1, y1, color);
++        return;
++    }
++
++    int direction = minor2 < minor1 ? -1 : 1;
++    uint64_t minor_distance = (uint64_t)llabs(minor2 - minor1);
++    int64_t limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int64_t first = major1 < 0 ? 0 : major1;
++    int64_t last = major2 >= limit ? limit - 1 : major2;
++    if(first > last) return;
++
++    /*
++     * Integer error accumulation, rounded to the nearest pixel.
++     * Preserve the error phase when skipping off-screen major coordinates.
++     * For 32-bit int endpoints, this product and sum fit in uint64_t.
++     * The loop visits at most SCREEN_WIDTH or SCREEN_HEIGHT coordinates.
++     */
++    uint64_t numerator = minor_distance * (uint64_t)(first - major1)
++                       + length / 2;
++    int64_t minor = minor1 + direction * (int64_t)(numerator / length);
++    uint64_t remainder = numerator % length;
++
++    for(int64_t major = first; major <= last; ++major) {
++        if(steep) {
++            fb_draw_pixel((int)minor, (int)major, color);
++        } else {
++            fb_draw_pixel((int)major, (int)minor, color);
++        }
++        remainder += minor_distance;
++        if(remainder >= length) {
++            remainder -= length;
++            minor += direction;
++        }
++    }
++    return;
++}
++
++/* Blend one channel over an opaque framebuffer, with exact 0/255 endpoints. */
++static unsigned blend_channel(unsigned src, unsigned dst, unsigned alpha)
++{
++    return (src * alpha + dst * (255-alpha) + 127) / 255;
+ }
+ 
+ void fb_draw_image(int x, int y, fb_image *image, int color)
+ {
+-	if(image == NULL) return;
+-
+-	int ix = 0; //image x
+-	int iy = 0; //image y
+-	int w = image->pixel_w; //draw width
+-	int h = image->pixel_h; //draw height
+-
+-	if(x<0) {w+=x; ix-=x; x=0;}
+-	if(y<0) {h+=y; iy-=y; y=0;}
+-	
+-	if(x+w > SCREEN_WIDTH) {
+-		w = SCREEN_WIDTH - x;
+-	}
+-	if(y+h > SCREEN_HEIGHT) {
+-		h = SCREEN_HEIGHT - y;
+-	}
+-	if((w <= 0)||(h <= 0)) return;
+-
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------------------*/
+-	char *dst = (char *)(buf + y*SCREEN_WIDTH + x);
+-	char *src; //不同的图像颜色格式定位不同
+-/*---------------------------------------------------------------*/
+-
+-	int alpha;
+-	int ww;
+-
+-	if(image->color_type == FB_COLOR_RGB_8880) /*lab3: jpg*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_RGB_8880\n"); exit(0);
+-
+-		return;
+-	}
+-	else if(image->color_type == FB_COLOR_RGBA_8888) /*lab3: png*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_RGBA_8888\n"); exit(0);
+-
+-		return;
+-	}
+-	else if(image->color_type == FB_COLOR_ALPHA_8) /*lab3: font*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_ALPHA_8\n"); exit(0);
+-
+-		return;
+-	}
+-/*---------------------------------------------------------------*/
+-	return;
++    if(!image || !image->content || image->pixel_w <= 0 || image->pixel_h <= 0) return;
++    int bytes = image->color_type == FB_COLOR_ALPHA_8 ? 1 : 4;
++    if(image->color_type != FB_COLOR_RGB_8880 &&
++       image->color_type != FB_COLOR_RGBA_8888 &&
++       image->color_type != FB_COLOR_ALPHA_8) return;
++    if(image->line_byte <= 0 || (int64_t)image->pixel_w * bytes > image->line_byte) return;
++
++    int64_t left = x, top = y;
++    int64_t right = (int64_t)x + image->pixel_w;
++    int64_t bottom = (int64_t)y + image->pixel_h;
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++    int ix = (int)(left-x), iy = (int)(top-y);
++    int w = (int)(right-left), h = (int)(bottom-top);
++    int *buf = _begin_draw((int)left, (int)top, w, h);
++    const unsigned char *source = (const unsigned char *)image->content
++        + (size_t)iy * image->line_byte + (size_t)ix * bytes;
++    uint32_t foreground = (uint32_t)color;
++
++    for(int row = 0; row < h; ++row) {
++        uint32_t *dst = (uint32_t *)(buf + ((int)top+row)*SCREEN_WIDTH + (int)left);
++        const unsigned char *src = source + (size_t)row * image->line_byte;
++        if(image->color_type == FB_COLOR_RGB_8880) {
++            memcpy(dst, src, (size_t)w * 4);
++            continue;
++        }
++        for(int column = 0; column < w; ++column) {
++            unsigned alpha, b, g, r;
++            if(bytes == 1) {
++                alpha = src[column];
++                b = foreground & 255; g = (foreground >> 8) & 255; r = (foreground >> 16) & 255;
++            } else {
++                const unsigned char *p = src + column*4;
++                b = p[0]; g = p[1]; r = p[2]; alpha = p[3];
++            }
++            if(alpha == 0) continue;
++            if(alpha != 255) {
++                uint32_t old = dst[column];
++                b = blend_channel(b, old & 255, alpha);
++                g = blend_channel(g, (old >> 8) & 255, alpha);
++                r = blend_channel(r, (old >> 16) & 255, alpha);
++            }
++            dst[column] = UINT32_C(0xff000000) | (r << 16) | (g << 8) | b;
++        }
++    }
+ }
+ 
+ void fb_draw_border(int x, int y, int w, int h, int color)
+--- a/common/image.c
++++ b/common/image.c
+@@ -5,13 +5,14 @@
+ #include <linux/fb.h>
+ 
+ #include "common.h"
++#include <limits.h>
+ 
+ /*w, h maybe == 0*/
+ fb_image * fb_new_image(int color_type, int w, int h, int line_byte)
+ {
+ 	fb_image *image;
+ 
+-	if((w<0)||(h<0)) return NULL;
++	if((w<0)||(h<0) || w > INT_MAX/4) return NULL;
+ 	switch(color_type)
+ 	{
+ 	case FB_COLOR_RGB_8880:
+@@ -25,7 +26,8 @@
+ 		return NULL;
+ 	}
+ 
+-	image = (fb_image *)malloc(sizeof(fb_image) + line_byte*h);
++	if(line_byte < 0 || (h > 0 && (size_t)line_byte > (SIZE_MAX-sizeof(fb_image))/(size_t)h)) return NULL;
++	image = (fb_image *)malloc(sizeof(fb_image) + (size_t)line_byte*h);
+ 	if(image == NULL) return NULL;
+ 
+ 	image->color_type = color_type;
+@@ -42,8 +44,8 @@
+ 	if(img == NULL) return NULL;
+ 	if((x<0)||(y<0)||
+ 		(w<0)||(h<0)||
+-		(x+w > img->pixel_w)||
+-		(y+h > img->pixel_w))
++		((int64_t)x+w > img->pixel_w)||
++		((int64_t)y+h > img->pixel_h))
+ 		return NULL;
+ 
+ 	ret = (fb_image *)malloc(sizeof(fb_image));
+@@ -53,7 +55,7 @@
+ 		ret->pixel_w = w;
+ 		ret->pixel_h = h;
+ 		if(img->color_type != FB_COLOR_ALPHA_8) x*=4;
+-		ret->content = img->content + y*img->line_byte + x;
++		ret->content = img->content + (size_t)y*img->line_byte + x;
+ 	}
+ 	return ret;
+ }
+@@ -235,6 +237,31 @@
+ static FT_Library library=NULL;
+ static FT_Face face;
+ 
++/* Cache rendered glyphs for any text/size. Returned images remain caller-owned.
++ * Round-robin eviction bounds retained bitmap data to 64 * 64 KiB.
++ * Failed cache allocations simply fall back to normal FreeType rendering.
++ */
++#define GLYPH_CACHE_COUNT 64
++#define GLYPH_CACHE_MAX_BYTES (64U * 1024U)
++static struct glyph_cache_entry {
++	FT_Face face;
++	FT_ULong codepoint;
++	int pixel_size;
++	fb_font_info info;
++	fb_image *image;
++} glyph_cache[GLYPH_CACHE_COUNT];
++static unsigned glyph_cache_next;
++
++static fb_image *copy_glyph_image(const fb_image *source)
++{
++	fb_image *copy = fb_new_image(source->color_type, source->pixel_w,
++		source->pixel_h, source->line_byte);
++	if(copy && source->pixel_h && source->line_byte)
++		memcpy(copy->content, source->content,
++			(size_t)source->pixel_h * source->line_byte);
++	return copy;
++}
++
+ #if 0 /** Change UTF-8 to Unicode **/
+ static FT_ULong Utf8ToUnicode(const char *utf8, int len)
+ {
+@@ -293,12 +320,6 @@
+ 	}
+ 	if((text == NULL)||(pixel_size <= 0)) {
+ 		printf("arg error\n");
+-		return NULL;
+-	}
+-
+-	FT_Error error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
+-	if(error){
+-		printf("FT_Set_Pixel_Sizes: error %d\n", error);
+ 		return NULL;
+ 	}
+ 
+@@ -321,6 +342,24 @@
+ 		return NULL;
+ 	}
+ 
++	for(unsigned entry = 0; entry < GLYPH_CACHE_COUNT; ++entry) {
++		struct glyph_cache_entry *cached = &glyph_cache[entry];
++		if(cached->image && cached->face == face &&
++		   cached->codepoint == ucs4 && cached->pixel_size == pixel_size) {
++			fb_image *copy = copy_glyph_image(cached->image);
++			if(copy) {
++				if(info) { *info = cached->info; info->bytes = sinfo.bytes; }
++				return copy;
++			}
++			break;
++		}
++	}
++
++	FT_Error error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
++	if(error){
++		printf("FT_Set_Pixel_Sizes: error %d\n", error);
++		return NULL;
++	}
+ 	error = FT_Load_Char(face, ucs4, FT_LOAD_RENDER);
+ 	if(error){
+ 		printf("FT_Load_Char: error %d", error);
+@@ -335,12 +374,22 @@
+ 		printf("fb_new_image(\"%s\", %d,%d,%d) failed\n", text, slot->bitmap.width, slot->bitmap.rows, slot->bitmap.pitch);
+ 		return NULL;
+ 	}
+-	memcpy(image->content, slot->bitmap.buffer, slot->bitmap.rows * slot->bitmap.pitch);
++	if(slot->bitmap.rows && slot->bitmap.pitch > 0)
++		memcpy(image->content, slot->bitmap.buffer, (size_t)slot->bitmap.rows * slot->bitmap.pitch);
+ 
+ 	sinfo.advance_x = slot->advance.x >> 6;
+ 	sinfo.left = slot->bitmap_left;
+ 	sinfo.top = slot->bitmap_top;
+ 	if(info) *info = sinfo;
++	if((size_t)image->pixel_h * image->line_byte <= GLYPH_CACHE_MAX_BYTES) {
++		fb_image *copy = copy_glyph_image(image);
++		if(copy) {
++			struct glyph_cache_entry *cached = &glyph_cache[glyph_cache_next];
++			fb_free_image(cached->image);
++			*cached = (struct glyph_cache_entry){face, ucs4, pixel_size, sinfo, copy};
++			glyph_cache_next = (glyph_cache_next + 1) % GLYPH_CACHE_COUNT;
++		}
++	}
+ 	return image;
+ }
+ 
+--- a/lab3/main.c
++++ b/lab3/main.c
+@@ -21,22 +21,25 @@
+ 
+ 	fb_image *img;
+ 	img = fb_read_jpeg_image("./test.jpg");
++	if(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\n"); return EXIT_FAILURE; }
+ 	fb_draw_image(0,0,img,0);
+ 	fb_update();
+ 	fb_free_image(img);
+ 
+ 	img = fb_read_png_image("./test.png");
++	if(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\n"); return EXIT_FAILURE; }
+ 	fb_draw_image(100,300,img,0);
+ 	fb_update();
+ 	fb_free_image(img);
+ 
+ 	img = fb_read_font_image("嵌",30,NULL);
++	if(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\n"); return EXIT_FAILURE; }
+ 	fb_draw_image(400,350,img,RED);
+ 	fb_update();
+ 	fb_free_image(img);
+ 
+-	fb_draw_text(50,50,"床前明月光，疑是地上霜。",64,PURPLE);
+-	fb_draw_text(50,120,"举头望明月，低头思故乡。",64,PURPLE);
++	fb_draw_text(50,70,"床前明月光，疑是地上霜。",64,PURPLE);
++	fb_draw_text(50,140,"举头望明月，低头思故乡。",64,PURPLE);
+ 	fb_update();
+ 	return 0;
+ }
+--- a/test/main.c
++++ b/test/main.c
+@@ -93,6 +93,7 @@
+ 	img1 = fb_read_jpeg_image("./test.jpg");
+ 	img2 = fb_read_png_image("./test.png");
+ 	img3 = fb_read_font_image("嵌",30,NULL);
++	if(!img1 || !img2 || !img3) { fprintf(stderr,"Missing test image/font assets\n"); return EXIT_FAILURE; }
+ 	start = task_get_time();
+ 	for(row=-5; row<605; row+=100){
+ 		for(column=-5; column<1029; column+=50){
+@@ -176,14 +177,14 @@
+ 	fb_draw_text(135,402,"合计total",30,ORANGE);
+ 	fb_draw_text(260,454,"华中科技大学",30,PURPLE);
+ 	
+-	char str[5];
++	char str[32];
+ 	for(i=0; i<5; i++){
+-		memset(str,'\0',5);
+-		sprintf(str,"%d",time[i]);
++		memset(str,0,sizeof(str));
++		snprintf(str,sizeof(str),"%d",time[i]);
+ 		fb_draw_text(370,90+52*(i+1),str,30,CYAN);
+ 	}
+-	memset(str,'\0',5);
+-	sprintf(str,"%d",time_total);
++	memset(str,0,sizeof(str));
++	snprintf(str,sizeof(str),"%d",time_total);
+ 	fb_draw_text(370,402,str,30,ORANGE);
+ 
+ 	fb_update();

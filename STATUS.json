@@ -1,0 +1,61 @@
+{
+  "updatedOn": "2026-10-19",
+  "remotePublished": false,
+  "lab1": {
+    "boardTested": true,
+    "taAccepted": true,
+    "acceptanceEvidence": "User report"
+  },
+  "lab2": {
+    "boardTested": true,
+    "taAccepted": true,
+    "acceptanceEvidence": "User report"
+  },
+  "lab3": {
+    "baselineBoardTested": true,
+    "taAccepted": false,
+    "acceptanceStatus": "Awaiting confirmation",
+    "bestMeasuredMs": 17,
+    "medianMeasuredMs": 21
+  },
+  "lab4": {
+    "boardTested": true,
+    "taAccepted": false,
+    "acceptanceStatus": "Awaiting confirmation"
+  },
+  "v9": {
+    "boardTested": false,
+    "armCompiled": false,
+    "taAccepted": false,
+    "state": "原始快照保留；字模修正版已板测27/27/25ms，未将修正版覆盖原始profile"
+  },
+  "lab5": {
+    "boardTested": true,
+    "armCompiled": true,
+    "taAccepted": false,
+    "state": "实测通过，待助教验收",
+    "evidence": "results/board/trial-20261019.json"
+  },
+  "lab6": {
+    "boardTested": true,
+    "armCompiled": true,
+    "taAccepted": false,
+    "state": "实测通过，待助教验收",
+    "evidence": "results/board/trial-20261019.json"
+  },
+  "nextAcceptanceUpdate": [
+    "lab3",
+    "lab5",
+    "lab6"
+  ],
+  "updateTrigger": "User supplies actual acceptance outcomes; no automatic status promotion",
+  "publicationAuthorized": true,
+  "reportStatus": "Not yet written; will be added later",
+  "v10": {
+    "boardTested": true,
+    "armCompiled": true,
+    "taAccepted": false,
+    "state": "实测通过，待助教验收",
+    "evidence": "results/board/trial-20261019.json"
+  }
+}

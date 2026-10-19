@@ -1,0 +1,7 @@
+touch device: /dev/input/event12, x=[0,4096], y=[0,4096], slots=6
+framebuffer info: bits_per_pixel=32,size=(1024,600),virtual_pos_size=(0,0)(1280,720),line_length=5120,smem_len=3686400
+Resumed saved game: 6 moves
+Gomoku ready: human-ai, freestyle >=5 wins, board=15x15, max AI roots=12
+Gomoku stopped; autosave status=1
+
+Program exit status: 0

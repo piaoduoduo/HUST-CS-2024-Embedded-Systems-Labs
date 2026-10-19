@@ -1,0 +1,15 @@
+{
+  "hardwareValidated": false,
+  "performanceMeasured": false,
+  "armNativeCompileValidated": false,
+  "neonInstructionExecutionValidated": false,
+  "scope": "exact geometry, all octants, int32 extremes, full-color/alpha replacement, ordered mixed shapes, allocation failure, capacity, course workload, dirty bounds/canaries",
+  "ompThreads": [
+    1,
+    2,
+    4
+  ],
+  "bitsetAndDSU": true,
+  "originalRecordSHA256": "2e92d6033c23629eda317c5550546d21e81a76707bb32fb097dc4d972fed31c1",
+  "recordType": "Host-only historical validation; not rerun on ARM during publication preparation"
+}

@@ -1,0 +1,85 @@
+touch device: /dev/input/event12, x=[0,4096], y=[0,4096], slots=6
+framebuffer info: bits_per_pixel=32,size=(1024,600),virtual_pos_size=(0,0)(1280,720),line_length=5120,smem_len=3686400
+Gomoku ready: human-ai, freestyle >=5 wins, board=15x15, max AI roots=12
+game: moves=1 next=2 result=0 mode=human-ai
+AI move: row=6 col=7 moves=2 result=0
+game: moves=3 next=2 result=0 mode=human-ai
+AI move: row=8 col=6 moves=4 result=0
+game: moves=5 next=2 result=0 mode=human-ai
+AI move: row=8 col=8 moves=6 result=0
+game: moves=7 next=2 result=0 mode=human-ai
+AI move: row=9 col=7 moves=8 result=0
+game: moves=9 next=2 result=0 mode=human-ai
+AI move: row=7 col=9 moves=10 result=0
+game: moves=11 next=2 result=0 mode=human-ai
+AI move: row=10 col=6 moves=12 result=0
+game: moves=13 next=2 result=0 mode=human-ai
+AI move: row=7 col=8 moves=14 result=0
+game: moves=15 next=2 result=0 mode=human-ai
+AI move: row=9 col=6 moves=16 result=0
+game: moves=17 next=2 result=0 mode=human-ai
+AI move: row=9 col=8 moves=18 result=0
+game: moves=19 next=2 result=0 mode=human-ai
+AI move: row=10 col=8 moves=20 result=0
+game: moves=21 next=2 result=0 mode=human-ai
+AI move: row=11 col=9 moves=22 result=0
+game: moves=23 next=2 result=0 mode=human-ai
+AI move: row=9 col=9 moves=24 result=0
+game: moves=25 next=2 result=0 mode=human-ai
+AI move: row=11 col=7 moves=26 result=0
+game: moves=27 next=2 result=0 mode=human-ai
+AI move: row=7 col=10 moves=28 result=0
+game: moves=29 next=2 result=0 mode=human-ai
+AI move: row=10 col=9 moves=30 result=0
+game: moves=31 next=2 result=0 mode=human-ai
+AI move: row=10 col=7 moves=32 result=0
+game: moves=30 next=1 result=0 mode=human-ai
+game: moves=28 next=1 result=0 mode=human-ai
+game: moves=29 next=2 result=0 mode=human-ai
+AI move: row=12 col=7 moves=30 result=0
+game: moves=31 next=2 result=0 mode=human-ai
+AI move: row=12 col=6 moves=32 result=0
+game: moves=33 next=2 result=0 mode=human-ai
+AI move: row=7 col=11 moves=34 result=0
+game: moves=35 next=2 result=0 mode=human-ai
+AI move: row=8 col=11 moves=36 result=0
+game: moves=37 next=2 result=0 mode=human-ai
+AI move: row=6 col=9 moves=38 result=0
+game: moves=39 next=2 result=0 mode=human-ai
+AI move: row=9 col=12 moves=40 result=0
+game: moves=41 next=2 result=0 mode=human-ai
+AI move: row=8 col=9 moves=42 result=0
+game: moves=43 next=2 result=0 mode=human-ai
+AI move: row=5 col=7 moves=44 result=0
+game: moves=45 next=2 result=0 mode=human-ai
+AI move: row=12 col=8 moves=46 result=0
+game: moves=47 next=2 result=0 mode=human-ai
+AI move: row=10 col=5 moves=48 result=0
+game: moves=49 next=2 result=0 mode=human-ai
+AI move: row=13 col=9 moves=50 result=0
+game: moves=51 next=2 result=0 mode=human-ai
+AI move: row=14 col=10 moves=52 result=2
+game: moves=50 next=1 result=0 mode=human-ai
+game: moves=51 next=2 result=0 mode=human-ai
+AI move: row=10 col=7 moves=52 result=0
+game: moves=53 next=2 result=0 mode=human-ai
+AI move: row=10 col=10 moves=54 result=0
+game: moves=55 next=2 result=0 mode=human-ai
+AI move: row=9 col=3 moves=56 result=0
+game: moves=57 next=2 result=0 mode=human-ai
+AI move: row=7 col=3 moves=58 result=0
+game: moves=59 next=2 result=0 mode=human-ai
+AI move: row=6 col=4 moves=60 result=0
+game: moves=61 next=2 result=1 mode=human-ai
+game: moves=60 next=1 result=0 mode=human-ai
+game: moves=61 next=2 result=1 mode=human-ai
+game: moves=0 next=1 result=0 mode=human-ai
+game: moves=1 next=2 result=0 mode=human-ai
+AI move: row=6 col=7 moves=2 result=0
+game: moves=3 next=2 result=0 mode=human-ai
+AI move: row=8 col=6 moves=4 result=0
+game: moves=5 next=2 result=0 mode=human-ai
+AI move: row=7 col=8 moves=6 result=0
+Gomoku stopped; autosave status=1
+
+Program exit status: 0

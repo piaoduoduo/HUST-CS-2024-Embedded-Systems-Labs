@@ -1,0 +1,122 @@
+{
+  "date": "2026-10-15",
+  "target": "Orange Pi 4 LTS, Linux aarch64",
+  "method": "Same course test loops, assets and CLOCK_MONOTONIC millisecond timer; separate process for each run",
+  "variants": {
+    "baseline": {
+      "runs": [
+        {
+          "pixel": 1,
+          "rect": 15,
+          "line": 20,
+          "image": 131,
+          "text": 61,
+          "total": 228,
+          "exitStatus": 0
+        },
+        {
+          "pixel": 6,
+          "rect": 15,
+          "line": 40,
+          "image": 105,
+          "text": 70,
+          "total": 236,
+          "exitStatus": 0
+        },
+        {
+          "pixel": 6,
+          "rect": 15,
+          "line": 40,
+          "image": 132,
+          "text": 70,
+          "total": 263,
+          "exitStatus": 0
+        }
+      ],
+      "medianMs": 236,
+      "minimumMs": 228,
+      "maximumMs": 263
+    },
+    "cache": {
+      "runs": [
+        {
+          "pixel": 1,
+          "rect": 15,
+          "line": 20,
+          "image": 122,
+          "text": 12,
+          "total": 170,
+          "exitStatus": 0
+        },
+        {
+          "pixel": 6,
+          "rect": 15,
+          "line": 35,
+          "image": 104,
+          "text": 12,
+          "total": 172,
+          "exitStatus": 0
+        },
+        {
+          "pixel": 6,
+          "rect": 14,
+          "line": 38,
+          "image": 105,
+          "text": 12,
+          "total": 175,
+          "exitStatus": 0
+        }
+      ],
+      "medianMs": 172,
+      "minimumMs": 170,
+      "maximumMs": 175
+    },
+    "o3": {
+      "runs": [
+        {
+          "pixel": 2,
+          "rect": 5,
+          "line": 23,
+          "image": 119,
+          "text": 11,
+          "total": 160,
+          "exitStatus": 0
+        },
+        {
+          "pixel": 6,
+          "rect": 14,
+          "line": 23,
+          "image": 101,
+          "text": 11,
+          "total": 155,
+          "exitStatus": 0
+        },
+        {
+          "pixel": 6,
+          "rect": 15,
+          "line": 23,
+          "image": 118,
+          "text": 11,
+          "total": 173,
+          "exitStatus": 0
+        }
+      ],
+      "medianMs": 160,
+      "minimumMs": 155,
+      "maximumMs": 173
+    }
+  },
+  "selectedVariant": "o3",
+  "compilerFlags": "-Wall -O3",
+  "glyphCacheComparisonsPerBuild": 960,
+  "renderedFramebuffersBitIdentical": true,
+  "framebufferSHA256": "fb04354f7b888b8d00c6d20736b108de3a9e6a8cc97cfcf10a85508199b39e1c",
+  "physicalLab3Display": "User confirmed all expected image/text elements display normally",
+  "TAaccepted": false,
+  "TAstatus": "Awaiting user/TA confirmation",
+  "cpuGovernor": "ondemand, unchanged",
+  "cpuAffinityChanged": false,
+  "evidenceImages": "Read directly from the actual board framebuffer; not physical photographs",
+  "recordType": "Actual board measurements, copied without path or account data",
+  "originalRecordSHA256": "1215392b82459c84cc115c12ea8c555903d2df3e3671ff9ba512706e54cabad5"
+}

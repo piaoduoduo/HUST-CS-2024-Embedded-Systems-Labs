@@ -1,0 +1,18 @@
+{
+  "scope": "ordered multi-string multi-glyph CSR text batching",
+  "pixelsKernel": "v9",
+  "syntheticGlyphs": true,
+  "wholeFrameDirtyAndCanariesValidated": true,
+  "allocationFailureFallbackValidated": true,
+  "ownedGlyphCacheEvictionAndInputMutationValidated": true,
+  "hostOpenMPThreadsValidated": [
+    2,
+    4
+  ],
+  "realFreeTypeValidated": false,
+  "armNativeCompileValidated": false,
+  "neonInstructionsExecuted": false,
+  "performanceMeasured": false,
+  "originalRecordSHA256": "17e013012338c21aeb8df374d4064e022100e511a078589661421b50258f162c",
+  "recordType": "Host-only historical validation; not rerun on ARM during publication preparation"
+}

@@ -1,0 +1,29 @@
+framebuffer info: bits_per_pixel=32,size=(1024,600),virtual_pos_size=(0,0)(1280,720),line_length=5120,smem_len=3686400
+
+========== Start Test ===========
+
+Lab2 test:
+draw pixel: 0 ms
+draw rect: 4 ms
+draw line: 4 ms
+
+Lab3 test:
+    **jpeg:	1
+BATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=0 row_checks=0 interval_comparisons=0 flushes=1
+    **png:	6
+    **font:	1
+draw image: 8 ms
+draw text: 1 ms
+
+Total time: 17 ms
+
+=================================
+FLUSH_US=1935
+FLUSH_US=1140
+FLUSH_US=1225
+FLUSH_US=777
+FLUSH_US=1226
+FLUSH_US=1222
+FLUSH_US=3582
+FLUSH_US=1040
+FLUSH_US=1073

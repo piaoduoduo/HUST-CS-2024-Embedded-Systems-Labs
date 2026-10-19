@@ -1,0 +1,37 @@
+{
+  "lab2": {
+    "path": "labs/lab2/profile.json",
+    "files": 10,
+    "modifiedOrAdded": 2
+  },
+  "lab3": {
+    "path": "labs/lab3/profile.json",
+    "files": 10,
+    "modifiedOrAdded": 4
+  },
+  "lab4": {
+    "path": "labs/lab4/profile.json",
+    "files": 14,
+    "modifiedOrAdded": 10
+  },
+  "v9": {
+    "path": "experiments/lab3-v9/profile.json",
+    "files": 77,
+    "modifiedOrAdded": 75
+  },
+  "lab5": {
+    "path": "labs/lab5/profile.json",
+    "files": 26,
+    "modifiedOrAdded": 24
+  },
+  "lab6": {
+    "path": "labs/lab6/profile.json",
+    "files": 35,
+    "modifiedOrAdded": 34
+  },
+  "v10": {
+    "path": "labs/v10/profile.json",
+    "files": 87,
+    "modifiedOrAdded": 85
+  }
+}

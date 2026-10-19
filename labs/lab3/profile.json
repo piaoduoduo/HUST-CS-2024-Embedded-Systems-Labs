@@ -1,0 +1,423 @@
+{
+  "format": 1,
+  "name": "lab3",
+  "files": [
+    {
+      "path": "common/common.h",
+      "baseSHA256": "5c5ff5aebd76714db0695cdc3218ad6777bb88582e9d225a0d563d950cb1ff49",
+      "sha256": "5c5ff5aebd76714db0695cdc3218ad6777bb88582e9d225a0d563d950cb1ff49",
+      "edits": []
+    },
+    {
+      "path": "common/graphic.c",
+      "baseSHA256": "fa36cd49cc4348ae549136835df01efcc689dc1964dced24c03709040c1da7b5",
+      "sha256": "578f85d10551995e0289c4faae7d62876317521d40c7d8106c741eba4e9c0709",
+      "edits": [
+        {
+          "start": 148,
+          "end": 156,
+          "lines": [
+            "    if(w <= 0 || h <= 0) return;\n"
+          ]
+        },
+        {
+          "start": 157,
+          "end": 159,
+          "lines": [
+            "    /* Clip before indexing. Widen the sums to avoid signed-int overflow. */\n",
+            "    int64_t left = x;\n",
+            "    int64_t top = y;\n",
+            "    int64_t right = (int64_t)x + w;\n",
+            "    int64_t bottom = (int64_t)y + h;\n",
+            "\n",
+            "    if(left < 0) left = 0;\n",
+            "    if(top < 0) top = 0;\n",
+            "    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;\n",
+            "    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;\n",
+            "    if(left >= right || top >= bottom) return;\n",
+            "\n",
+            "    x = (int)left;\n",
+            "    y = (int)top;\n",
+            "    w = (int)(right - left);\n",
+            "    h = (int)(bottom - top);\n",
+            "    int *buf = _begin_draw(x, y, w, h);\n",
+            "\n",
+            "    for(int row = y; row < y + h; ++row) {\n",
+            "        int *pixel = buf + row * SCREEN_WIDTH + x;\n",
+            "        for(int column = 0; column < w; ++column) {\n",
+            "            pixel[column] = color;\n",
+            "        }\n",
+            "    }\n",
+            "    return;\n"
+          ]
+        },
+        {
+          "start": 163,
+          "end": 165,
+          "lines": [
+            "    int64_t dx = (int64_t)x2 - x1;\n",
+            "    int64_t dy = (int64_t)y2 - y1;\n",
+            "    int steep = llabs(dy) > llabs(dx);\n"
+          ]
+        },
+        {
+          "start": 166,
+          "end": 168,
+          "lines": [
+            "    /* Use the longer axis, ordered consistently for reversed endpoints. */\n",
+            "    int64_t major1 = steep ? y1 : x1;\n",
+            "    int64_t major2 = steep ? y2 : x2;\n",
+            "    int64_t minor1 = steep ? x1 : y1;\n",
+            "    int64_t minor2 = steep ? x2 : y2;\n",
+            "    if(major1 > major2) {\n",
+            "        int64_t temporary = major1;\n",
+            "        major1 = major2;\n",
+            "        major2 = temporary;\n",
+            "        temporary = minor1;\n",
+            "        minor1 = minor2;\n",
+            "        minor2 = temporary;\n",
+            "    }\n",
+            "\n",
+            "    uint64_t length = (uint64_t)(major2 - major1);\n",
+            "    if(length == 0) {\n",
+            "        fb_draw_pixel(x1, y1, color);\n",
+            "        return;\n",
+            "    }\n",
+            "\n",
+            "    int direction = minor2 < minor1 ? -1 : 1;\n",
+            "    uint64_t minor_distance = (uint64_t)llabs(minor2 - minor1);\n",
+            "    int64_t limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;\n",
+            "    int64_t first = major1 < 0 ? 0 : major1;\n",
+            "    int64_t last = major2 >= limit ? limit - 1 : major2;\n",
+            "    if(first > last) return;\n",
+            "\n",
+            "    /*\n",
+            "     * Integer error accumulation, rounded to the nearest pixel.\n",
+            "     * Preserve the error phase when skipping off-screen major coordinates.\n",
+            "     * For 32-bit int endpoints, this product and sum fit in uint64_t.\n",
+            "     * The loop visits at most SCREEN_WIDTH or SCREEN_HEIGHT coordinates.\n",
+            "     */\n",
+            "    uint64_t numerator = minor_distance * (uint64_t)(first - major1)\n",
+            "                       + length / 2;\n",
+            "    int64_t minor = minor1 + direction * (int64_t)(numerator / length);\n",
+            "    uint64_t remainder = numerator % length;\n",
+            "\n",
+            "    for(int64_t major = first; major <= last; ++major) {\n",
+            "        if(steep) {\n",
+            "            fb_draw_pixel((int)minor, (int)major, color);\n",
+            "        } else {\n",
+            "            fb_draw_pixel((int)major, (int)minor, color);\n",
+            "        }\n",
+            "        remainder += minor_distance;\n",
+            "        if(remainder >= length) {\n",
+            "            remainder -= length;\n",
+            "            minor += direction;\n",
+            "        }\n",
+            "    }\n",
+            "    return;\n",
+            "}\n",
+            "\n",
+            "/* Blend one channel over an opaque framebuffer, with exact 0/255 endpoints. */\n",
+            "static unsigned blend_channel(unsigned src, unsigned dst, unsigned alpha)\n",
+            "{\n",
+            "    return (src * alpha + dst * (255-alpha) + 127) / 255;\n"
+          ]
+        },
+        {
+          "start": 172,
+          "end": 173,
+          "lines": [
+            "    if(!image || !image->content || image->pixel_w <= 0 || image->pixel_h <= 0) return;\n",
+            "    int bytes = image->color_type == FB_COLOR_ALPHA_8 ? 1 : 4;\n",
+            "    if(image->color_type != FB_COLOR_RGB_8880 &&\n",
+            "       image->color_type != FB_COLOR_RGBA_8888 &&\n",
+            "       image->color_type != FB_COLOR_ALPHA_8) return;\n",
+            "    if(image->line_byte <= 0 || (int64_t)image->pixel_w * bytes > image->line_byte) return;\n"
+          ]
+        },
+        {
+          "start": 174,
+          "end": 178,
+          "lines": [
+            "    int64_t left = x, top = y;\n",
+            "    int64_t right = (int64_t)x + image->pixel_w;\n",
+            "    int64_t bottom = (int64_t)y + image->pixel_h;\n",
+            "    if(left < 0) left = 0;\n",
+            "    if(top < 0) top = 0;\n",
+            "    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;\n",
+            "    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;\n",
+            "    if(left >= right || top >= bottom) return;\n",
+            "    int ix = (int)(left-x), iy = (int)(top-y);\n",
+            "    int w = (int)(right-left), h = (int)(bottom-top);\n",
+            "    int *buf = _begin_draw((int)left, (int)top, w, h);\n",
+            "    const unsigned char *source = (const unsigned char *)image->content\n",
+            "        + (size_t)iy * image->line_byte + (size_t)ix * bytes;\n",
+            "    uint32_t foreground = (uint32_t)color;\n"
+          ]
+        },
+        {
+          "start": 179,
+          "end": 219,
+          "lines": [
+            "    for(int row = 0; row < h; ++row) {\n",
+            "        uint32_t *dst = (uint32_t *)(buf + ((int)top+row)*SCREEN_WIDTH + (int)left);\n",
+            "        const unsigned char *src = source + (size_t)row * image->line_byte;\n",
+            "        if(image->color_type == FB_COLOR_RGB_8880) {\n",
+            "            memcpy(dst, src, (size_t)w * 4);\n",
+            "            continue;\n",
+            "        }\n",
+            "        for(int column = 0; column < w; ++column) {\n",
+            "            unsigned alpha, b, g, r;\n",
+            "            if(bytes == 1) {\n",
+            "                alpha = src[column];\n",
+            "                b = foreground & 255; g = (foreground >> 8) & 255; r = (foreground >> 16) & 255;\n",
+            "            } else {\n",
+            "                const unsigned char *p = src + column*4;\n",
+            "                b = p[0]; g = p[1]; r = p[2]; alpha = p[3];\n",
+            "            }\n",
+            "            if(alpha == 0) continue;\n",
+            "            if(alpha != 255) {\n",
+            "                uint32_t old = dst[column];\n",
+            "                b = blend_channel(b, old & 255, alpha);\n",
+            "                g = blend_channel(g, (old >> 8) & 255, alpha);\n",
+            "                r = blend_channel(r, (old >> 16) & 255, alpha);\n",
+            "            }\n",
+            "            dst[column] = UINT32_C(0xff000000) | (r << 16) | (g << 8) | b;\n",
+            "        }\n",
+            "    }\n"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "common/image.c",
+      "baseSHA256": "a0bb7ea75d6e32e738830a3cf6f3dcc528815ac657cc2917de45d1a5e26d13b7",
+      "sha256": "7f14dbd2814514d573af373063347d36fa4abd11674148df2b43fcc04161cee2",
+      "edits": [
+        {
+          "start": 7,
+          "end": 7,
+          "lines": [
+            "#include <limits.h>\n"
+          ]
+        },
+        {
+          "start": 13,
+          "end": 14,
+          "lines": [
+            "\tif((w<0)||(h<0) || w > INT_MAX/4) return NULL;\n"
+          ]
+        },
+        {
+          "start": 27,
+          "end": 28,
+          "lines": [
+            "\tif(line_byte < 0 || (h > 0 && (size_t)line_byte > (SIZE_MAX-sizeof(fb_image))/(size_t)h)) return NULL;\n",
+            "\timage = (fb_image *)malloc(sizeof(fb_image) + (size_t)line_byte*h);\n"
+          ]
+        },
+        {
+          "start": 44,
+          "end": 46,
+          "lines": [
+            "\t\t((int64_t)x+w > img->pixel_w)||\n",
+            "\t\t((int64_t)y+h > img->pixel_h))\n"
+          ]
+        },
+        {
+          "start": 55,
+          "end": 56,
+          "lines": [
+            "\t\tret->content = img->content + (size_t)y*img->line_byte + x;\n"
+          ]
+        },
+        {
+          "start": 237,
+          "end": 237,
+          "lines": [
+            "/* Cache rendered glyphs for any text/size. Returned images remain caller-owned.\n",
+            " * Round-robin eviction bounds retained bitmap data to 64 * 64 KiB.\n",
+            " * Failed cache allocations simply fall back to normal FreeType rendering.\n",
+            " */\n",
+            "#define GLYPH_CACHE_COUNT 64\n",
+            "#define GLYPH_CACHE_MAX_BYTES (64U * 1024U)\n",
+            "static struct glyph_cache_entry {\n",
+            "\tFT_Face face;\n",
+            "\tFT_ULong codepoint;\n",
+            "\tint pixel_size;\n",
+            "\tfb_font_info info;\n",
+            "\tfb_image *image;\n",
+            "} glyph_cache[GLYPH_CACHE_COUNT];\n",
+            "static unsigned glyph_cache_next;\n",
+            "\n",
+            "static fb_image *copy_glyph_image(const fb_image *source)\n",
+            "{\n",
+            "\tfb_image *copy = fb_new_image(source->color_type, source->pixel_w,\n",
+            "\t\tsource->pixel_h, source->line_byte);\n",
+            "\tif(copy && source->pixel_h && source->line_byte)\n",
+            "\t\tmemcpy(copy->content, source->content,\n",
+            "\t\t\t(size_t)source->pixel_h * source->line_byte);\n",
+            "\treturn copy;\n",
+            "}\n",
+            "\n"
+          ]
+        },
+        {
+          "start": 298,
+          "end": 304,
+          "lines": []
+        },
+        {
+          "start": 323,
+          "end": 323,
+          "lines": [
+            "\tfor(unsigned entry = 0; entry < GLYPH_CACHE_COUNT; ++entry) {\n",
+            "\t\tstruct glyph_cache_entry *cached = &glyph_cache[entry];\n",
+            "\t\tif(cached->image && cached->face == face &&\n",
+            "\t\t   cached->codepoint == ucs4 && cached->pixel_size == pixel_size) {\n",
+            "\t\t\tfb_image *copy = copy_glyph_image(cached->image);\n",
+            "\t\t\tif(copy) {\n",
+            "\t\t\t\tif(info) { *info = cached->info; info->bytes = sinfo.bytes; }\n",
+            "\t\t\t\treturn copy;\n",
+            "\t\t\t}\n",
+            "\t\t\tbreak;\n",
+            "\t\t}\n",
+            "\t}\n",
+            "\n",
+            "\tFT_Error error = FT_Set_Pixel_Sizes(face, 0, pixel_size);\n",
+            "\tif(error){\n",
+            "\t\tprintf(\"FT_Set_Pixel_Sizes: error %d\\n\", error);\n",
+            "\t\treturn NULL;\n",
+            "\t}\n"
+          ]
+        },
+        {
+          "start": 337,
+          "end": 338,
+          "lines": [
+            "\tif(slot->bitmap.rows && slot->bitmap.pitch > 0)\n",
+            "\t\tmemcpy(image->content, slot->bitmap.buffer, (size_t)slot->bitmap.rows * slot->bitmap.pitch);\n"
+          ]
+        },
+        {
+          "start": 343,
+          "end": 343,
+          "lines": [
+            "\tif((size_t)image->pixel_h * image->line_byte <= GLYPH_CACHE_MAX_BYTES) {\n",
+            "\t\tfb_image *copy = copy_glyph_image(image);\n",
+            "\t\tif(copy) {\n",
+            "\t\t\tstruct glyph_cache_entry *cached = &glyph_cache[glyph_cache_next];\n",
+            "\t\t\tfb_free_image(cached->image);\n",
+            "\t\t\t*cached = (struct glyph_cache_entry){face, ucs4, pixel_size, sinfo, copy};\n",
+            "\t\t\tglyph_cache_next = (glyph_cache_next + 1) % GLYPH_CACHE_COUNT;\n",
+            "\t\t}\n",
+            "\t}\n"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "common/rules.mk",
+      "baseSHA256": "0887be6a868d57eb5174c69a5179f7945f78698f3c1639735af039f3a52e9e1a",
+      "sha256": "0887be6a868d57eb5174c69a5179f7945f78698f3c1639735af039f3a52e9e1a",
+      "edits": []
+    },
+    {
+      "path": "common/task.c",
+      "baseSHA256": "3d9ae3f951bed5ebb527ba451fcbfadd611fe7cdeae8f39bc46348a485122966",
+      "sha256": "3d9ae3f951bed5ebb527ba451fcbfadd611fe7cdeae8f39bc46348a485122966",
+      "edits": []
+    },
+    {
+      "path": "common/touch.c",
+      "baseSHA256": "43563e094288fba76d23e3bc80fc871be82b5782b530c12fd54295eb04ba6601",
+      "sha256": "43563e094288fba76d23e3bc80fc871be82b5782b530c12fd54295eb04ba6601",
+      "edits": []
+    },
+    {
+      "path": "lab3/Makefile",
+      "baseSHA256": "e14781892d616e64c0a69819a8058c187c638bc80ccd0c61ecfb65392dfbd8cc",
+      "sha256": "e14781892d616e64c0a69819a8058c187c638bc80ccd0c61ecfb65392dfbd8cc",
+      "edits": []
+    },
+    {
+      "path": "lab3/main.c",
+      "baseSHA256": "7be9b477928fba3fde0e7516cfa39604af1a813ba7c806c3bd2948039e6af0f7",
+      "sha256": "a02a1ad3865dc405d20c2ea49d83a1ee0de9ad6635a4c5c7b15fa6cf24b0cba5",
+      "edits": [
+        {
+          "start": 23,
+          "end": 23,
+          "lines": [
+            "\tif(!img) { fprintf(stderr, \"Lab3 image/font load failed; run from out with all assets present.\\n\"); return EXIT_FAILURE; }\n"
+          ]
+        },
+        {
+          "start": 28,
+          "end": 28,
+          "lines": [
+            "\tif(!img) { fprintf(stderr, \"Lab3 image/font load failed; run from out with all assets present.\\n\"); return EXIT_FAILURE; }\n"
+          ]
+        },
+        {
+          "start": 33,
+          "end": 33,
+          "lines": [
+            "\tif(!img) { fprintf(stderr, \"Lab3 image/font load failed; run from out with all assets present.\\n\"); return EXIT_FAILURE; }\n"
+          ]
+        },
+        {
+          "start": 37,
+          "end": 39,
+          "lines": [
+            "\tfb_draw_text(50,70,\"床前明月光，疑是地上霜。\",64,PURPLE);\n",
+            "\tfb_draw_text(50,140,\"举头望明月，低头思故乡。\",64,PURPLE);\n"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "test/Makefile",
+      "baseSHA256": "16f5b0ca74440c013cf4f98d7275c81e85a40af039a34bfb13cee486dcfbfbf2",
+      "sha256": "16f5b0ca74440c013cf4f98d7275c81e85a40af039a34bfb13cee486dcfbfbf2",
+      "edits": []
+    },
+    {
+      "path": "test/main.c",
+      "baseSHA256": "d4c7fff0d940ca394dbd6f76423b6930e0c8963c9638384e61ecabe3cd52e8d4",
+      "sha256": "3ee7d4f624b8e59b0b4ce2a5702c4de11b5ec6ef6399b2941fc03fc6ac99a2c5",
+      "edits": [
+        {
+          "start": 95,
+          "end": 95,
+          "lines": [
+            "\tif(!img1 || !img2 || !img3) { fprintf(stderr,\"Missing test image/font assets\\n\"); return EXIT_FAILURE; }\n"
+          ]
+        },
+        {
+          "start": 178,
+          "end": 179,
+          "lines": [
+            "\tchar str[32];\n"
+          ]
+        },
+        {
+          "start": 180,
+          "end": 182,
+          "lines": [
+            "\t\tmemset(str,0,sizeof(str));\n",
+            "\t\tsnprintf(str,sizeof(str),\"%d\",time[i]);\n"
+          ]
+        },
+        {
+          "start": 184,
+          "end": 186,
+          "lines": [
+            "\tmemset(str,0,sizeof(str));\n",
+            "\tsnprintf(str,sizeof(str),\"%d\",time_total);\n"
+          ]
+        }
+      ]
+    }
+  ]
+}

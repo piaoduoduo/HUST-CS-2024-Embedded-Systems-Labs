@@ -1,0 +1,122 @@
+--- a/common/graphic.c
++++ b/common/graphic.c
+@@ -146,26 +146,92 @@
+ 
+ void fb_draw_rect(int x, int y, int w, int h, int color)
+ {
+-	if(x < 0) { w += x; x = 0;}
+-	if(x+w > SCREEN_WIDTH) { w = SCREEN_WIDTH-x;}
+-	if(y < 0) { h += y; y = 0;}
+-	if(y+h >SCREEN_HEIGHT) { h = SCREEN_HEIGHT-y;}
+-	if(w<=0 || h<=0) return;
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_rect()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    if(w <= 0 || h <= 0) return;
++
++    /* Clip before indexing. Widen the sums to avoid signed-int overflow. */
++    int64_t left = x;
++    int64_t top = y;
++    int64_t right = (int64_t)x + w;
++    int64_t bottom = (int64_t)y + h;
++
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++
++    x = (int)left;
++    y = (int)top;
++    w = (int)(right - left);
++    h = (int)(bottom - top);
++    int *buf = _begin_draw(x, y, w, h);
++
++    for(int row = y; row < y + h; ++row) {
++        int *pixel = buf + row * SCREEN_WIDTH + x;
++        for(int column = 0; column < w; ++column) {
++            pixel[column] = color;
++        }
++    }
++    return;
+ }
+ 
+ void fb_draw_line(int x1, int y1, int x2, int y2, int color)
+ {
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_line()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++
++    /* Use the longer axis, ordered consistently for reversed endpoints. */
++    int64_t major1 = steep ? y1 : x1;
++    int64_t major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1;
++    int64_t minor2 = steep ? x2 : y2;
++    if(major1 > major2) {
++        int64_t temporary = major1;
++        major1 = major2;
++        major2 = temporary;
++        temporary = minor1;
++        minor1 = minor2;
++        minor2 = temporary;
++    }
++
++    uint64_t length = (uint64_t)(major2 - major1);
++    if(length == 0) {
++        fb_draw_pixel(x1, y1, color);
++        return;
++    }
++
++    int direction = minor2 < minor1 ? -1 : 1;
++    uint64_t minor_distance = (uint64_t)llabs(minor2 - minor1);
++    int64_t limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int64_t first = major1 < 0 ? 0 : major1;
++    int64_t last = major2 >= limit ? limit - 1 : major2;
++    if(first > last) return;
++
++    /*
++     * Integer error accumulation, rounded to the nearest pixel.
++     * Preserve the error phase when skipping off-screen major coordinates.
++     * For 32-bit int endpoints, this product and sum fit in uint64_t.
++     * The loop visits at most SCREEN_WIDTH or SCREEN_HEIGHT coordinates.
++     */
++    uint64_t numerator = minor_distance * (uint64_t)(first - major1)
++                       + length / 2;
++    int64_t minor = minor1 + direction * (int64_t)(numerator / length);
++    uint64_t remainder = numerator % length;
++
++    for(int64_t major = first; major <= last; ++major) {
++        if(steep) {
++            fb_draw_pixel((int)minor, (int)major, color);
++        } else {
++            fb_draw_pixel((int)major, (int)minor, color);
++        }
++        remainder += minor_distance;
++        if(remainder >= length) {
++            remainder -= length;
++            minor += direction;
++        }
++    }
++    return;
+ }
+ 
+ void fb_draw_image(int x, int y, fb_image *image, int color)
+--- a/common/rules.mk
++++ b/common/rules.mk
+@@ -1,7 +1,7 @@
+ 
+ CROSS_COMPILE := /work/HUST/OrangePi4/gcc-aarch64/bin/aarch64-none-linux-gnu-
+ 
+-CC := $(CROSS_COMPILE)gcc
++CC := gcc
+ 
+ CFLAGS := -Wall -O2
+ LDFLAGS := -Wall

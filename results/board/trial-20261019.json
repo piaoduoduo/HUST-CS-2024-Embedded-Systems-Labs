@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-19",
+  "hardware": "Orange Pi 4 LTS",
+  "taAccepted": false,
+  "lab3": {
+    "variant": "v10-directrect + FreeType packed glyph fix",
+    "runsMs": [
+      22,
+      21,
+      17
+    ],
+    "medianMs": 21,
+    "bestMs": 17,
+    "stages": [
+      "pixel",
+      "rect",
+      "line",
+      "jpg",
+      "png",
+      "font",
+      "text"
+    ],
+    "stageRunsMs": [
+      [
+        1,
+        5,
+        5,
+        2,
+        7,
+        1,
+        1
+      ],
+      [
+        1,
+        5,
+        5,
+        1,
+        6,
+        1,
+        2
+      ],
+      [
+        0,
+        4,
+        4,
+        1,
+        6,
+        1,
+        1
+      ]
+    ],
+    "environment": "gcc 9.4; O3/LTO/mcpu=native; performance; CPU4/5; OpenMP2; framebuffer1024x600 stride5120",
+    "timing": "Seven integer-ms course stages; excludes decoding, display refresh and sleep; explicit batch APIs; setup of optimized batches inside timers",
+    "correctness": "Actual ARM/FreeType checks and full-frame replay comparisons passed",
+    "baselineSameConfigurationMs": [
+      47,
+      46,
+      47
+    ],
+    "v9GlyphFixedMs": [
+      27,
+      27,
+      25
+    ],
+    "v10GlyphFixedMs": [
+      28,
+      25,
+      28
+    ]
+  },
+  "lab5": {
+    "boardLog": "lab5-run.log",
+    "userConfirmed": [
+      "Chinese phone-to-board display",
+      "send button sends hello to phone",
+      "Disconnect/reconnect and both directions work"
+    ],
+    "reconnectEvidence": "User confirmation; no separate reconnect capture"
+  },
+  "lab6": {
+    "userConfirmed": [
+      "Chinese UI",
+      "Touch placement",
+      "AI reply",
+      "Undo"
+    ],
+    "logConfirmed": [
+      "Clean exit",
+      "Resume saved game: 6 moves"
+    ],
+    "remaining": "TA acceptance and exhaustive manual UI checks"
+  }
+}

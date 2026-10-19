@@ -1,0 +1,13 @@
+Waiting for /tmp/lab5-pty-gwqwbac9/serial; start rfcomm -r watch 0 1 and connect the phone app.
+/tmp/lab5-pty-gwqwbac9/serial: No such file or directory; retrying every second.
+Bluetooth serial ready: /tmp/lab5-pty-gwqwbac9/serial
+Bluetooth TX queued: hello
+Bluetooth RX: 你好，Orange Pi!
+Bluetooth RX: without-newline
+Bluetooth RX: old?
+Bluetooth disconnected; discarded 0 unsent bytes; waiting for RFCOMM.
+Bluetooth serial ready: /tmp/lab5-pty-gwqwbac9/serial
+Bluetooth RX: 新连接
+
+PASS: Linux PTY raw TX, fragmented/idle RX, missing device, recreate/reconnect, clean shutdown.
+Bluetooth pairing/radio and actual screen remain unverified by this test.

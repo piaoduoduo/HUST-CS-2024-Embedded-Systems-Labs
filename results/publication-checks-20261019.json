@@ -1,0 +1,33 @@
+{
+  "profiles": {
+    "lab2": {
+      "filesReconstructed": 10,
+      "hashesVerified": true
+    },
+    "lab3": {
+      "filesReconstructed": 10,
+      "hashesVerified": true
+    },
+    "lab4": {
+      "filesReconstructed": 14,
+      "hashesVerified": true
+    },
+    "v9": {
+      "filesReconstructed": 77,
+      "hashesVerified": true
+    },
+    "lab5": {
+      "filesReconstructed": 26,
+      "hashesVerified": true
+    },
+    "lab6": {
+      "filesReconstructed": 35,
+      "hashesVerified": true
+    },
+    "v10": {
+      "filesReconstructed": 87,
+      "hashesVerified": true
+    }
+  },
+  "scope": "Local reconstruction and hash validation, not new board runs"
+}
