@@ -1,6 +1,8 @@
 from pathlib import Path
 import importlib.util
 import json
+import posixpath
+import re
 import tempfile
 import unittest
 
@@ -40,5 +42,19 @@ class MaterializeTests(unittest.TestCase):
             data=json.loads(m.safe_path(ROOT,record['path']).read_text(encoding='utf-8'))
             self.assertEqual(name,data['name'])
             self.assertEqual(record['files'],len(data['files']))
+
+    def test_makefile_common_source_dependencies(self):
+        """A hashed overlay can be valid yet omit unchanged build inputs."""
+        catalog=json.loads((ROOT/'profiles.json').read_text(encoding='utf-8'))
+        for name in ('lab2','lab3','lab4','lab5','lab6'):
+            profile=json.loads((ROOT/catalog[name]['path']).read_text(encoding='utf-8'))
+            entries={e['path']:e for e in profile['files']}
+            rules=entries['common/rules.mk']
+            # Modified/new rules contain the source-list additions verbatim.
+            text=''.join(line for edit in rules['edits'] for line in edit['lines'])
+            required={'common/task.c','common/graphic.c','common/image.c','common/touch.c'}
+            required.update(posixpath.normpath('lab/'+s) for s in re.findall(r'\.\./common/[\w.-]+\.c',text))
+            with self.subTest(profile=name):
+                self.assertFalse(required-set(entries), 'Build source omitted: '+str(required-set(entries)))
 
 if __name__=='__main__':unittest.main()

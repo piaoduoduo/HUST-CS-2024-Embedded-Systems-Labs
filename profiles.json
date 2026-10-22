@@ -21,13 +21,13 @@
   },
   "lab5": {
     "path": "labs/lab5/profile.json",
-    "files": 26,
-    "modifiedOrAdded": 24
+    "files": 24,
+    "modifiedOrAdded": 22
   },
   "lab6": {
     "path": "labs/lab6/profile.json",
-    "files": 35,
-    "modifiedOrAdded": 34
+    "files": 32,
+    "modifiedOrAdded": 30
   },
   "v10": {
     "path": "labs/v10/profile.json",

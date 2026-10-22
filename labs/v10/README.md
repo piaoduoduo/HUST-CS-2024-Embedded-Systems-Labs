@@ -3,7 +3,7 @@
 三轮22/21/17ms，中位数21ms，最佳17ms；不能声称稳定17ms。原版与v9另行保留。
 
 ```sh
-python3 tools/materialize.py --profile v10 --course /path/to/original-course --output .work/v10
+python3 tools/materialize.py --profile v10 --course /path/to/original-course --output .work/v10 --include-assets
 python3 .work/v10/board_compare.py --project /path/to/original-course --variants baseline,v9-sprint,v10-sprint --runs 3 --threads 2 --threshold 4096 --lto --native-cpu --vector-report --no-stats --governor performance --bind fast --active-wait
 ```
 
