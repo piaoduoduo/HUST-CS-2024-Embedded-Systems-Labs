@@ -2,7 +2,7 @@
 
 ## 当前范围
 
-本仓库于2026-10-19按用户授权公开。包含课程模板的修改补丁、新增实现、复现工具与文档；完整课件、镜像、原工程、SDK、外部二进制库、字体、模型和他人报告未附。
+本仓库于2026-10-19按用户授权公开，2026-11-07补充报告、历史源码与游戏工坊。包含课程模板的修改补丁、新增实现、复现工具与文档；完整课件、镜像、原工程、SDK、外部二进制库、字体、模型和他人报告未附。
 补丁也包含课程接口及修改上下文，公开前仍需逐项确认课程要求和相应来源的公开范围。尚未给整个混合项目套用统一MIT等许可证。
 已有许可声明应随对应文件保留；课程与第三方部分不因放入本仓库而被重新授权。许可证方案最终确认前，仓库不宣称所有内容均已获得统一开源授权。
 参考[GitHub许可说明](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository)。
@@ -26,8 +26,12 @@
 
 ## 自动化配置
 
-GitHub Actions依赖官方[checkout](https://github.com/actions/checkout)与[setup-python](https://github.com/actions/setup-python)。这里只运行仓库工具检查和Hello，远端工作流尚未执行。
+GitHub Actions依赖官方[checkout](https://github.com/actions/checkout)与[setup-python](https://github.com/actions/setup-python)。工作流运行仓库工具检查与 Hello；执行结果以 GitHub Actions 页面为准。
 
 ## AI辅助
 
 设计、编码、整理与审查曾使用AI辅助；人工操作、用户确认、主机测试和板测分别标注。没有把模型估计的毫秒或未执行的测试当作事实。
+
+## 报告结构参考
+
+报告结构、标题层级和字体排版参考了 [nivag8899 仓库中的课程报告](https://github.com/nivag8899/HUST-Embedded-System/blob/main/U202115285_%E9%AB%98%E5%83%96.pdf)，并按当期教师提供的模板填写。本项目的程序、图片、测速和实验经历来自自己的实现与记录，未分发参考报告全文。

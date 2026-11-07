@@ -1,0 +1,33 @@
+2026-10-19 首次真实开发板验证（持续更新）
+
+连接
+手机热点：电脑192.168.43.163，开发板wlan0 192.168.43.160。
+SSH通过此前192.168.137.115保存的主机密钥验证设备一致性。
+开发板usb0地址192.168.1.2，管理状态UP但NO-CARRIER，UDC fe800000.usb状态not attached。
+热点地址可能随重新连接变化，不能当作永久固定配置。
+原工程/root/course-project/lab-st-2026未覆盖。
+独立试运行目录/root/lab3-trial-20261019。
+屏幕启动初始1280x720，停止display-manager后设置1024x600，虚拟1280x720，stride5120。
+
+原v10包SHA256
+38a9f2023586a867acb4262f8d377ea9f3a9e6d73087bb10cddb6f4812fcb509
+上传后校验一致。
+
+发现：真实字体小字号位图格式未归一化
+首次原包验证在v9-sprint/test_v9_text_real-1.log失败，kind=7，x=1023,y=573。
+expected=ff847a9d，actual=ff847d9e。不是性能测量结果。
+定位到课程TTC的12/13/14等字号中文字符返回FT_PIXEL_MODE_MONO，width=12/13/14但pitch=2。
+原image-fast.c按bitmap.pitch连续复制到每像素1字节的目标图像，无法得到正确alpha并留下未初始化字节。
+离线Pillow灰度字模没有覆盖这一真实字体返回格式。
+
+独立修复
+lab3-optimized-v10-boardfix-prepared保留原v10目录之外的修正版。
+将MONO、GRAY2、GRAY4字模按MSB顺序展开为0..255的8位alpha，GRAY按num_grays归一化，按行遵守pitch。
+目标padding初始化，检查源stride足够，未知非空像素格式明确失败。
+常用8位256级灰度数值不变。原版/v9/v10归档和公开仓库没有改动。
+同一个失败测试使用真实FreeType重跑，11场景已通过；完整原生回归与测速另记录。
+官方格式参考：https://freetype.org/freetype2/docs/reference/ft2-basic_types.html
+
+边界
+后续标记为板测修正版；不能将其成绩声称为原封不动v10。
+最新PNG/文字重复行复用研究未纳入此包。

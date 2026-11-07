@@ -1,0 +1,12 @@
+{
+  "hostLogicTestsPassed": true,
+  "hostSyntaxUsesLinuxShims": true,
+  "nativeLinuxCompileValidated": false,
+  "hardwareValidated": false,
+  "bluetoothPairingValidated": false,
+  "logs": {
+    "session": "PASS: 131 serial session checks (retry, EOF/error reconnect, UTF-8 isolation, backpressure, fairness, wrap).\n",
+    "existing-interaction": "PASS: protocol-B replay (five slots, SYN frames, partial axes, replacement, release, scaling)\nPASS: Bluetooth text stream (every split point, UTF-8, CRLF, idle flush, long/invalid input)\nPASS: transmit queue (partial write, EINTR retry, EAGAIN resume, order, capacity)\nPASS: 278 interaction assertions\n",
+    "touch-start": "touch device: mock, x=[0,4096], y=[0,4096], slots=6\ntouch device: mock, x=[0,4096], y=[0,4096], slots=6\nPASS: current slot/unchanged coordinates, paired release, held-finger refusal, ioctl failure, unsupported slot recovery (mock syscalls)\nLift every finger from the screen, then restart the program.\ntouch_init mock: Resource device\nCannot read initial touchscreen slots: Input/output error\ntouch_init mock: Input/output error\n"
+  }
+}

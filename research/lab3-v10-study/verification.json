@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "version": "20261018-integrated-candidate-10",
+  "defaultPixelMode": 2,
+  "validationConfigurations": [
+    "v10-default",
+    "v10-unsigned",
+    "v10-minmax",
+    "v10-disabled",
+    "v10-lto-neon-omp2"
+  ],
+  "allNineStagesEqual": true,
+  "archiveSHA256": "38a9f2023586a867acb4262f8d377ea9f3a9e6d73087bb10cddb6f4812fcb509",
+  "latestPackageMatchesV10": true,
+  "preservedArchives": {
+    "lab3-ready.tgz": "349c9483f99cab1ac9d4edc7512928fe1f3004b16ed2325609a47ebfb3861984",
+    "resources/lab3-optimized-v6-ready.tgz": "04c9413f1b57c2e12a1ca105caf15ed8dacd527d8731a5e0c37e13486ac58f30",
+    "resources/lab3-optimized-v7-ready.tgz": "144d594f9f8a844ae1dfb616da073b1d212b17383e1b65ad5d5e59629fcc4ddd",
+    "resources/lab3-optimized-v8-ready.tgz": "4936a6db6269fd3e054b95050ebd5feda578cf7e141665dbf62ab475d001ddae",
+    "resources/lab3-optimized-v9-ready.tgz": "a6bfb3e6336bcee2c7197164fc1c3fce0dc455d52243463e241a78136a9b9877"
+  },
+  "oldV9SourceUnchanged": true,
+  "publicRepositoryUnchanged": true,
+  "ARMCompiled": false,
+  "boardPerformanceMeasured": false,
+  "sourceFiles": 155
+}

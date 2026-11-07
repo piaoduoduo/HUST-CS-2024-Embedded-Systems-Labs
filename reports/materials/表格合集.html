@@ -1,0 +1,45 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>实验报告表格合集</title>
+<style>body{max-width:1120px;margin:32px auto;padding:0 20px;color:#111;background:white;font:12pt/1.65 "Times New Roman","SimSun",serif}h1{font:18pt "SimHei",sans-serif}h2{font:14pt "SimHei",sans-serif;margin-top:36px}table{border-collapse:collapse;width:100%;margin:12px 0;table-layout:auto}th,td{border:1px solid #333;padding:7px 9px;vertical-align:top}th{font-weight:bold;background:#f1f3f5}p{margin:12px 0}.note{font-size:10.5pt}a{color:#165a91}@media print{body{margin:0}h2{break-after:avoid}tr{break-inside:avoid}}</style>
+<h1>实验报告表格合集</h1><p>对应正文中的表2-1、表3-1和表6-1。可选中表格复制到Word，粘贴时保留表格，再按模板统一字体；也可打开对应CSV。</p>
+<h2>表2-1 实验二运行结果</h2><p><a href="%E5%AE%9E%E9%AA%8C%E4%BA%8C%E7%BB%93%E6%9E%9C%E8%A1%A8.csv">打开CSV</a></p><table><thead><tr>
+<th>测试项目</th>
+<th>该阶段耗时（ms）</th>
+</tr></thead><tbody>
+<tr><td>画点</td><td>1</td></tr>
+<tr><td>矩形</td><td>2</td></tr>
+<tr><td>直线</td><td>2</td></tr>
+</tbody></table><p class="note">注：数据来自2026-10-15开发板原始运行日志，程序退出状态为0。耗时是各测试阶段的整数毫秒计时，不是单个图元的一次调用耗时。</p>
+<h2>表3-1 实验三各版本三轮完整测速结果</h2><p><a href="%E5%AE%9E%E9%AA%8C%E4%B8%89%E6%B5%8B%E9%80%9F%E8%A1%A8.csv">打开CSV</a></p><table><thead><tr>
+<th>日期</th>
+<th>版本</th>
+<th>三轮总耗时ms</th>
+<th>中位数ms</th>
+<th>最小值ms</th>
+<th>条件与限制</th>
+</tr></thead><tbody>
+<tr><td>2026-10-15</td><td>早期基线</td><td>228 / 236 / 263</td><td>236</td><td>228</td><td>原接口；早期CPU/编译条件</td></tr>
+<tr><td>2026-10-15</td><td>字模缓存</td><td>170 / 172 / 175</td><td>172</td><td>170</td><td>与同批早期基线对比</td></tr>
+<tr><td>2026-10-15</td><td>缓存及-O3</td><td>160 / 155 / 173</td><td>160</td><td>155</td><td>155ms仅有原始日志；既有成绩截图为173ms</td></tr>
+<tr><td>2026-10-19</td><td>同轮基线</td><td>47 / 46 / 47</td><td>47</td><td>46</td><td>O3/LTO/native、performance、CPU4/5、2线程；原接口</td></tr>
+<tr><td>2026-10-19</td><td>v9-sprint</td><td>27 / 27 / 25</td><td>27</td><td>25</td><td>与同轮基线交替；显式批量接口</td></tr>
+<tr><td>2026-10-19</td><td>v10-sprint</td><td>28 / 25 / 28</td><td>28</td><td>25</td><td>与同轮基线交替；显式批量接口</td></tr>
+<tr><td>2026-10-19</td><td>直接矩形组合</td><td>22 / 21 / 17</td><td>21</td><td>17</td><td>后续独立三轮；显式批量接口；17ms原图已保存</td></tr>
+<tr><td>2026-11-05</td><td>已部署最优组合复测</td><td>58 / 19 / 20</td><td>20</td><td>19</td><td>三轮全部保留；首轮文字41ms，后二轮1ms，原因未定</td></tr>
+</tbody></table><p class="note">注：时间单位均为ms。总耗时为课程绘制阶段整数计时之和，不包含解码、刷新、等待及启动等全部成本。批量版本采用显式批量接口；跨批次CPU和编译条件不同，不能把全部差异归因于单一算法。2026-11-05第一轮58ms完整保留，文字阶段41ms的原因未定。</p>
+<h2>表6-1 最新游戏工坊v2功能验证状态</h2><p><a href="%E5%AE%9E%E9%AA%8C%E5%85%AD%E9%AA%8C%E8%AF%81%E7%8A%B6%E6%80%81.csv">打开CSV</a></p><table><thead><tr>
+<th>项目</th>
+<th>当前证据状态</th>
+<th>依据</th>
+<th>边界或待补</th>
+</tr></thead><tbody>
+<tr><td>v2 ARM构建</td><td>已通过</td><td>build-v2.log</td><td>两个程序链接成功；非助教验收</td></tr>
+<tr><td>2048规则与提示自动测试</td><td>已通过</td><td>8000生成移动、200提示局面</td><td>真实触摸滑动/撤销/提示待补反馈</td></tr>
+<tr><td>打砖块状态与物理自动测试</td><td>已通过</td><td>100000合成物理帧</td><td>不代表实测FPS或三关人工通关</td></tr>
+<tr><td>Linux纪录文件测试</td><td>已通过</td><td>板端test_profile结果</td><td>实际合集重开与突然断电是不同测试</td></tr>
+<tr><td>触摸USB识别</td><td>已确认</td><td>20261105设备记录</td><td>当次event2，重新连接后可能变化</td></tr>
+<tr><td>v2打砖块真实运行</td><td>已留图</td><td>第1/3关、350分、生命2</td><td>完整操作清单仍待用户反馈</td></tr>
+<tr><td>五子棋旧模块落子/AI/悔棋</td><td>用户已确认</td><td>20261019用户确认与实际对局日志</td><td>不能替代v2菜单进出流程验证</td></tr>
+<tr><td>v2菜单/2048/道具预览</td><td>电脑模拟图</td><td>preview目录</td><td>只能用于设计说明</td></tr>
+<tr><td>真实FPS、断电安全、v2正式验收</td><td>未记录完成</td><td>待补</td><td>不写具体性能或验收通过结论</td></tr>
+</tbody></table><p class="note">注：依据截至2026-11-06已保存材料。电脑模拟、板端自动测试、实际操作及助教验收分别记录；若之后完成操作或验收，请按真实结果更新。</p>
+</html>

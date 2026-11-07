@@ -1,0 +1,12 @@
+{
+  "version": "1",
+  "hostTests": [
+    {
+      "test": "rules",
+      "exitCode": 0,
+      "output": "PASS: 8000 generated 2048 moves; merge rules, no-op RNG, conservation, collisions, win/loss, pause, fixed-step timing, multi-touch ownership, menu and restart\n"
+    }
+  ],
+  "boardTest": false,
+  "date": "2026-11-07"
+}

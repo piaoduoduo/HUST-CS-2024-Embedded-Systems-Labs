@@ -1,0 +1,22 @@
+{
+  "version": "2",
+  "hostTests": [
+    {
+      "test": "rules",
+      "exitCode": 0,
+      "output": "PASS: 8000 generated 2048 moves; merge rules, no-op RNG, conservation, collisions, win/loss, pause, fixed-step timing, multi-touch ownership, menu and restart\n"
+    },
+    {
+      "test": "v2",
+      "exitCode": 0,
+      "output": "PASS: undo+RNG restore, 200 hint positions, three levels, armor, drops, timers, shield, slow, combos, bounded effects, badges, 100000 physics frames\n"
+    },
+    {
+      "test": "storage",
+      "exitCode": 0,
+      "output": "PASS: actual host file round-trip, atomic replacement, delayed writes, malformed/overflow/truncated checksum rejection, corrupt file preserved, I/O failure\n"
+    }
+  ],
+  "boardTest": false,
+  "date": "2026-11-07"
+}

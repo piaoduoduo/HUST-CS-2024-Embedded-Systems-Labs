@@ -37,7 +37,8 @@ class MaterializeTests(unittest.TestCase):
             with self.assertRaises(ValueError):m.materialize('lab2',course,course/'new')
     def test_profile_catalog(self):
         catalog=json.loads((ROOT/'profiles.json').read_text(encoding='utf-8'))
-        self.assertEqual(set(catalog),{'lab2','lab3','lab4','v9','v10','lab5','lab6'})
+        self.assertTrue({'lab2','lab3','lab4','v9','v10','lab5','lab6','arcade-v1','arcade-v2'} <= set(catalog))
+        self.assertTrue({'lab3-history-v'+str(n) for n in range(1,10)} <= set(catalog))
         for name,record in catalog.items():
             data=json.loads(m.safe_path(ROOT,record['path']).read_text(encoding='utf-8'))
             self.assertEqual(name,data['name'])

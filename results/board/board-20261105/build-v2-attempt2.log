@@ -1,0 +1,49 @@
+2026-10-19T14:26:30+00:00
+make: Entering directory '/root/acceptance-20261105-9d5DtL/lab6-arcade-v2/arcade'
+make: Warning: File 'Makefile' has modification time 923698 s in the future
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o main.o main.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o engine.o engine.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o breaker.o breaker.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o app.o app.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o render.o render.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o profile.o profile.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/graphic.o ../common/graphic.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/touch.o ../common/touch.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/touch_protocol.o ../common/touch_protocol.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/image.o ../common/image.c
+../common/image.c: In function ‘fb_read_png_image’:
+../common/image.c:126:12: warning: variable ‘image’ might be clobbered by ‘longjmp’ or ‘vfork’ [-Wclobbered]
+  126 |  fb_image *image=NULL;
+      |            ^~~~~
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/task.o ../common/task.c
+gcc -Wall -o lab6_arcade  main.o  engine.o  breaker.o  app.o  render.o  profile.o  ../common/graphic.o  ../common/touch.o  ../common/touch_protocol.o  ../common/image.o  ../common/task.o -L../common/external/lib -ljpeg -lfreetype -lpng -lasound -lz -lpthread -lc -lm
+mv lab6_arcade ../out/
+make: warning:  Clock skew detected.  Your build may be incomplete.
+make: Leaving directory '/root/acceptance-20261105-9d5DtL/lab6-arcade-v2/arcade'
+make: Entering directory '/root/acceptance-20261105-9d5DtL/lab6-arcade-v2/lab6_gomoku'
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o main.o main.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o gomoku.o gomoku.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ai.o ai.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o app.o app.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o render.o render.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o session.o session.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o storage.o storage.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/graphic.o ../common/graphic.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/touch.o ../common/touch.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/touch_protocol.o ../common/touch_protocol.c
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/image.o ../common/image.c
+../common/image.c: In function ‘fb_read_png_image’:
+../common/image.c:126:12: warning: variable ‘image’ might be clobbered by ‘longjmp’ or ‘vfork’ [-Wclobbered]
+  126 |  fb_image *image=NULL;
+      |            ^~~~~
+gcc -O2 -Wall -Wextra -Wno-unused-parameter -I../common/external/include -c -o ../common/task.o ../common/task.c
+gcc -Wall -o lab6_gomoku  main.o  gomoku.o  ai.o  app.o  render.o  session.o  storage.o  ../common/graphic.o  ../common/touch.o  ../common/touch_protocol.o  ../common/image.o  ../common/task.o -L../common/external/lib -ljpeg -lfreetype -lpng -lasound -lz -lpthread -lc -lm
+mv lab6_gomoku ../out/
+make: Leaving directory '/root/acceptance-20261105-9d5DtL/lab6-arcade-v2/lab6_gomoku'
+PASS: 8000 generated 2048 moves; merge rules, no-op RNG, conservation, collisions, win/loss, pause, fixed-step timing, multi-touch ownership, menu and restart
+PASS: undo+RNG restore, 200 hint positions, three levels, armor, drops, timers, shield, slow, combos, bounded effects, badges, 100000 physics frames
+/root/acceptance-20261105-9d5DtL/lab6-arcade-v2/tests/test_profile.c: In function ‘main’:
+/root/acceptance-20261105-9d5DtL/lab6-arcade-v2/tests/test_profile.c:17:56: error: ignoring return value of ‘fread’, declared with attribute warn_unused_result [-Werror=unused-result]
+   17 |         char buf[128]={0};f=fopen(path,"rb");assert(f);fread(buf,1,sizeof(buf)-1,f);fclose(f);assert(!strcmp(buf,bad[i]));
+      |                                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+cc1: all warnings being treated as errors

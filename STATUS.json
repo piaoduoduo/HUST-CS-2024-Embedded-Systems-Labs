@@ -1,5 +1,5 @@
 {
-  "updatedOn": "2026-10-19",
+  "updatedOn": "2026-11-07",
   "remotePublished": true,
   "lab1": {
     "boardTested": true,
@@ -16,7 +16,14 @@
     "taAccepted": false,
     "acceptanceStatus": "Awaiting confirmation",
     "bestMeasuredMs": 17,
-    "medianMeasuredMs": 21
+    "medianMeasuredMs": 21,
+    "latestRunsMs": [
+      58,
+      19,
+      20
+    ],
+    "latestMedianMs": 20,
+    "latestBoardDate": "2026-11-05"
   },
   "lab4": {
     "boardTested": true,
@@ -50,7 +57,7 @@
   ],
   "updateTrigger": "User supplies actual acceptance outcomes; no automatic status promotion",
   "publicationAuthorized": true,
-  "reportStatus": "Not yet written; will be added later",
+  "reportStatus": "公开报告完成：正文20页，封面与目录另计，共22页",
   "v10": {
     "boardTested": true,
     "armCompiled": true,
@@ -58,5 +65,12 @@
     "state": "实测通过，待助教验收",
     "evidence": "results/board/trial-20261019.json"
   },
-  "repository": "https://github.com/piaoduoduo/HUST-CS-2024-Embedded-Systems-Labs"
+  "repository": "https://github.com/piaoduoduo/HUST-CS-2024-Embedded-Systems-Labs",
+  "arcade-v2": {
+    "armCompiled": true,
+    "boardTested": true,
+    "taAccepted": false,
+    "state": "ARM构建、规则/文件测试和真实打砖块画面已记录；完整交互验收未新增记录",
+    "evidence": "results/board/board-20261105/本次板测说明.txt"
+  }
 }

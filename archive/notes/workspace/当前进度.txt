@@ -1,0 +1,254 @@
+覆盖算法研究补充（2026-10-19，未晋级默认版本）
+实验三：实现JPEG覆盖图、区间混合和连续区间快路；8组完整回放及21000个宽度边界对照通过。
+  课程原负载未见稳定主机收益，候选仅保留在lab3-coverage-study，未替换v10或上一轮短区间研究包。
+  结论lab3-coverage-study/优化研究结论.txt；原版/v9/v10及公开仓库逐文件未变。
+  总耗时估计和20ms达标判断没有新的板测依据可调整。
+
+离线研究补充（2026-10-19，未替换v10）
+实验三：新增四像素红蓝打包、八像素精确舍入两项独立候选；30项组合回归通过，九阶段画面一致。
+  记录lab3-shortspan-study/优化发现与验证.txt；补丁、测试和来源均在同目录。
+  无ARM原生编译或新板测；默认包仍v10，原版/v9/v10及公开仓库逐文件未变。
+  总估计仍25—45ms，仅作规划；20ms尚无可靠达标判断。
+
+最新整合（2026-10-18 v10，以本段为准）
+实验三：画点按轴脏区快路已整合，默认v10-sprint，保留unsigned/minmax及关闭pixel对照。
+  v10五组整合回归、590检查点/404基础图形/9阶段画面检查通过；尚未ARM编译或板测。
+  当前入口lab3-optimized-v10-prepared/开始前看这里.txt；run-sprint.py默认比较v9与v10。
+  lab3-optimized-ready.tgz已指向v10，另有lab3-optimized-v10-ready.tgz。
+  v9完整包resources/lab3-optimized-v9-ready.tgz和原lab3-optimized-prepared源码均未改；原版/v6/v7/v8保留。
+  总耗时约25—45ms、中心约30ms仅工程规划；20ms仍属乐观目标，无可靠达标百分比。
+  公开仓库逐文件与冻结zip相同，未更新；等待实验三、五、六验收反馈。
+  包检查证据evidence/v10-package-verification.json。
+
+最新整合（2026-10-18 v9，以本段为准）
+实验三：PNG四像素/遮挡剔除、文字整批及精确几何批次已合入v9，离线实现与测试完成。
+  最终16配置完整9阶段画面一致；真实FreeType、ARM原生和耗时仍待板上验证。
+  v9估计约25—45ms仅供安排，20ms尚未达到；已有155ms真实日志仍保留。
+  lab3-optimized-ready.tgz为v9；v8整包保存在resources/lab3-optimized-v8-ready.tgz；原版/v6/v7未改。
+  下次先看lab3-optimized-prepared/开始前看这里.txt；run-sprint.py对照原版、v8及v9并保留逐项成绩。
+  PNG、文字不只是方案：分别有独立oracle/保护页/缓存寿命/故障回退测试和最终整合回放。
+实验五与六沿用本日复审成果，本次未修改；无线/屏幕/板端验证仍待完成。
+
+最新复审（2026-10-18，以本段为准；后文保留历史记录）
+实验三：原155ms实测仍有效；v8包和原版/v6/v7完整保留，本次未上板。
+  新验证PNG后续不透明遮挡剔除，可少23.14%半透明混合；矩形/直线覆盖消除PoC及精确光栅验证通过。
+  这些为独立算法研究，尚未合入v8；20ms不是已达到或可靠预计的成绩。
+  新增独立精细计时生成工具，通过主机注入时钟检查，待板上诊断。
+实验五：新增lab5-ready.tgz与lab5-prepared，修断连重试、收发限额、会话残留及首触点初始化。
+  主机状态/交互/安装测试通过；配对、Linux PTY、无线双向收发、真实屏幕和验收仍待完成。
+实验六：lab6-gomoku-ready.tgz升级v3，修首触点、实际3秒确认、未保存提示、恢复日志与历史升级。
+  旧v2完整保存在resources/lab6-gomoku-v2-ready.tgz；规则/状态/模拟界面及安装验证通过。
+  ARM编译、触摸、Linux存储/锁和实际AI/存档响应仍待上板。
+实验五与六公共代码已对齐，并验证交替安装不降级；旧lab4和旧labs3-5总包保持不变。
+总复审：实验3-5-6复审-20261018.txt；最终包校验：evidence/audit-20261018/verification.json。
+
+当前进度（截至2026-10-15，以下为最新状态）
+
+下次上课：2026-10-22（周四）。先看“下次上课连接操作单.txt”和“实验材料索引.txt”。
+
+实验一：已完成，用户反馈助教验收通过。
+实验二：已完成，2026-10-15用户反馈助教验收通过。
+实验三：板上编译、图片文字显示和综合测试完成；助教验收尚未收到明确反馈。
+  用户确认羊驼、绿色透明图、红色嵌、紫色诗句显示正常。
+  优化后完整课程测试160/155/173ms，中位数160ms。
+  155ms那次只有完整日志，没有保存单独屏幕截图；保存截图为173ms。
+  字模缓存960项真实FreeType对比通过，优化前后完整画面像素一致。
+实验四：板上编译和用户实测通过；助教验收尚未收到明确反馈。
+  单指快速画线正常，五指五色连续粗轨迹正常，清屏正常。
+  真实事件日志记录最大同时5指；颜色按触点编号分配，顶部色块不是选色按钮。
+实验五：离线代码已准备，板上环境已检查；尚未部署、编译或无线收发验证。
+  用户选择安卓手机，已装“蓝牙串口”，图标有SPP。
+  曾启用开发板临时可发现、可配对和默认代理，手机配对未确认成功。
+  用户选择留到下次继续，并要求回顾连接流程、整理材料。
+  原SSH会话失效，尝试重连失败，未能确认关闭蓝牙发现/配对。
+  不得把本次尝试写成配对或双向通信成功。
+
+已保存的最新代码和实测证据
+  实验三：lab3-ready.tgz、lab3-prepared、evidence/lab3。
+  实验四：lab4-ready.tgz、lab4-prepared、evidence/lab4。
+  lab4-prepared/common/image.c已合入实验三字模缓存，与板上实测版本一致。
+  labs3-5-ready.tgz是10月9日的历史总包，公共image.c未合入该缓存。
+  下次部署实验五前，以lab4-prepared公共源码为基础合并，不能直接覆盖最新改动。
+  10月9日offline-result.json是历史离线检查，不能替代本次真实记录。
+  更早进度历史保存在evidence/20261015-progress-history.txt。
+
+连接和板上环境（均需下次先复查实际状态）
+  使用有线网线＋SSH，不是USB网络路线。
+  电脑以太网192.168.137.1/24，板上eth0保存为手动192.168.137.115/24、never-default。
+  root密码为当前课程镜像的orangepi。
+  蓝牙hci0地址00:11:22:33:44:55，设备名上次为orangepi4-lts。
+  蓝牙服务原有bluetoothd -C与sdptool add SP；SDP确认串口Channel 1。
+  /dev/rfcomm0尚未建立。配对、SPP连接和收发为不同检查步骤。
+  桌面临时停止，开机默认仍为graphical.target，重启可能恢复桌面。
+  fb0可见1024×600、32bpp，虚拟1280×720，stride5120。
+  触摸设备上次event2，原始X/Y0～4096，驱动slot范围0～5，课程程序处理0～4五指。
+  工程：/root/course-project/lab-st-2026。
+  原程序运行目录为工程下out。
+  实验四最后一次已知后台PID4794，PID文件/root/lab4-session-20261015/lab4.pid。
+  下次核对实际进程身份后再处理，不能假定旧PID仍有效。
+  当前电脑到开发板的SSH重连失败，是否已经断电/拔线尚未核实。
+
+下次顺序
+  1. 接线和上电，先直接ssh root@192.168.137.115。
+  2. 连接失败再查电脑以太网IP、共享目标、网线、开发板eth0；特别防止192.168写成192.16。
+  3. 核对桌面、framebuffer、触摸节点，停止仍运行的上一实验进程。
+  4. 合并最新公共代码，部署编译lab5_bt。
+  5. 重新检查蓝牙状态与已配对记录，完成安卓手机配对与SPP连接。
+  6. rfcomm -r watch 0 1保持监听，/dev/rfcomm0建立后运行lab5_bt。
+  7. 验证手机到板子的英文/中文，板上send到手机hello，保存双向证据。
+  8. 收工时关闭发现/配对，开发板正常关机后再断电。
+
+实验三后续优化线索
+  用户报告同学20ms、40ms、42ms，怀疑做过简化。
+  尚未核实他们的测试循环、计时范围、素材、硬件与编译条件。
+  后续先对齐完整课程测试，再研究优化，不把不等价测试成绩直接比较。
+  没有设置定时提醒或后台自动任务。
+
+实验六研究（2026-10-15）：用户更喜欢单机五子棋；没有图片浏览器更高分的评分依据。建议独立lab6_gomoku，先完整同屏双人，再基础人机；蓝牙联机为最后可选。已读PPT88～94页与当期语音示例，尚未开始实验六编码/上板。详见实验六选题与实施计划.txt。往届GitHub lab6源码本次无法取得，1037仅取得首页，未读到实验六报告。
+
+
+实验六实施更新（2026-10-15，以本段为最新状态）
+用户已要求开始执行，独立五子棋准备包已实现，不再只是选题研究。
+代码：lab6-gomoku-prepared/lab6_gomoku；安装包：lab6-gomoku-ready.tgz。
+已有同屏双人、基础人机、胜负/和棋、悔棋、重开、最后落子和获胜连线、退出。
+AI每20ms处理一个候选，最多12个根候选、8个对手应答；思考时可取消/重开。
+采用自由五子棋，连续五子或以上获胜，没有禁手、存档或蓝牙联机。
+离线4699052条规则/AI/输入状态检查通过，6种模拟UI状态已渲染并逐一查看。
+安装器检查通过，当前公共代码与课程lab6语音示例均保留。
+报告：lab6-gomoku-prepared/test-results/offline-result.json。
+电脑Linux接口语法检查使用替代头文件，字体模拟用Pillow。
+尚未Linux ARM编译，尚未真实触摸/显示/AI等待时间验证，不能写成已验收。
+下次先完成实验五，再用准备包的build-on-board.sh/preflight.py/run-on-board.sh上板验收。
+
+
+实验六v2完善（2026-10-15，以本段为最新实现）
+新增重开/换模式/退出三秒二次确认、棋盘坐标、最后一手坐标。
+新增自动存档恢复、完整落子回放与校验；轮到电脑时恢复AI，异常存档保留并暂停自动保存。
+Linux存储使用临时文件+文件同步+原子替换+目录同步和进程锁。
+离线4700037条检查与8种模拟界面通过，真实Linux存储/ARM编译/触摸仍待上板。
+新版包仍名lab6-gomoku-ready.tgz；原v1包备份在resources/lab6-gomoku-v1-ready.tgz。
+更新安装器可识别已发布v1文件并备份升级，未知修改依然拒绝覆盖。
+
+2026-10-16 储备更新
+五子棋v2与实验三已发布包的SHA256复核通过，保留原包等待上板。
+实验三独立候选：lab3-optimization-study/common/graphic.c；仅屏内直线快速路径与精确混合整数改写。
+原版和候选各通过404项绘图回归、103项图像测试，65026个混合中间值校验一致；未ARM编译、未上板测时。
+20/40ms方向推演、实际工作量和公平A/B计划：lab3-optimization-study/实验三优化推演与上板计划.txt。
+尚不能保证20/40ms；JPG实际62ms且累计16413045像素写入，是必须重点突破的阶段。
+
+2026-10-16 GitHub优化储备更新
+已对照7份同系列公开绘图实现关键代码；新增OpenMP按行并行线索，来源和问题见lab3-optimization-study/GitHub代码对照与全流程优化.txt。
+新候选common/graphic-openmp.c在1/2/4线程下各通过404绘图回归和103图像检查，测试强制阈值1；部署默认阈值65536未上板调优。
+20～40ms作为全流程目标，研究常数/向量化/多核/缓存/覆盖消除；成绩数字不直接证明复杂度下降。
+13eholder README自述105ms、Oliver自述200ms，均非本项目复现；尚未取得20～40ms原始代码与完整日志。
+原有lab3-ready.tgz和lab6-gomoku-ready.tgz未替换。
+
+2026-10-16 实验三整合候选
+已生成lab3-optimized-prepared与lab3-optimized-ready.tgz（含SHA256校验）。
+整合屏内直线快速路径、精确混合、按行OpenMP与既有字模缓存；另带原版/串行版供对比。
+board_compare.py在独立目录编译三版，轮换运行并记录各项中位数、CPU状态和刷屏耗时；原课程test/main.c未改。
+包完整性、Python3.8语法与计时解析测试通过；候选离线1/2/4线程测试通过。Linux ARM编译、runner端到端与真实提速均未验证。
+尚未整合NEON、整串缓存和批量覆盖消除。原lab3-ready.tgz与lab6-gomoku-ready.tgz保持原哈希。
+
+2026-10-16 实验三v2继续优化
+已实现并整合格式专用行内核、ARM64 NEON精确8像素混合、全透明/不透明块特例、受限字符串布局缓存、小图绕过OpenMP线程区。
+新标量/NEON算术模拟/2线程/4线程均通过404绘图、103图像、48布局检查；NEON模拟每配置另通过19997056项行像素/通道检查。
+课程文字阶段字形准备请求可由363降至33（两条布局各准备一次），全部字形绘制仍保留；未测实际提速。
+包：lab3-optimized-ready.tgz；版本：20261016-integrated-candidate-2；说明：lab3-optimized-prepared/开始前看这里.txt。
+接板先原生ARM像素与真实FreeType验证，失败停止；随后比较基线/新NEON/新NEON并行，选测线程、阈值和LTO。
+真实ARM编译、指令运行、FreeType布局及板上性能均待验证，20～40ms仍是目标。
+原版lab3-ready.tgz保持原样；候选v1备份resources/lab3-optimized-v1-ready.tgz。批量覆盖消除未实现。
+
+2026-10-16 实验三v3批量覆盖消除
+已实现显式不透明图片begin/add/end批量接口，按目标行逆序维护覆盖区间，跳过最终被盖住的复制。
+课程147次JPG提交：复制量16413045→614400像素，约减少96.3%；覆盖分析记录56070次命令/行检查、24000次区间比较、12600次片段复制。
+合成填充图及真实课程JPG的电脑解码像素，串行/2线程/4线程/容量3分批共552项全帧比较通过。
+完整课程原版与批量版电脑回放9次刷屏哈希一致；回放计时固定0且无等待，仅作正确性检查，不能当测速。
+新包lab3-optimized-ready.tgz版本20261016-integrated-candidate-3；默认仍用原课程接口，batch/batch-parallel需显式选用。
+实验test/batch-main.c的批量分配/提交/分析/复制/释放全部包含在真实JPG计时内，但改变了批次期间可观察语义，成绩需独立标注。
+真实ARM、真实解码与FreeType回放、板上耗时仍待下次验证，20～40ms未达到/未测。
+v2候选备份resources/lab3-optimized-v2-ready.tgz；原始lab3-ready.tgz与五子棋包不变。
+详细算法、复杂度边界、限制和上板命令：lab3-optimization-study/批量覆盖消除实验记录.txt。
+
+2026-10-16 实验三v4继续压缩原基线其余93ms
+新增屏内32位指针直线递推、矩形屏内快速路径/NEON颜色填充、缓存字模逐行非透明边缘范围；越界继续使用旧安全裁剪。
+字模元数据计入原内存上限，空字形/超限/分配失败回退。PNG沿用已有精确NEON混合，未声称本轮PNG再取得新算法提速。
+4种离线配置各通过404绘图、103图像、48原布局、50稀疏布局、1024精确直线全缓冲比对及原行混合校验。
+v4结合批量版本552项全帧比较通过；完整课程9次刷屏哈希与v3记录一致。时间为模拟值，不作为测速。
+Pillow模拟文字扫描量131200→69740像素（约少46.84%）；不代表真实ARM字模或耗时下降同比。
+新版包lab3-optimized-ready.tgz版本20261016-integrated-candidate-4；原lab3-ready.tgz保留，v3备份resources/lab3-optimized-v3-ready.tgz。
+默认baseline/v4-neon/v4-parallel仍用原课程接口；v4-batch组合显式JPG批量实验，成绩分开标注。
+接板先原生像素/字体验证，再比较v3/v4、有无统一LTO、线程/阈值；结果自动标记中位数是否<=40ms。
+ARM原生和真实耗时仍待测，不能确认40ms以内。详细说明lab3-optimization-study/v4剩余项目优化记录.txt。
+
+2026-10-16 v4现有优化审计
+确认已实现但默认未开的项：JPG批量变体、LTO；默认65536阈值使16384像素PNG仍串行NEON。
+字模行范围仅用于缓存文本，独立“嵌”字和PNG未预处理区间；v4缺少单项消融开关。
+ARM原生仍未验证；原生检查不继承LTO、线程继承环境记录不全、批量统计尚无关闭开关。
+审计清单：lab3-optimization-study/v4现有优化审计.txt。本次未修改实现或安装包。
+
+
+2026-10-16 v5 全量优化完成（以此记录为准）
+前次审计可实施项已接入：PNG/独立字模快照与透明区间预处理、专用NEON混合、显式JPG批量、逐项回退开关、v5高频统计关闭。
+新增run-sprint.py统一启用LTO、本机CPU编译、4096并行阈值、2线程、临时performance策略与最快核心绑定，退出恢复；build-only不改系统配置。
+原生正确性检查继承对应测速编译参数，记录完整线程环境、向量化报告及可用的反汇编。
+离线绘图/图像/文字/线段/批量及96项预处理检查通过；六个单项回退与全开版本完整9阶段画面哈希一致。配置恢复测试为主机模拟。
+新版包：lab3-optimized-ready.tgz（20261016-integrated-candidate-5）。原始lab3-ready.tgz校验值不变；v4备份resources/lab3-optimized-v4-ready.tgz。
+入口与限制：lab3-optimized-prepared/开始前看这里.txt；详细记录lab3-optimization-study/v5全量优化与上板配置.txt。
+尚未ARM原生编译/真实FreeType验证/板上测速；40ms只是目标。显式批量及预处理改变测试调用接口，成绩须标注。
+
+
+2026-10-17 实验三v6整批透明绘制优化完成
+PNG105次、独立字模416次重复绘制分别按目标屏幕行并行，每行保留原调用顺序；每阶段最多一次线程组，准备和释放均在原计时内。
+新增fb_draw_prepared_many与--disable many回退。相同配置下run-sprint.py现在比较baseline/v5-sprint/v6-sprint。
+离线标量、NEON模拟、2/4线程及关闭整批优化配置均通过104项预处理检查；原有几何/字体/批量回归通过。完整9阶段及关闭many的完整画面均与原版一致。
+新版lab3-optimized-ready.tgz版本20261017-integrated-candidate-6；v5备份resources/lab3-optimized-v5-ready.tgz，原始lab3-ready.tgz校验值未变。
+详见lab3-optimization-study/v6优化记录.txt和lab3-optimized-prepared/开始前看这里.txt。未ARM原生验证/板上测速，不声称已达40ms。
+
+
+2026-10-17 实验三v7目标行索引优化完成
+v6包完整备份resources/lab3-optimized-v6-ready.tgz（SHA256 04c9413f1b57c2e12a1ca105caf15ed8dacd527d8731a5e0c37e13486ac58f30），v6源码/正式测试与原版包均保持不变。
+v7在整批透明绘制中建立保持命令顺序的行索引，将筛选部分O(H*N)降为O(H+N+K)；像素混合仍全部完成，建索引成本纳入计时。
+PNG逐行检查63000→12600个有效引用；模拟字模249600→11310个引用，含额外索引构建/内存成本，不能视为耗时下降同比。
+图像/预处理/批量离线检查通过：标量、NEON模拟、2/4线程、关闭many、关闭行索引、强制1项容量回退及其他关闭配置；启用预处理配置104项完整缓冲/脏区比较。
+全开及关闭row-index完整课程9阶段画面哈希与原记录一致，未改动几何/文字/SIMD穷举证据沿用v6。
+lab3-optimized-ready.tgz版本20261017-integrated-candidate-7，run-sprint.py比较baseline/v6-sprint/v7-sprint，增加--disable row-index。
+操作与限制见lab3-optimized-prepared/开始前看这里.txt、lab3-optimization-study/v7优化记录.txt。未ARM原生/板上测速，40ms待实测。
+
+
+2026-10-17 扩展网络检索：已阅读Qt/Arm/GCC/OpenMP/RGA原始材料并复核HUST已缓存资料。发现短半透明区间标量尾部占比较高，新增打包算术、精确源乘积预计算、文字行批次、几何批次、PGO/线程绑定等候选。见lab3-optimization-study/全网检索与后续优化清单-20261017.txt；sources和离线研究数据见references/20261017。未改v7包、未生成v8、未板测。
+
+
+2026-10-17 实验三v8两项新优化完成
+保留v6/v7完整包与源码，v7归档resources/lab3-optimized-v7-ready.tgz；原始lab3-ready.tgz校验不变。
+新增fast_pixels_v8.h的精确打包红/蓝混合与端点快路，已分类半透明区间不重复判断端点；普通图片及文字标量尾部也使用新内核。
+PNG预处理可选缓存16位未舍入source*alpha与反透明度，重复绘制减少源侧乘法；112KiB额外数据、分配/构建/释放均纳入计时，超限或失败回退。
+11配置各50266440项算术oracle比较通过，图像/字模/文字/批量和2/4线程检查通过；乘积存储确实启用、精确值、跳过与容量回退及主机LTO组合检查通过。
+全开、关闭packed、关闭products、同时关闭两项的完整9阶段画面均与原记录一致。NEON/字模为主机模拟，未ARM原生或板测。
+新版lab3-optimized-ready.tgz版本20261017-integrated-candidate-8。run-sprint.py同配置比较baseline/v7-sprint/v8-packed/v8-sprint，新增--disable packed/products开关。
+说明lab3-optimized-prepared/开始前看这里.txt与lab3-optimization-study/v8优化记录.txt。P3文字批次、几何批次、PGO等尚未实现。40ms仍待实测，不提高无依据预测。
+
+2026-10-19 最新上板：手机热点 SSH 已通，开发板192.168.43.160。原v10真实字体验证发现MONO字模转换缺失，独立boardfix修复后通过。第一组基线47/46/47ms，v9修正版27/27/25ms，v10修正版28/25/28ms。按用户要求将矩形替换为基线直接填充，三轮22/21/17ms，中位数21ms。最新候选lab3-optimized-v10-directrect-prepared及同名ready包；详细证据evidence/board-20261019/试运行结果.txt。原版v9/v10及公开仓库未动。CPU临时设置已恢复；开发板桌面临时停止，屏幕保留17ms成绩表。实验三仍待助教验收。
+
+2026-10-19 已按用户要求安装最优版到板上课程out/test，原test备份于out/backup-before-best-20261019-111735/test。启动用out/run-best.sh，可恢复相同性能配置并保存每次新结果。17ms截图和原始日志单独保存在evidence/board-20261019/17ms重点留存；已安装二进制和原test另备份installed-best-backup.tgz。本次没有重新烧录系统，没有覆盖lab3演示程序。
+
+2026-10-19 实验六已优先上板：独立工程/root/lab6-trial-20261019/project，原课程未覆盖。编译及4700043项规则/AI/输入/存档测试通过，Linux存储与触摸初始化模拟系统调用测试通过。应用与实验三相同的真实FreeType MONO字模修复，源码副本lab6-gomoku-boardfix-prepared。触摸设备此次为event12。已启动人机模式，日志project/run-gomoku-3zIcXf/run.log，显示Gomoku ready。首次真实截图保存evidence/lab6-board-20261019/gomoku-first-run.png，已目视核对中文和棋盘显示正常。实际触摸落点、电脑应答及悔棋等待用户试用反馈，不能记为验收通过。
+
+2026-10-19 用户确认实验六实物试用：屏幕文字、触摸落点、人机应答、悔棋均正常。基础人机交互上板验证通过；四方向胜负、胜后禁落、模式切换及退出重启恢复尚未现场逐项验证，助教验收未完成。
+
+2026-10-19 实验六保存恢复已真实验证：用户保存退出，原进程退出码0，存档6手；重新启动日志明确Resumed saved game: 6 moves，Gomoku ready: human-ai。新日志/root/lab6-trial-20261019/project/run-gomoku-O98Mec/run.log。
+
+2026-10-19 实验六已正常退出（退出码0、自动保存成功），板上完整归档/root/lab6-trial-20261019-final.tgz，正在备份到本地。实验五独立项目/root/lab5-trial-20261019/project已编译，采用相同FreeType字模格式修复；Linux伪终端收发/中文分片/断线设备重建测试通过。实际程序已启动--touch /dev/input/event12，等待/dev/rfcomm0。rfcomm监听PID6170，日志/root/lab5-trial-20261019/rfcomm.log。蓝牙地址00:11:22:33:44:55，已临时开放配对/可发现，尚未确认手机配对或无线收发。
+
+2026-10-19 实验五蓝牙配对已确认：用户手机码905851与板端一致；bluetoothctl info确认手机00:11:22:33:44:55 Paired=yes、Connected=yes。实际SPP收发尚待手机应用连接验证。实验六完整归档仍在板上；第一次下载中途Connection reset，本地同名tgz不完整，需重新下载验证，不可当作完整备份。
+
+2026-10-19 实验五真实SPP已连接，用户确认双向通信均正常。板端收到‘你好，orange pi！’，手机收到hello。真实截图与日志已下载到evidence/lab5-board-20261019，实际断开重连仍待补测，尚未助教验收。
+2026-10-19 实验六核心材料补充备份已成功下载：evidence/lab6-board-20261019/lab6-trial-20261019-evidence-compact.tgz，包含common、lab6_gomoku源码、程序、两次运行目录及最终屏幕。板端SHA256为96117c02c76bab450d89296bfe104a20c62486a3a199bdf90b241db273fc8306。原完整归档仍留在板上，电脑先前下载的final.tgz仍不完整，不可使用。
+
+2026-10-19 实验五补测完成：用户确认‘重连后双向收发正常’，实际SPP断开重连和重连后双向通信通过。基础中文接收、触屏发送、手机接收及真实重连均已有实测确认，尚待助教验收。记录见evidence/lab5-board-20261019/实测确认.txt。
+
+2026-10-19 已获用户授权公开代码与实测材料，报告后补。仓库已推送并从--24-改名为HUST-CS-2024-Embedded-Systems-Labs，首页和简介为‘华中科技大学计算机学院24届嵌入式系统实验’。地址https://github.com/piaoduoduo/HUST-CS-2024-Embedded-Systems-Labs，main提交179605c0f4b4e3d4fbeb32b064dbecceb184ec9b，远端已核对。原代码及材料保留。首次自动审批因疑似秘密拦截，核对公开HEAD和历史未含个人邮箱/实际密码后再次审批通过。
+
+2026-10-22 代码复查：六个实验当前主要实现回归通过；实验三v10-directrect五配置15次回归，实验六4700043项断言。修复公开实验6缺common/task.c、v10命令缺--include-assets，移除公开profile中私人辅助脚本。另存与板测一致的lab5-boardfix-ready.tgz，旧包保留。没有连接/修改开发板或重新测速。详情evidence/review-20261022/代码复查记录.txt。
+
+2026-10-22 有线SSH192.168.137.115连接成功，运行已安装最优实验三三轮：59/20/18ms，中位数20ms，当前屏幕18ms。CPU设置均恢复，原始截图日志保存evidence/board-20261022。板端时间仍旧日期，已单独注明真实日期，待助教验收。

@@ -1,0 +1,59 @@
+实验五代码审计与修复（2026-10-18）
+
+核对材料
+当期 PPT 第73–87页、course-source/lab-st-2026/lab5_bt/main.c，以及实际读取的历史代码 references/hust-2020/lab5-main.c。
+课程核心：启动蓝牙服务、配对、通过 RFCOMM 读写；屏幕显示接收文字，触摸 send 发送 hello，定时显示继续工作。
+历史来源：https://github.com/Oliver-242/HUST-Embedded-System/blob/main/lab5/main.c
+BlueZ 官方命令说明（本次已打开正文）：https://github.com/bluez/bluez/wiki/rfcomm
+其中 watch 在断连后重新监听，listen 只处理一次；-r 使用 raw TTY。应用自身仍须处理旧描述符挂断。
+1037.wiki 与 GitHub 的课程资料检索由本轮主任务并行完成；这里没有假称读到 wiki 未取得的正文。
+
+明确问题及处理
+1. 高：断连或写错误后退出，无法兑现“断开重连检查”。
+   原 labs3-5-prepared/lab5_bt/main.c:32 写错误 exit；74–85 接收 EOF/错误 exit；140 首次设备缺失即返回。
+   新 lab5_bt/serial_session.c:12、45、61：关闭旧 FD、注销事件、一秒重试、每次重开重新配置 raw termios。
+   新 lab5_bt/main.c:16、54、106、125、171 将状态机接入课程 task 事件与触摸程序。
+   断连时清空未发送字节并报告数量，已发送前缀没有可靠确认，不能擅自整条重发。
+   半个 UTF-8 码点在旧连接结束时以 ? 收尾，后续连接重新开始，不串接两个会话的字节。
+
+2. 中：极端连续输入/反复 EINTR 可霸占单线程事件循环。
+   原 main.c:74 for(;;) 读至 EAGAIN；旧 serial_queue.c:16 对 EINTR 无限 continue。
+   新 serial_session.c:65 接收最多16次×256字节/回调，剩余可读事件下轮处理。
+   新 serial_queue.c:13 每次最多32次写尝试；部分写位置保留，由100ms定时器继续。
+   不改变课程数据内容或重复发送字节。
+
+3. 中：旧总准备包 common/image.c 会覆盖之后已在实验三/四使用的缓存版本。
+   新增独立 lab5-prepared，只包含实验五和所需 common/font，不装实验三/四 main。
+   common/image.c 与 lab4-prepared/common/image.c 逐字节相等，graphic 也保持已用版本。
+   touch.c 合入本轮实验六 v3 的初始化修复，见第4项；不把新修复回退到旧 lab4 touch。
+   不认可的实验三优化 common 修改会被安装器拒绝，建议部署到独立课程副本。
+   旧 labs3-5-ready.tgz、旧源码保持不变；旧版本仅作为回退和审计材料。
+
+4. 中：触摸打开时未读内核当前 slot 与保留坐标，首帧缺省字段可能导致错误按钮点击。
+   本轮实验六交叉审查发现 common/touch.c 的共同问题：Protocol-B 不会重复发送未改变的 slot/x/y。
+   新 common/touch.c:11 initial_slots 读取 EVIOCGMTSLOTS，并继承 ABS_MT_SLOT.value，随后第一帧省略坐标仍可定位。
+   启动时支持范围内存在按住的手指则以 EBUSY 拒绝启动，要求抬手再运行，避免误发 hello。
+   tests/test_touch_start.c 用真实包装器加注入系统调用检查当前 slot、未改变坐标、抬起、按住拒绝、ioctl失败、超范围slot恢复。
+   common/touch.c 与 lab6-gomoku-prepared 修复版逐字节相同；未知自改版本仍受保护。
+   新安装测试模拟 lab5 → lab6-v3 → lab5 → lab6-v3，确认两个应用保留，触摸代码不降级。
+
+已正确实现并保留
+text_stream.c 对 UTF-8 2/3/4字节分片、非法/截断字节、CRLF、无换行空闲提交、有限行长作处理。
+serial_queue.c 对部分写、EAGAIN 和排队顺序作处理。
+屏幕有换行和滚动清空；发送按钮发 hello\n；常规触摸接口与课程一致。
+SPP 与 BLE 不同；本次没有改变 BlueZ 服务、扫描手机或执行配对。
+
+本轮验证
+Windows MinGW GCC 8.1.0 -O2 -Wall -Wextra -Werror：
+- tests/test_serial_session.c：131 检查通过。设备延迟出现、两次连接、EOF/读错误/写错误、重连时丢弃尾部与断开的UTF-8码点、重复EINTR、持续输入限额、无换行500ms、时间回绕。
+- tests/test_touch_and_bluetooth.c：保留的278交互断言通过，包括每个UTF-8分割位置、长文本、非法字节和部分写/EAGAIN。
+- main 和连接模块使用 Linux API 主机垫片的严格语法检查通过；该项不等同 ARM/Linux 链接。
+- tests/test_touch_start.c：实际 touch 包装器的系统调用注入测试通过；只模拟 Linux 事件，没有真实触摸硬件。
+- tests/test_installer.py：原始课程、lab4、lab6-v3 树分别验证只读预检、备份、哈希、一致安装、拒绝未知修改和路径边界；另验证实验五/六来回安装保留新 touch。
+- tests/package.py：所有包内文件字节校验；Python3.8语法兼容；已验证 common 文件逐字节一致。
+
+待上板
+Linux/ARM 原生编译、tests/board-serial-test.py 的真实 Linux PTY/设备重建流程、手机配对、SPP双向无线收发、真实屏幕与触摸、断线后重连、助教验收。
+这轮主机连接状态机测试没有通过蓝牙无线发送任何数据，不代表手机已配对。
+
+后续应以原始主机报告 test-results/offline-result.json 和板上真实日志分别归档。

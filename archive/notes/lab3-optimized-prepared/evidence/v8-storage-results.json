@@ -1,0 +1,16 @@
+{
+  "logs": {
+    "enabled-build": "",
+    "enabled": "PASS: 8 product storage cases (presence, exact values, skip, capacity fallback)\n",
+    "products-disabled-build": "",
+    "products-disabled": "PASS: 8 product storage cases (presence, exact values, skip, capacity fallback)\n",
+    "products-spill-build": "",
+    "products-spill": "PASS: 8 product storage cases (presence, exact values, skip, capacity fallback)\n",
+    "prepare-disabled-build": "",
+    "prepare-disabled": "PASS: product storage caller fallback\n",
+    "lto-neon-build": "",
+    "lto-neon": "PASS: 8 product storage cases (presence, exact values, skip, capacity fallback)\n"
+  },
+  "hardwareValidated": false,
+  "performanceMeasured": false
+}

@@ -86,7 +86,7 @@ def materialize(profile,course,output,include_assets=False):
     for name,path in assets:shutil.copy2(path,output/'out'/name)
     if include_assets and profile not in ('v9','v10'):
         shutil.copytree(course/'common/external',output/'common/external')
-    if profile in ('v9','v10'):
+    if profile in ('v9','v10') or catalog[profile].get('generateManifest'):
         # board_compare uses only this manifest's sourceHashes and metadata.
         hashes={p.relative_to(output).as_posix():digest(p.read_bytes()) for p in output.rglob('*') if p.is_file()}
         manifest={'version':'public-'+profile+'-20261019','sourceHashes':hashes,
@@ -98,7 +98,8 @@ def materialize(profile,course,output,include_assets=False):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--profile',required=True,choices=('lab2','lab3','lab4','v9','v10','lab5','lab6'))
+    catalog=json.loads((ROOT/'profiles.json').read_text(encoding='utf-8'))
+    p.add_argument('--profile',required=True,choices=sorted(catalog))
     p.add_argument('--course',required=True,help='Matching original 2026 course template')
     p.add_argument('--output',required=True,help='New directory outside the original course tree')
     p.add_argument('--include-assets',action='store_true',help='Copy locally supplied course font/images and stable-profile external libraries; these are not distributed by this repository')

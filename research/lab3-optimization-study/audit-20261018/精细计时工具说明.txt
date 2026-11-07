@@ -1,0 +1,31 @@
+用途：给接板后的20ms目标提供更可靠的分项诊断，不改变现有v8或原课程成绩文件。
+
+原task_get_time使用CLOCK_MONOTONIC，但只返回整毫秒。
+7段各取两次时间作差再相加，总量化误差的绝对值可接近7ms。
+在20ms目标附近，1ms的取整差异不能忽略；多跑几轮也不等同消除所有量化偏差。
+
+prepare_precise_timing.py生成独立的诊断main：
+1. 检查恰好有14处原计时调用，只替换时间读取、重命名main并添加末尾输出。
+2. 使用同一次CLOCK_MONOTONIC读取，保留纳秒时间戳并返回整毫秒用于原表格。
+3. 原循环、素材、批量构建/执行/释放、刷新位置均不移动。
+4. 输出7项DIAGNOSTIC_STAGE_NS及DIAGNOSTIC_TOTAL_NS。
+5. 输出明确标注DIAGNOSTIC_ONLY=1；纳秒是记录单位，不承诺实际时钟精度。
+6. 源main只读；输出路径已存在时拒绝覆盖。
+
+在板上已解压的独立副本中，例如：
+python3 prepare_precise_timing.py --source /实际路径/lab3-optimized-prepared/test/sprint-v6-main.c --output /实际路径/diagnostic-main.c
+
+随后复用board_compare.py生成的results.json里对应variant的commands编译参数，
+只把main文件替换为生成的diagnostic-main.c，把-o改成单独的test-diagnostic。
+从原对应variant/out目录运行，以保持图片/字体路径相同。
+编译参数、线程数、CPU绑定、频率策略、素材和计时阶段必须与对照一致。
+本工具不自动执行JSON中的编译命令，不修改板子配置，不自动连接设备。
+课程原始测时程序仍独立运行并保留日志；诊断程序的额外时间戳记录开销要标明。
+
+诊断总和仍不包含原计时外的fb_update、文件解码、sleep和最终表格绘制。
+表格20ms不是整个进程只用20ms，也不能直接换算为实际50fps。
+
+本机验证：test_precise_timing.py通过GCC -O3 -Wall -Wextra -Werror编译。
+注入14个确定的时钟值，7段纳秒差与总和精确匹配，段间1秒间隔没有混入；
+整毫秒输出与同一时钟值取整一致，拒绝覆盖文件、保留源文件、原课程/v8源码生成检查通过。
+这不是测速；尚未ARM编译和板上运行。结果见precise-timing-tests.json。

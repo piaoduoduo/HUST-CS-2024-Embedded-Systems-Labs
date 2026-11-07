@@ -1,0 +1,4 @@
+PASS: pixel clipping, deferred refresh, dirty-region union and padded stride
+PASS: rectangle geometry, clipping, invalid sizes and integer extremes
+PASS: eight octants, geometric error, reversed endpoints and extreme clipping
+PASS: 404 offline cases

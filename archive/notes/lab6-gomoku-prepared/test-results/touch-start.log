@@ -1,0 +1,7 @@
+touch device: mock, x=[0,4096], y=[0,4096], slots=6
+touch device: mock, x=[0,4096], y=[0,4096], slots=6
+PASS: current slot/unchanged coordinates, paired release, held-finger refusal, ioctl failure, unsupported slot recovery (mock syscalls)
+Lift every finger from the screen, then restart the program.
+touch_init mock: Resource device
+Cannot read initial touchscreen slots: Input/output error
+touch_init mock: Input/output error

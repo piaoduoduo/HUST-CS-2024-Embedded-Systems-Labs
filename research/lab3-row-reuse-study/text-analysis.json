@@ -1,0 +1,35 @@
+{
+  "warning": "Host Pillow glyph masks, work counts only; recipe tuples expand pixels for the oracle, not proposed production representation.",
+  "glyphCalls": 363,
+  "activeRows": 390,
+  "uniqueActiveRecipes": 39,
+  "cases": {
+    "white": {
+      "allBytesEqual": true,
+      "groups": 39,
+      "nonzeroAlphaOperationsBefore": 44410,
+      "nonzeroAlphaOperationsAfter": 4441,
+      "followerCopyBytes": 364860,
+      "fullRowCopyBytesIfUsed": 1437696,
+      "finalSHA256": "6a77c9572834d1692e788a43c98daeef55c4e9f428515dbf48b44ac5ab80dec0"
+    },
+    "random-distinct": {
+      "allBytesEqual": true,
+      "groups": 390,
+      "nonzeroAlphaOperationsBefore": 44410,
+      "nonzeroAlphaOperationsAfter": 44410,
+      "followerCopyBytes": 0,
+      "fullRowCopyBytesIfUsed": 0,
+      "finalSHA256": "183b0190d6be3b0f02816557fcc963306e93de1c750f5d3e287d4d6be838c1f5"
+    },
+    "same-roi-different-outside": {
+      "allBytesEqual": true,
+      "groups": 39,
+      "nonzeroAlphaOperationsBefore": 44410,
+      "nonzeroAlphaOperationsAfter": 4441,
+      "followerCopyBytes": 364860,
+      "fullRowCopyBytesIfUsed": 1437696,
+      "finalSHA256": "722de692a59135491489fcc9298af5a854b768ecf4e0d4e8ca2cd1f4d2e503ee"
+    }
+  }
+}

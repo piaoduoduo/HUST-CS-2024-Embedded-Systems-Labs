@@ -1,0 +1,36 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+PS /example/user> ssh root@192.168.137.115
+The authenticity of host '192.168.137.115 (192.168.137.115)' can't be established.
+ED25519 key fingerprint is SHA256:lHoCDniV2T6D2rqyMrc1ZwrfG3nYu52VHW/0WJwWr4k.
+This key is not known by any other names.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '192.168.137.115' (ED25519) to the list of known hosts.
+root@192.168.137.115's password:
+PS /example/user> ssh root@192.168.137.115
+root@192.168.137.115's password:
+  ___  ____ ___   _  _     _   _____ ____
+ / _ \|  _ \_ _| | || |   | | |_   _/ ___|
+| | | | |_) | |  | || |_  | |   | | \___ \
+| |_| |  __/| |  |__   _| | |___| |  ___) |
+ \___/|_|  |___|    |_|   |_____|_| |____/
+
+Welcome to Orange Pi 3.0.6 Focal with Linux 5.10.43
+
+System load:   17%              Up time:       57 min
+Memory usage:  14% of 3.77G     IP:            192.168.137.115 192.168.1.2
+CPU temp:      52°C             Usage of /:    5% of 56G
+
+[ 0 security updates available, 2 updates total: apt upgrade ]
+Last check: 2022-08-01 06:02
+
+[ General system configuration (beta): orangepi-config ]
+
+Last login: Mon Aug  1 06:42:12 2022 from 192.168.137.1
+root@orangepi4-lts:~# cd /root/course-project/lab-st-2026/out
+root@orangepi4-lts:~/course-project/lab-st-2026/out# ./lab1
+Hello embedded linux!
+root@orangepi4-lts:~/course-project/lab-st-2026/out# echo $?
+0
+root@orangepi4-lts:~/course-project/lab-st-2026/out#

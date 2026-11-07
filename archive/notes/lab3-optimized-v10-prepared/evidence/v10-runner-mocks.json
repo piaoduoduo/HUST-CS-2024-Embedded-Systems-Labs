@@ -1,0 +1,32 @@
+{
+  "python38Syntax": true,
+  "strictDiagnosticParserCases": 8,
+  "scenarios": {
+    "default": {
+      "passed": true,
+      "courseRuns": 8,
+      "diagnosticRuns": 0,
+      "record": "/example/user\\Documents\\ChatGPT\\嵌入式系统实验\\lab3-v10-study\\build-runner\\default-bv31689t\\package\\board-comparison-5u6ahjb2\\results.json",
+      "nativeChecksMocked": true,
+      "subprocessesMocked": true
+    },
+    "precise-build-only": {
+      "passed": true,
+      "courseRuns": 0,
+      "diagnosticRuns": 0,
+      "record": "/example/user\\Documents\\ChatGPT\\嵌入式系统实验\\lab3-v10-study\\build-runner\\precise-build-only-v0n1dano\\package\\board-comparison-_zhau4ws\\results.json",
+      "nativeChecksMocked": true,
+      "subprocessesMocked": true
+    },
+    "precise-runs": {
+      "passed": true,
+      "courseRuns": 8,
+      "diagnosticRuns": 8,
+      "record": "/example/user\\Documents\\ChatGPT\\嵌入式系统实验\\lab3-v10-study\\build-runner\\precise-runs-ml4rsdaz\\package\\board-comparison-6wsgk4m4\\results.json",
+      "nativeChecksMocked": true,
+      "subprocessesMocked": true
+    }
+  },
+  "hardwareValidated": false,
+  "performanceMeasured": false
+}

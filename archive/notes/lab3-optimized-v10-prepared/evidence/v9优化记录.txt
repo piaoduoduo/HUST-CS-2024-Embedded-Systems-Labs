@@ -1,0 +1,64 @@
+实验三 v9：PNG、文字与几何整合候选（2026-10-18）
+
+状态与时间预估
+本版已完成离线实现和回归，尚未接板、ARM原生编译或测速。155ms仍是已有真实日志中的成绩。
+此前v8约30—50ms、本版v9暂按约25—45ms规划，都是工程估计，不是测量或统计置信区间；实际仍可能超出范围。
+20ms是冲刺目标，不能保证；没有数据支持给出可靠达标百分比。新的索引、位图、复制和缓存开销可能抵消收益。
+原版test/main.c保持逐字节不变；v9使用独立sprint-v9-main.c调用显式批量接口，必须标明这一口径，不能混作未改调用接口的成绩。
+素材、坐标、循环次数、颜色和逐层整数透明舍入保持一致；所有批次收集、准备、执行、释放均在原阶段起止计时之间。
+
+PNG：已经实现并测试
+common/fast_pixels_v9.h新增精确4像素NEON尾部，覆盖普通RGBA、alpha字模、预处理partial和未舍入源乘积路径。
+只读取4像素所需字节；RGBA采用字节加载，保留alpha=0时目标完整32位及alpha>0时输出alpha=255。
+common/prepared_image_v9.h按目标行反向收集后续alpha=255覆盖，再正序执行剩余像素。不会把半透明层合成一次近似运算。
+课程PNG半透明混合555909→427251，减少23.14%；不透明写入445265→344107。全半透明/无索引/容量不足自动回退。
+每worker后缀覆盖空间默认约16KiB，命令上限128；确定不重叠的行先用O(C)判定，直接沿用原路径，避免字体网格的无用分析。
+四像素仍是常数优化；遮挡消除减少实际绘制量，但不能保证最坏复杂度或实际时间同比下降。
+
+文字：已经实现并测试
+common/text_batch_v9.h用begin/add/end收集文字；按目标行建立CSR索引，每行严格按原字形/字符串顺序混合，一个批次至多一个并行区。
+字形与布局保存独立快照，支持源字符串改变/释放、布局缓存超过8项被淘汰及字体身份切换。
+内存不足、布局数/字形数/行索引/字节预算达到上限时精确回退，不重画、不丢字；默认1024字形可容纳课程363项。
+每批复杂度O(H+G+K+P)加快照成本：G字形命令、K实际字形行引用、P访问像素。减少并行启动和行访问开销，必要透明混合仍保留。
+
+矩形和直线
+common/geometry_batch_v9.h生成精确裁剪行片段，同行相邻提交、同色且相交/相邻的片段可以合并，不跨不同颜色合并。
+按目标行反向覆盖，默认64位位图提取连续区间并填色；DSU后继并查集仅作为可选候选，逐像素管理成本未必更低。
+解析直线保持原光栅相位，初始商/余数计算后按行递推，避免每行除法；保留关闭解析路径的对照。
+课程矩形写1849440→614400（少66.78%）；直线写401802→201797（少49.78%）。
+直线生成片段仍为241602，合并后CSR记录1202（少99.50%）；不能把生成成本忽略。
+设Kg生成片段、Kr合并后片段、U实际写像素：生成O(N+Kg)、索引O(H+Kr)；位图还要扫描各span覆盖的64位字并写U像素。
+因此不是笼统的O(N+U)。DSU候选约O(N+Kg+H*W+(Kr+U)α(W))，每次容量flush重复相应开销。
+
+验证范围与证据
+PNG最终11配置：每配置32完整帧oracle、104 prepared回归、真实malloc故障注入；包含无重叠、透明/不透明、随机目标alpha、极限坐标、容量和索引回退。
+四像素NEON模拟每启用配置16777920项算术/保护页检查；完整通道回归另含50266440项。保护页检查会捕获尾部多读。
+文字10配置、每配置58全帧/dirty/哨兵案例，包含缓存淘汰、输入修改、字体变化和分配失败。
+几何15配置、每配置520案例/33338命令，覆盖位图、DSU、2/4线程、OOM、整数极值、容量、禁用与LTO。
+最终整合：scalar、NEON模拟、2/4线程、LTO且关闭统计五组回归通过；连同11组关闭/回退配置，共16组完整9阶段画面哈希与原版一致。
+主机字体为Pillow或测试字模；真实FreeType/ARM检查已经接入native_checks.py，下次上板才可确认。主机回放时间固定0，绝不能作为耗时证据。
+证据见evidence/v9-integrated-results.json、v9-png-offline-results.json、v9-text-offline-results.json、v9-geometry-results.json。
+
+下次上板
+独立解压lab3-optimized-ready.tgz，进入lab3-optimized-prepared，不覆盖课程工程或旧包。
+1. python3 run-sprint.py --project /root/course-project/lab-st-2026 --build-only
+   先运行与测速相同flags的原生像素/字体/完整回放，再编译；失败会中止，不拿错误画面去测速。
+2. 确认桌面及其他画屏程序停止、fb0配置正确后：
+   python3 run-sprint.py --project /root/course-project/lab-st-2026 --runs 5
+   比较baseline、v8-packed、v8-sprint、v9-core（新增PNG/文字）、v9-sprint（含几何）。同参数轮转测量，记录逐项成绩、中位数、温度/频率和编译命令。
+3. 需要精细诊断时在上述命令加 --precise-timing。它在全部原课程测速之后另跑诊断二进制，保留纳秒间隔到独立字段，不替换原成绩。
+4. 各开关可通过board_compare.py的--disable分别对照：four-lane、opaque-cull、text-batch、geometry-batch、analytic-lines、geometry-coalesce、products。
+   示例：python3 board_compare.py --project /root/course-project/lab-st-2026 --variants v9-sprint --disable opaque-cull --runs 5 --threads 2 --threshold 4096 --lto --native-cpu --no-stats --governor performance --bind fast --active-wait
+   将--disable去掉用同参数对照；v9-dsu可单独选择。以实测更快且正确的版本为准。
+5. 原课程统计不含解码、fb_update和sleep；刷新耗时另记。两类计时都不是整个程序启动到退出的墙钟时间，也不是FPS。
+正常退出恢复临时CPU设置；强制终止后的恢复方法见旧说明与restore-controls.py。
+
+保留与后续
+原版lab3-ready.tgz、resources/lab3-optimized-v6/v7/v8-ready.tgz完整保留，v8源码和测试仍在新包中；校验值记录于汇总证据。
+PGO需要真实板上训练、线程/阈值选择需要真实计时、真实FreeType与ARM指令验证需接板；这些本次未冒充完成。
+资料沿用已实际读取的HUST往届仓库和官方实现：
+https://github.com/nivag8899/HUST-Embedded-System
+https://github.com/uniqueFranky/Embedded-System
+https://1037.wiki/ （之前只读取到动态入口，未获得对应课程正文）
+https://arm-software.github.io/acle/neon_intrinsics/advsimd.html
+详细来源范围与缓存见references/20261016、references/20261017，当前课程PPT优先，未将他人成绩当作本机测试。

@@ -1,0 +1,4 @@
+PASS: protocol-B replay (five slots, SYN frames, partial axes, replacement, release, scaling)
+PASS: Bluetooth text stream (every split point, UTF-8, CRLF, idle flush, long/invalid input)
+PASS: transmit queue (partial write, EINTR retry, EAGAIN resume, order, capacity)
+PASS: 278 interaction assertions

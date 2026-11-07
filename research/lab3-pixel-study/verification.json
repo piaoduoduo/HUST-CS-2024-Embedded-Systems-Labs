@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "oldV9AndOriginalSourcesUnchanged": true,
+  "publicRepositoryMatchesFrozenSnapshot": true,
+  "pixelCandidateArchiveSHA256": "75596337942837ceda9b0ceb697f06f3c58f1b7a6b081a724368b3be565d0d47",
+  "hostCorrectnessConfigurations": [
+    "v9",
+    "unsigned",
+    "axis",
+    "minmax",
+    "disabled",
+    "axis-neon-omp2",
+    "axis-lto-omp2",
+    "minmax-neon-omp2"
+  ],
+  "allNineStageHashesEqual": true,
+  "runnerPlanMocksPassed": true,
+  "hostMicrobenchmarkRun": true,
+  "ARMCompiled": false,
+  "boardPerformanceMeasured": false
+}

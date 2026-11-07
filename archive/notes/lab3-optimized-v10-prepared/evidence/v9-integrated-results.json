@@ -1,0 +1,845 @@
+{
+  "passed": true,
+  "configurations": [
+    "scalar",
+    "neon",
+    "omp2",
+    "omp4",
+    "lto-no-stats",
+    "four-disabled",
+    "cull-disabled",
+    "text-disabled",
+    "geometry-disabled",
+    "analytic-disabled",
+    "geometry-dsu",
+    "products-disabled",
+    "small-capacity",
+    "row-index-disabled",
+    "new-disabled",
+    "coalesce-disabled"
+  ],
+  "logs": {
+    "scalar-test_images-compile": "",
+    "scalar-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",
+    "scalar-test_prepared-compile": "",
+    "scalar-test_prepared": "PASS: 104 prepared snapshot comparisons (lifetime, mutation, clipping, alpha, padding)\n",
+    "scalar-test_v8_arithmetic-compile": "",
+    "scalar-test_v8_arithmetic": "PASS: 50266440 packed/product oracle comparisons (rounding, channels, alpha, vector offsets/tails)\n",
+    "scalar-test_v8_product_storage-compile": "",
+    "scalar-test_v8_product_storage": "PASS: 8 product storage cases (presence, exact values, skip, capacity fallback)\n",
+    "scalar-test_v9_pixels-compile": "",
+    "scalar-test_v9_pixels": "PASS: 704 v9 four-lane/guard-page oracle checks\n",
+    "scalar-test_v9_cull-compile": "",
+    "scalar-test_v9_cull": "course PNG: skipped partial=128658 opaque=101158; partial executed=427251 (baseline555909)\nPASS: 32 v9 cull full-frame oracle cases\n",
+    "scalar-test_v9_alloc-compile": "",
+    "scalar-test_v9_alloc": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "scalar-test_v9_text_batch-compile": "",
+    "scalar-test_v9_text_batch": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "scalar-test_v9_geometry-compile": "",
+    "scalar-test_v9_geometry": "COURSE rect submitted=1849440 written=614400 flushes=1 generated_spans=156725 retained_spans=156690\nCOURSE line submitted=401802 written=201797 flushes=1 generated_spans=241602 retained_spans=1202\nPASS: 520 geometry cases, 33338 commands; full pixel + dirty + framebuffer padding/canary checks\n",
+    "scalar-test_v9_rows-compile": "",
+    "scalar-test_v9_rows": "PASS: 3219840 row/channel oracle checks (unaligned source, tails, zero/full/mixed alpha)\n",
+    "scalar-test_lab2_regression-compile": "",
+    "scalar-test_lab2_regression": "PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\nPASS: rectangle geometry, clipping, invalid sizes and integer extremes\nPASS: eight octants, geometric error, reversed endpoints and extreme clipping\nPASS: 404 offline cases\n",
+    "scalar-test_line_exact-compile": "",
+    "scalar-test_line_exact": "PASS: 1024 exact inside-line full-buffer comparisons\n",
+    "scalar-test_text_layout_v4-compile": "",
+    "scalar-test_text_layout_v4": "PASS: 50 text-layout cases (overlap, clipping, backgrounds, colors, font identity, eviction, fallback)\n",
+    "scalar-test_opaque_batch-compile": "",
+    "scalar-test_opaque_batch": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "scalar-sprint-v9-replay-compile": "",
+    "scalar-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "neon-test_images-compile": "",
+    "neon-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",
+    "neon-test_prepared-compile": "",
+    "neon-test_prepared": "PASS: 104 prepared snapshot comparisons (lifetime, mutation, clipping, alpha, padding)\n",
+    "neon-test_v8_arithmetic-compile": "",
+    "neon-test_v8_arithmetic": "PASS: 50266440 packed/product oracle comparisons (rounding, channels, alpha, vector offsets/tails)\n",
+    "neon-test_v8_product_storage-compile": "",
+    "neon-test_v8_product_storage": "PASS: 8 product storage cases (presence, exact values, skip, capacity fallback)\n",
+    "neon-test_v9_pixels-compile": "",
+    "neon-test_v9_pixels": "PASS: 16777920 v9 four-lane/guard-page oracle checks\n",
+    "neon-test_v9_cull-compile": "",
+    "neon-test_v9_cull": "course PNG: skipped partial=128658 opaque=101158; partial executed=427251 (baseline555909)\nPASS: 32 v9 cull full-frame oracle cases\n",
+    "neon-test_v9_alloc-compile": "",
+    "neon-test_v9_alloc": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "neon-test_v9_text_batch-compile": "",
+    "neon-test_v9_text_batch": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "neon-test_v9_geometry-compile": "",
+    "neon-test_v9_geometry": "COURSE rect submitted=1849440 written=614400 flushes=1 generated_spans=156725 retained_spans=156690\nCOURSE line submitted=401802 written=201797 flushes=1 generated_spans=241602 retained_spans=1202\nPASS: 520 geometry cases, 33338 commands; full pixel + dirty + framebuffer padding/canary checks\n",
+    "neon-test_v9_rows-compile": "",
+    "neon-test_v9_rows": "PASS: 19997056 row/channel oracle checks (unaligned source, tails, zero/full/mixed alpha)\n",
+    "neon-test_lab2_regression-compile": "",
+    "neon-test_lab2_regression": "PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\nPASS: rectangle geometry, clipping, invalid sizes and integer extremes\nPASS: eight octants, geometric error, reversed endpoints and extreme clipping\nPASS: 404 offline cases\n",
+    "neon-test_line_exact-compile": "",
+    "neon-test_line_exact": "PASS: 1024 exact inside-line full-buffer comparisons\n",
+    "neon-test_text_layout_v4-compile": "",
+    "neon-test_text_layout_v4": "PASS: 50 text-layout cases (overlap, clipping, backgrounds, colors, font identity, eviction, fallback)\n",
+    "neon-test_opaque_batch-compile": "",
+    "neon-test_opaque_batch": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "neon-sprint-v9-replay-compile": "",
+    "neon-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "omp2-test_images-compile": "",
+    "omp2-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",
+    "omp2-test_prepared-compile": "",
+    "omp2-test_prepared": "PASS: 104 prepared snapshot comparisons (lifetime, mutation, clipping, alpha, padding)\n",
+    "omp2-test_v8_arithmetic-compile": "",
+    "omp2-test_v8_arithmetic": "PASS: 50266440 packed/product oracle comparisons (rounding, channels, alpha, vector offsets/tails)\n",
+    "omp2-test_v8_product_storage-compile": "",
+    "omp2-test_v8_product_storage": "PASS: 8 product storage cases (presence, exact values, skip, capacity fallback)\n",
+    "omp2-test_v9_pixels-compile": "",
+    "omp2-test_v9_pixels": "PASS: 16777920 v9 four-lane/guard-page oracle checks\n",
+    "omp2-test_v9_cull-compile": "",
+    "omp2-test_v9_cull": "course PNG: skipped partial=128658 opaque=101158; partial executed=427251 (baseline555909)\nPASS: 32 v9 cull full-frame oracle cases\n",
+    "omp2-test_v9_alloc-compile": "",
+    "omp2-test_v9_alloc": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "omp2-test_v9_text_batch-compile": "",
+    "omp2-test_v9_text_batch": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "omp2-test_v9_geometry-compile": "",
+    "omp2-test_v9_geometry": "COURSE rect submitted=1849440 written=614400 flushes=1 generated_spans=156725 retained_spans=156690\nCOURSE line submitted=401802 written=201797 flushes=1 generated_spans=241602 retained_spans=1202\nPASS: 520 geometry cases, 33338 commands; full pixel + dirty + framebuffer padding/canary checks\n",
+    "omp2-test_v9_rows-compile": "",
+    "omp2-test_v9_rows": "PASS: 19997056 row/channel oracle checks (unaligned source, tails, zero/full/mixed alpha)\n",
+    "omp2-test_lab2_regression-compile": "",
+    "omp2-test_lab2_regression": "PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\nPASS: rectangle geometry, clipping, invalid sizes and integer extremes\nPASS: eight octants, geometric error, reversed endpoints and extreme clipping\nPASS: 404 offline cases\n",
+    "omp2-test_line_exact-compile": "",
+    "omp2-test_line_exact": "PASS: 1024 exact inside-line full-buffer comparisons\n",
+    "omp2-test_text_layout_v4-compile": "",
+    "omp2-test_text_layout_v4": "PASS: 50 text-layout cases (overlap, clipping, backgrounds, colors, font identity, eviction, fallback)\n",
+    "omp2-test_opaque_batch-compile": "",
+    "omp2-test_opaque_batch": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "omp2-sprint-v9-replay-compile": "",
+    "omp2-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "omp4-test_images-compile": "",
+    "omp4-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",
+    "omp4-test_prepared-compile": "",
+    "omp4-test_prepared": "PASS: 104 prepared snapshot comparisons (lifetime, mutation, clipping, alpha, padding)\n",
+    "omp4-test_v8_arithmetic-compile": "",
+    "omp4-test_v8_arithmetic": "PASS: 50266440 packed/product oracle comparisons (rounding, channels, alpha, vector offsets/tails)\n",
+    "omp4-test_v8_product_storage-compile": "",
+    "omp4-test_v8_product_storage": "PASS: 8 product storage cases (presence, exact values, skip, capacity fallback)\n",
+    "omp4-test_v9_pixels-compile": "",
+    "omp4-test_v9_pixels": "PASS: 16777920 v9 four-lane/guard-page oracle checks\n",
+    "omp4-test_v9_cull-compile": "",
+    "omp4-test_v9_cull": "course PNG: skipped partial=128658 opaque=101158; partial executed=427251 (baseline555909)\nPASS: 32 v9 cull full-frame oracle cases\n",
+    "omp4-test_v9_alloc-compile": "",
+    "omp4-test_v9_alloc": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "omp4-test_v9_text_batch-compile": "",
+    "omp4-test_v9_text_batch": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "omp4-test_v9_geometry-compile": "",
+    "omp4-test_v9_geometry": "COURSE rect submitted=1849440 written=614400 flushes=1 generated_spans=156725 retained_spans=156690\nCOURSE line submitted=401802 written=201797 flushes=1 generated_spans=241602 retained_spans=1202\nPASS: 520 geometry cases, 33338 commands; full pixel + dirty + framebuffer padding/canary checks\n",
+    "omp4-test_v9_rows-compile": "",
+    "omp4-test_v9_rows": "PASS: 19997056 row/channel oracle checks (unaligned source, tails, zero/full/mixed alpha)\n",
+    "omp4-test_lab2_regression-compile": "",
+    "omp4-test_lab2_regression": "PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\nPASS: rectangle geometry, clipping, invalid sizes and integer extremes\nPASS: eight octants, geometric error, reversed endpoints and extreme clipping\nPASS: 404 offline cases\n",
+    "omp4-test_line_exact-compile": "",
+    "omp4-test_line_exact": "PASS: 1024 exact inside-line full-buffer comparisons\n",
+    "omp4-test_text_layout_v4-compile": "",
+    "omp4-test_text_layout_v4": "PASS: 50 text-layout cases (overlap, clipping, backgrounds, colors, font identity, eviction, fallback)\n",
+    "omp4-test_opaque_batch-compile": "",
+    "omp4-test_opaque_batch": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "omp4-sprint-v9-replay-compile": "",
+    "omp4-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "lto-no-stats-test_images-compile": "",
+    "lto-no-stats-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",
+    "lto-no-stats-test_prepared-compile": "",
+    "lto-no-stats-test_prepared": "PASS: 104 prepared snapshot comparisons (lifetime, mutation, clipping, alpha, padding)\n",
+    "lto-no-stats-test_v8_arithmetic-compile": "",
+    "lto-no-stats-test_v8_arithmetic": "PASS: 50266440 packed/product oracle comparisons (rounding, channels, alpha, vector offsets/tails)\n",
+    "lto-no-stats-test_v8_product_storage-compile": "",
+    "lto-no-stats-test_v8_product_storage": "PASS: 8 product storage cases (presence, exact values, skip, capacity fallback)\n",
+    "lto-no-stats-test_v9_pixels-compile": "",
+    "lto-no-stats-test_v9_pixels": "PASS: 16777920 v9 four-lane/guard-page oracle checks\n",
+    "lto-no-stats-test_v9_cull-compile": "",
+    "lto-no-stats-test_v9_cull": "course PNG: skipped partial=128658 opaque=101158; partial executed=427251 (baseline555909)\nPASS: 32 v9 cull full-frame oracle cases\n",
+    "lto-no-stats-test_v9_alloc-compile": "",
+    "lto-no-stats-test_v9_alloc": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "lto-no-stats-test_v9_text_batch-compile": "",
+    "lto-no-stats-test_v9_text_batch": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "lto-no-stats-test_v9_geometry-compile": "",
+    "lto-no-stats-test_v9_geometry": "COURSE rect submitted=0 written=0 flushes=0 generated_spans=0 retained_spans=0\nCOURSE line submitted=0 written=0 flushes=0 generated_spans=0 retained_spans=0\nPASS: 520 geometry cases, 33338 commands; full pixel + dirty + framebuffer padding/canary checks\n",
+    "lto-no-stats-sprint-v9-replay-compile": "",
+    "lto-no-stats-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=0 row_checks=0 interval_comparisons=0 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "four-disabled-sprint-v9-replay-compile": "",
+    "four-disabled-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "cull-disabled-sprint-v9-replay-compile": "",
+    "cull-disabled-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "text-disabled-sprint-v9-replay-compile": "",
+    "text-disabled-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "geometry-disabled-sprint-v9-replay-compile": "",
+    "geometry-disabled-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "analytic-disabled-sprint-v9-replay-compile": "",
+    "analytic-disabled-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "geometry-dsu-sprint-v9-replay-compile": "",
+    "geometry-dsu-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "products-disabled-sprint-v9-replay-compile": "",
+    "products-disabled-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "small-capacity-sprint-v9-replay-compile": "",
+    "small-capacity-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "row-index-disabled-sprint-v9-replay-compile": "",
+    "row-index-disabled-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "new-disabled-sprint-v9-replay-compile": "",
+    "new-disabled-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "coalesce-disabled-sprint-v9-replay-compile": "",
+    "coalesce-disabled-sprint-v9-replay": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n"
+  },
+  "replayHashes": {
+    "scalar": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "neon": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "omp2": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "omp4": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "lto-no-stats": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "four-disabled": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "cull-disabled": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "text-disabled": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "geometry-disabled": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "analytic-disabled": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "geometry-dsu": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "products-disabled": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "small-capacity": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "row-index-disabled": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "new-disabled": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "coalesce-disabled": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ]
+  },
+  "sourceHashes": {
+    "tests\\test_images.c": "48674e27be3408ffe6cdf46c3f6e62028232019ebeec8e6b383205c6dc5271c6",
+    "tests\\test_prepared.c": "651ce6752867fd7384829503e146a4cb218ee49876818504ca80c0248eaf9578",
+    "tests\\test_v8_arithmetic.c": "415d2c15d1c6fd23c716c8eaaef5854d1ea0fdc37ac649c7e609fcda67d72cfe",
+    "tests\\test_v8_product_storage.c": "3a79fa332a2067918b4c77b89588c78501241fee1ea6b58313a09174c82bc9a4",
+    "tests\\test_v9_pixels.c": "0020a4a172012b3574d599f4bc99fe3be27762239e89c0ab10360a65fa32333f",
+    "tests\\test_v9_cull.c": "9b8fb78e23b557f2d11de3f944cd51ab1e967ec65fb9e4f0204c3ed5b51774bc",
+    "tests\\test_v9_alloc.c": "862afeeea89d4739c3ed4770c0bba8048485a3c4427b4a7f487ebe96dc5bf0c2",
+    "tests\\test_v9_text_batch.c": "bb56e62045b9f60c3a1e1b713ac449191aa67bd363e3c586d51ec1738fe3fc1f",
+    "tests\\test_v9_geometry.c": "bde9f04ee0218bd1c4fbbbda9cb58195837b51cf89d10cc4ab09c81ebc5a3bb0",
+    "tests\\test_v9_rows.c": "f5d459cbe5af72c25512428ea9bb8b1bf636983c418034a0a9faaa1ed15fbe00",
+    "tests\\test_lab2_regression.c": "ce407e3a1caf0634a2901b7a2abe80c8cc37c6c1455a6dee2544ab3c2c6814e8",
+    "tests\\test_line_exact.c": "0c680f137d0a66e8a384df43fa83bf14c06fe95a646672ebf1b8c4b58c57184d",
+    "tests\\test_text_layout_v4.c": "969d173e951ef7d988773985d0c319149a5da100f4e8462cd6e043c3678eb60c",
+    "tests\\test_opaque_batch.c": "411770d88c4900314ebc1efbd4e0b1dabc31f16084125916219ddc9e20de5e07",
+    "build-v9-integrated\\sprint-v9-replay.c": "cb77f781ae6a4d3afccac87d2fb170b86a8566e975633a35f3fa6d692bcb5d24",
+    "common/fast_pixels_v9.h": "5ff15bda753a463adb8351d3e5c119bcf327dc878a3a7b2e58ebab1e67c57775",
+    "common/geometry_batch_api_v9.h": "c245f80629089193cabe36852eb6a1e668ac605920025a75464df6d99fed5495",
+    "common/geometry_batch_v9.h": "d77e1b1478df703ebd25a5d943c8b2b2448c5fd70528a69891d4141b7bbe013d",
+    "common/graphic-v9-batch.c": "838402f784aaa07bea2d85a37d581fb2175a80630feba0e1add3ba098d78e24f",
+    "common/prepared_image_v9.h": "f8703568006f92001288d8d851521d813fd774bb29777cb618db137711921656",
+    "common/text_batch_api_v9.h": "a70e7ae4e53930ff98c7fed09f6acb7372dd654e7f8519af49202ca2358c0591",
+    "common/text_batch_v9.h": "0c3d5df66273fdc2388ec381e4073a7f2edd8e34739d8cc7063c2173517df298"
+  },
+  "sourceReports": {
+    "v9-integrated-results-scalar_neon_omp2_omp4_lto-no-stats.json": "27695fd8b7c8d7cf4545960376a9423f2a8303d393a3d1ebc242009df697f624",
+    "v9-integrated-results-four-disabled_cull-disabled_text-disabled_geometry-disabled_analytic-disabled_geometry-dsu_products-disabled_small-capacity_row-index-disabled_new-disabled_coalesce-disabled-replay.json": "3c7b9a17f43546dd98409936d68537e73d2690dd1a04dfbffffb6ac5784d7cad"
+  },
+  "nineStagesMatchPreservedV8Baseline": true,
+  "hardwareValidated": false,
+  "armNativeCompileValidated": false,
+  "performanceMeasured": false,
+  "neonEmulated": true,
+  "fontSimulation": "Pillow or synthetic glyphs; real FreeType checks prepared for board",
+  "replayClockAlwaysZero": true,
+  "replaySleepsDisabled": true,
+  "fullUnitConfigurations": [
+    "scalar",
+    "neon",
+    "omp2",
+    "omp4",
+    "lto-no-stats"
+  ],
+  "ablationConfigurationsUseFullReplay": true,
+  "preservedArchives": {
+    "lab3-ready.tgz": "349c9483f99cab1ac9d4edc7512928fe1f3004b16ed2325609a47ebfb3861984",
+    "resources/lab3-optimized-v6-ready.tgz": "04c9413f1b57c2e12a1ca105caf15ed8dacd527d8731a5e0c37e13486ac58f30",
+    "resources/lab3-optimized-v7-ready.tgz": "144d594f9f8a844ae1dfb616da073b1d212b17383e1b65ad5d5e59629fcc4ddd",
+    "resources/lab3-optimized-v8-ready.tgz": "4936a6db6269fd3e054b95050ebd5feda578cf7e141665dbf62ab475d001ddae"
+  }
+}

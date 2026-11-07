@@ -1,0 +1,2 @@
+PASS: course/lab4/lab6-v3 overlays, dry-run, backups, hashes, idempotence, edited-file protection, path bounds.
+PASS: lab5 -> lab6-v3 -> lab5 -> lab6-v3 preserves the new shared touch code and both applications.

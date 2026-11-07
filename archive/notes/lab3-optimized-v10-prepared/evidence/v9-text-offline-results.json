@@ -1,0 +1,38 @@
+{
+  "scope": "ordered multi-string multi-glyph CSR text batching",
+  "pixelsKernel": "v9",
+  "logs": {
+    "scalar-compile": "",
+    "scalar": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "neon-emulated-compile": "",
+    "neon-emulated": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "openmp-2-compile": "",
+    "openmp-2": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "openmp-4-compile": "",
+    "openmp-4": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "batch-disabled-compile": "",
+    "batch-disabled": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "capacity-3-compile": "",
+    "capacity-3": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "layout-capacity-2-compile": "",
+    "layout-capacity-2": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "row-limit-1-compile": "",
+    "row-limit-1": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "bytes-limit-1-compile": "",
+    "bytes-limit-1": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n",
+    "ranges-disabled-compile": "",
+    "ranges-disabled": "PASS: 58 ordered text batch cases (full-frame/dirty/canaries, UTF8, overlap, clipping, mutable input, font identity, cache eviction, allocation failures)\n"
+  },
+  "syntheticGlyphs": true,
+  "wholeFrameDirtyAndCanariesValidated": true,
+  "allocationFailureFallbackValidated": true,
+  "ownedGlyphCacheEvictionAndInputMutationValidated": true,
+  "hostOpenMPThreadsValidated": [
+    2,
+    4
+  ],
+  "realFreeTypeValidated": false,
+  "armNativeCompileValidated": false,
+  "neonInstructionsExecuted": false,
+  "performanceMeasured": false
+}

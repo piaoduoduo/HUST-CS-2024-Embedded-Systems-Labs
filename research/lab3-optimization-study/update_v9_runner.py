@@ -1,0 +1,32 @@
+"""Upgrade the independent candidate runner while its v8 archive remains intact."""
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent.parent/'lab3-optimized-prepared'
+p=ROOT/'board_compare.py'
+s=p.read_text(encoding='utf-8')
+assert "'v9-sprint'" not in s,'Runner already upgraded'
+s=s.replace("'v8-sprint':'graphic-v8-batch.c'", "'v8-sprint':'graphic-v8-batch.c','v9-core':'graphic-v9-batch.c','v9-sprint':'graphic-v9-batch.c','v9-dsu':'graphic-v9-batch.c'")
+s=s.replace("'v8-packed','v8-sprint')", "'v8-packed','v8-sprint','v9-core','v9-sprint','v9-dsu')")
+s=s.replace("'v6','v7','v8')", "'v6','v7','v8','v9')")
+s=s.replace("row-index,packed,products')", "row-index,packed,products,four-lane,opaque-cull,text-batch,geometry-batch,analytic-lines')")
+s=s.replace("'products':'FB_DISABLE_PRODUCTS'}", "'products':'FB_DISABLE_PRODUCTS','four-lane':'FB_DISABLE_FOUR_LANE','opaque-cull':'FB_DISABLE_OPAQUE_CULL','text-batch':'FB_DISABLE_TEXT_BATCH','geometry-batch':'FB_DISABLE_GEOMETRY_BATCH','analytic-lines':'FB_DISABLE_ANALYTIC_LINES'}")
+s=s.replace("if variant=='v8-packed':flags+=['-DFB_DISABLE_PRODUCTS']", "if variant=='v8-packed':flags+=['-DFB_DISABLE_PRODUCTS']\n        if variant=='v9-core':flags+=['-DFB_DISABLE_GEOMETRY_BATCH']\n        if variant=='v9-dsu':flags+=['-DFB_GEOMETRY_DSU']")
+s=s.replace("str(ROOT/'test'/('sprint-v6-main.c'", "str(ROOT/'test'/('sprint-v9-main.c' if variant.startswith('v9') else 'sprint-v6-main.c'")
+s=s.replace("variant.startswith('v8') and 'packed' not in disabled", "variant.startswith(('v8','v9')) and 'packed' not in disabled")
+s=s.replace("variant=='v8-sprint' and 'products' not in disabled", "variant in ('v8-sprint','v9-core','v9-sprint','v9-dsu') and 'products' not in disabled")
+s=s.replace("'batchWorkload':{k:int(v)", "'v9FourLaneRequested':variant.startswith('v9') and 'four-lane' not in disabled,\n                    'v9OpaqueCullRequested':variant.startswith('v9') and 'opaque-cull' not in disabled,\n                    'v9TextBatchRequested':variant.startswith('v9') and 'text-batch' not in disabled,\n                    'v9GeometryBatchRequested':variant in ('v9-sprint','v9-dsu') and 'geometry-batch' not in disabled,\n                    'v9GeometryDSURequested':variant=='v9-dsu',\n                    'batchWorkload':{k:int(v)")
+s=s.replace("'meets40msCourseTiming':results['medianMs'][v]['total']<=40,", "'meets40msCourseTiming':results['medianMs'][v]['total']<=40,\n            'meets20msCourseTiming':results['medianMs'][v]['total']<=20,")
+p.write_text(s,encoding='utf-8')
+p=ROOT/'native_checks.py';s=p.read_text(encoding='utf-8')
+s=s.replace("if 'v8' in graphic:","if 'v8' in graphic or 'v9' in graphic:")
+s=s.replace("or 'v8' in graphic", "or 'v8' in graphic or 'v9' in graphic")
+s=s.replace("or 'v9' in graphic or 'v9' in graphic", "or 'v9' in graphic")
+s=s.replace("    for name in tests:\n", "    if 'v9' in graphic:tests+=['test_v9_pixels','test_v9_geometry','test_v9_text_real']\n    for name in tests:\n")
+s=s.replace("if name=='test_text_real'", "if name in ('test_text_real','test_v9_text_real')")
+s=s.replace("'test_prepared') else (1,)", "'test_prepared','test_v9_pixels','test_v9_geometry','test_v9_text_real') else (1,)")
+s=s.replace("for name in ('test_original_replay','test_sprint_v6_replay'", "for name in ('test_original_replay','test_sprint_v9_replay' if 'v9' in graphic else 'test_sprint_v6_replay'")
+p.write_text(s,encoding='utf-8')
+p=ROOT/'run-sprint.py';s=p.read_text(encoding='utf-8')
+s=s.replace('baseline,v7-sprint,v8-packed,v8-sprint','baseline,v8-packed,v8-sprint,v9-core,v9-sprint')
+s=s.replace("p.add_argument('--runs',type=int,default=3)","p.add_argument('--runs',type=int,default=5)")
+p.write_text(s,encoding='utf-8')
+print('V9 runner variants, per-feature switches, real-font/native checks and 20ms assessment added')

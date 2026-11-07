@@ -33,5 +33,187 @@
     "path": "labs/v10/profile.json",
     "files": 87,
     "modifiedOrAdded": 85
+  },
+  "lab3-history-v1": {
+    "path": "archive/profiles/lab3-history-v1/profile.json",
+    "files": 12,
+    "modifiedOrAdded": 10,
+    "description": "实验三历史 v1 快照",
+    "generateManifest": true
+  },
+  "lab3-history-v2": {
+    "path": "archive/profiles/lab3-history-v2/profile.json",
+    "files": 22,
+    "modifiedOrAdded": 20,
+    "description": "实验三历史 v2 快照",
+    "generateManifest": true
+  },
+  "lab3-history-v3": {
+    "path": "archive/profiles/lab3-history-v3/profile.json",
+    "files": 29,
+    "modifiedOrAdded": 27,
+    "description": "实验三历史 v3 快照",
+    "generateManifest": true
+  },
+  "lab3-history-v4": {
+    "path": "archive/profiles/lab3-history-v4/profile.json",
+    "files": 34,
+    "modifiedOrAdded": 32,
+    "description": "实验三历史 v4 快照",
+    "generateManifest": true
+  },
+  "lab3-history-v5": {
+    "path": "archive/profiles/lab3-history-v5/profile.json",
+    "files": 48,
+    "modifiedOrAdded": 46,
+    "description": "实验三历史 v5 快照",
+    "generateManifest": true
+  },
+  "lab3-history-v6": {
+    "path": "archive/profiles/lab3-history-v6/profile.json",
+    "files": 53,
+    "modifiedOrAdded": 51,
+    "description": "实验三历史 v6 快照",
+    "generateManifest": true
+  },
+  "lab3-history-v7": {
+    "path": "archive/profiles/lab3-history-v7/profile.json",
+    "files": 55,
+    "modifiedOrAdded": 53,
+    "description": "实验三历史 v7 快照",
+    "generateManifest": true
+  },
+  "lab3-history-v8": {
+    "path": "archive/profiles/lab3-history-v8/profile.json",
+    "files": 61,
+    "modifiedOrAdded": 59,
+    "description": "实验三历史 v8 快照",
+    "generateManifest": true
+  },
+  "lab3-history-v9": {
+    "path": "archive/profiles/lab3-history-v9/profile.json",
+    "files": 79,
+    "modifiedOrAdded": 77,
+    "description": "实验三历史 v9 快照",
+    "generateManifest": true
+  },
+  "gomoku-history-v1": {
+    "path": "archive/profiles/gomoku-history-v1/profile.json",
+    "files": 30,
+    "modifiedOrAdded": 29,
+    "description": "五子棋历史 v1"
+  },
+  "gomoku-history-v2": {
+    "path": "archive/profiles/gomoku-history-v2/profile.json",
+    "files": 37,
+    "modifiedOrAdded": 36,
+    "description": "五子棋历史 v2"
+  },
+  "snapshot-lab2": {
+    "path": "archive/profiles/snapshot-lab2/profile.json",
+    "files": 13,
+    "modifiedOrAdded": 10,
+    "description": "lab2-prepared 源码快照"
+  },
+  "snapshot-lab3-optimized": {
+    "path": "archive/profiles/snapshot-lab3-optimized/profile.json",
+    "files": 79,
+    "modifiedOrAdded": 77,
+    "description": "lab3-optimized-prepared 源码快照",
+    "generateManifest": true
+  },
+  "snapshot-lab3-optimized-v10-boardfix": {
+    "path": "archive/profiles/snapshot-lab3-optimized-v10-boardfix/profile.json",
+    "files": 87,
+    "modifiedOrAdded": 85,
+    "description": "lab3-optimized-v10-boardfix-prepared 源码快照",
+    "generateManifest": true
+  },
+  "snapshot-lab3-optimized-v10-directrect": {
+    "path": "archive/profiles/snapshot-lab3-optimized-v10-directrect/profile.json",
+    "files": 87,
+    "modifiedOrAdded": 85,
+    "description": "lab3-optimized-v10-directrect-prepared 源码快照",
+    "generateManifest": true
+  },
+  "snapshot-lab3-optimized-v10": {
+    "path": "archive/profiles/snapshot-lab3-optimized-v10/profile.json",
+    "files": 87,
+    "modifiedOrAdded": 85,
+    "description": "lab3-optimized-v10-prepared 源码快照",
+    "generateManifest": true
+  },
+  "snapshot-lab3-pixel": {
+    "path": "archive/profiles/snapshot-lab3-pixel/profile.json",
+    "files": 83,
+    "modifiedOrAdded": 81,
+    "description": "lab3-pixel-prepared 源码快照",
+    "generateManifest": true
+  },
+  "snapshot-lab3": {
+    "path": "archive/profiles/snapshot-lab3/profile.json",
+    "files": 15,
+    "modifiedOrAdded": 12,
+    "description": "lab3-prepared 源码快照"
+  },
+  "snapshot-lab4": {
+    "path": "archive/profiles/snapshot-lab4/profile.json",
+    "files": 15,
+    "modifiedOrAdded": 14,
+    "description": "lab4-prepared 源码快照"
+  },
+  "snapshot-lab5-boardfix": {
+    "path": "archive/profiles/snapshot-lab5-boardfix/profile.json",
+    "files": 42,
+    "modifiedOrAdded": 40,
+    "description": "lab5-boardfix-prepared 源码快照"
+  },
+  "snapshot-lab5": {
+    "path": "archive/profiles/snapshot-lab5/profile.json",
+    "files": 42,
+    "modifiedOrAdded": 40,
+    "description": "lab5-prepared 源码快照"
+  },
+  "arcade-v1": {
+    "path": "labs/arcade-v1/profile.json",
+    "files": 42,
+    "modifiedOrAdded": 40,
+    "description": "lab6-arcade-v1 源码快照"
+  },
+  "arcade-v2": {
+    "path": "labs/arcade-v2/profile.json",
+    "files": 48,
+    "modifiedOrAdded": 46,
+    "description": "lab6-arcade-v2 源码快照"
+  },
+  "snapshot-lab6-gomoku-boardfix": {
+    "path": "archive/profiles/snapshot-lab6-gomoku-boardfix/profile.json",
+    "files": 39,
+    "modifiedOrAdded": 38,
+    "description": "lab6-gomoku-boardfix-prepared 源码快照"
+  },
+  "snapshot-lab6-gomoku": {
+    "path": "archive/profiles/snapshot-lab6-gomoku/profile.json",
+    "files": 39,
+    "modifiedOrAdded": 38,
+    "description": "lab6-gomoku-prepared 源码快照"
+  },
+  "snapshot-labs3-5": {
+    "path": "archive/profiles/snapshot-labs3-5/profile.json",
+    "files": 59,
+    "modifiedOrAdded": 56,
+    "description": "labs3-5-prepared 源码快照"
+  },
+  "study-lab3-coverage-study": {
+    "path": "archive/profiles/study-lab3-coverage-study/profile.json",
+    "files": 46,
+    "modifiedOrAdded": 44,
+    "description": "lab3-coverage-study 离线候选"
+  },
+  "study-lab3-shortspan-study": {
+    "path": "archive/profiles/study-lab3-shortspan-study/profile.json",
+    "files": 44,
+    "modifiedOrAdded": 42,
+    "description": "lab3-shortspan-study 离线候选"
   }
 }

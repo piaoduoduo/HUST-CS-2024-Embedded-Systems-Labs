@@ -1,0 +1,7 @@
+OFFLINE memory framebuffer replay; timing values are host-only.
+
+========== Start Test ===========
+draw pixel: 0 ms
+draw rect: 0 ms
+draw line: 0 ms
+PASS: original course lab2/main.c completed; preview written.

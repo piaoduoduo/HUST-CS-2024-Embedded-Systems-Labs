@@ -1,0 +1,335 @@
+实验三 v9：PNG、文字与几何整合候选（2026-10-18）
+
+状态与时间预估
+本版已完成离线实现和回归，尚未接板、ARM原生编译或测速。155ms仍是已有真实日志中的成绩。
+此前v8约30—50ms、本版v9暂按约25—45ms规划，都是工程估计，不是测量或统计置信区间；实际仍可能超出范围。
+20ms是冲刺目标，不能保证；没有数据支持给出可靠达标百分比。新的索引、位图、复制和缓存开销可能抵消收益。
+原版test/main.c保持逐字节不变；v9使用独立sprint-v9-main.c调用显式批量接口，必须标明这一口径，不能混作未改调用接口的成绩。
+素材、坐标、循环次数、颜色和逐层整数透明舍入保持一致；所有批次收集、准备、执行、释放均在原阶段起止计时之间。
+
+PNG：已经实现并测试
+common/fast_pixels_v9.h新增精确4像素NEON尾部，覆盖普通RGBA、alpha字模、预处理partial和未舍入源乘积路径。
+只读取4像素所需字节；RGBA采用字节加载，保留alpha=0时目标完整32位及alpha>0时输出alpha=255。
+common/prepared_image_v9.h按目标行反向收集后续alpha=255覆盖，再正序执行剩余像素。不会把半透明层合成一次近似运算。
+课程PNG半透明混合555909→427251，减少23.14%；不透明写入445265→344107。全半透明/无索引/容量不足自动回退。
+每worker后缀覆盖空间默认约16KiB，命令上限128；确定不重叠的行先用O(C)判定，直接沿用原路径，避免字体网格的无用分析。
+四像素仍是常数优化；遮挡消除减少实际绘制量，但不能保证最坏复杂度或实际时间同比下降。
+
+文字：已经实现并测试
+common/text_batch_v9.h用begin/add/end收集文字；按目标行建立CSR索引，每行严格按原字形/字符串顺序混合，一个批次至多一个并行区。
+字形与布局保存独立快照，支持源字符串改变/释放、布局缓存超过8项被淘汰及字体身份切换。
+内存不足、布局数/字形数/行索引/字节预算达到上限时精确回退，不重画、不丢字；默认1024字形可容纳课程363项。
+每批复杂度O(H+G+K+P)加快照成本：G字形命令、K实际字形行引用、P访问像素。减少并行启动和行访问开销，必要透明混合仍保留。
+
+矩形和直线
+common/geometry_batch_v9.h生成精确裁剪行片段，同行相邻提交、同色且相交/相邻的片段可以合并，不跨不同颜色合并。
+按目标行反向覆盖，默认64位位图提取连续区间并填色；DSU后继并查集仅作为可选候选，逐像素管理成本未必更低。
+解析直线保持原光栅相位，初始商/余数计算后按行递推，避免每行除法；保留关闭解析路径的对照。
+课程矩形写1849440→614400（少66.78%）；直线写401802→201797（少49.78%）。
+直线生成片段仍为241602，合并后CSR记录1202（少99.50%）；不能把生成成本忽略。
+设Kg生成片段、Kr合并后片段、U实际写像素：生成O(N+Kg)、索引O(H+Kr)；位图还要扫描各span覆盖的64位字并写U像素。
+因此不是笼统的O(N+U)。DSU候选约O(N+Kg+H*W+(Kr+U)α(W))，每次容量flush重复相应开销。
+
+验证范围与证据
+PNG最终11配置：每配置32完整帧oracle、104 prepared回归、真实malloc故障注入；包含无重叠、透明/不透明、随机目标alpha、极限坐标、容量和索引回退。
+四像素NEON模拟每启用配置16777920项算术/保护页检查；完整通道回归另含50266440项。保护页检查会捕获尾部多读。
+文字10配置、每配置58全帧/dirty/哨兵案例，包含缓存淘汰、输入修改、字体变化和分配失败。
+几何15配置、每配置520案例/33338命令，覆盖位图、DSU、2/4线程、OOM、整数极值、容量、禁用与LTO。
+最终整合：scalar、NEON模拟、2/4线程、LTO且关闭统计五组回归通过；连同11组关闭/回退配置，共16组完整9阶段画面哈希与原版一致。
+主机字体为Pillow或测试字模；真实FreeType/ARM检查已经接入native_checks.py，下次上板才可确认。主机回放时间固定0，绝不能作为耗时证据。
+证据见evidence/v9-integrated-results.json、v9-png-offline-results.json、v9-text-offline-results.json、v9-geometry-results.json。
+
+下次上板
+独立解压lab3-optimized-ready.tgz，进入lab3-optimized-prepared，不覆盖课程工程或旧包。
+1. python3 run-sprint.py --project /root/course-project/lab-st-2026 --build-only
+   先运行与测速相同flags的原生像素/字体/完整回放，再编译；失败会中止，不拿错误画面去测速。
+2. 确认桌面及其他画屏程序停止、fb0配置正确后：
+   python3 run-sprint.py --project /root/course-project/lab-st-2026 --runs 5
+   比较baseline、v8-packed、v8-sprint、v9-core（新增PNG/文字）、v9-sprint（含几何）。同参数轮转测量，记录逐项成绩、中位数、温度/频率和编译命令。
+3. 需要精细诊断时在上述命令加 --precise-timing。它在全部原课程测速之后另跑诊断二进制，保留纳秒间隔到独立字段，不替换原成绩。
+4. 各开关可通过board_compare.py的--disable分别对照：four-lane、opaque-cull、text-batch、geometry-batch、analytic-lines、geometry-coalesce、products。
+   示例：python3 board_compare.py --project /root/course-project/lab-st-2026 --variants v9-sprint --disable opaque-cull --runs 5 --threads 2 --threshold 4096 --lto --native-cpu --no-stats --governor performance --bind fast --active-wait
+   将--disable去掉用同参数对照；v9-dsu可单独选择。以实测更快且正确的版本为准。
+5. 原课程统计不含解码、fb_update和sleep；刷新耗时另记。两类计时都不是整个程序启动到退出的墙钟时间，也不是FPS。
+正常退出恢复临时CPU设置；强制终止后的恢复方法见旧说明与restore-controls.py。
+
+保留与后续
+原版lab3-ready.tgz、resources/lab3-optimized-v6/v7/v8-ready.tgz完整保留，v8源码和测试仍在新包中；校验值记录于汇总证据。
+PGO需要真实板上训练、线程/阈值选择需要真实计时、真实FreeType与ARM指令验证需接板；这些本次未冒充完成。
+资料沿用已实际读取的HUST往届仓库和官方实现：
+https://github.com/nivag8899/HUST-Embedded-System
+https://github.com/uniqueFranky/Embedded-System
+https://1037.wiki/ （之前只读取到动态入口，未获得对应课程正文）
+https://arm-software.github.io/acle/neon_intrinsics/advsimd.html
+详细来源范围与缓存见references/20261016、references/20261017，当前课程PPT优先，未将他人成绩当作本机测试。
+
+
+以下为v8及更早版本历史说明，当前入口以上文v9为准。
+
+实验三 v8：短区间打包混合 + 未舍入源乘积（2026-10-17）
+
+本轮结果与保留版本
+落实检索清单的P1和PNG部分P2。新增v8-packed（仅打包混合）与v8-sprint（打包混合+源乘积），继承v7其余优化。
+v6、v7源码与正式测试保留。v7整包归档resources/lab3-optimized-v7-ready.tgz，SHA256 144d594f9f8a844ae1dfb616da073b1d212b17383e1b65ad5d5e59629fcc4ddd。
+原始lab3-ready.tgz保持原样。P3文字整批、矩形批量覆盖、PGO等仍是后续候选，未声称本轮全部实施。
+未ARM原生编译、未实际FreeType验证、未板上测速，40ms仍需实测。
+
+P1：短区间整数混合
+common/fast_pixels_v8.h将红/蓝隔开打包到32位的两个16位通道，绿色单算；减少短区间和标量尾部的逐通道运算。
+保留alpha=0目标原值和alpha=255直接写入快路；已有分类保证1..254的半透明区间用无重复端点判断的专用入口。
+所有路径严格保持先加128、再加高位修正的舍入顺序，不能直接替换成Qt里不同顺序的近似除255。
+这个新头文件也用于普通RGBA/alpha行尾部及缓存文字的字模行，不限于PNG预处理路径。原v7继续使用旧fast_pixels.h。
+新代码是按项目公式推导的实现；Qt打包通道思路、来源与舍入反例见全网检索与后续优化清单-20261017.txt。
+每个16位通道的加偏置前分子<=65025，加偏置及高位修正后<=65407，不产生通道间进位或16位溢出。
+
+P2：PNG未舍入源乘积
+common/prepared_image_v8.h在拥有独立快照的RGBA预处理对象内，可选保存B/G/R的16位source*alpha平面和8位255-alpha。
+重复绘制只计算目标通道的乘法，再与未舍入源乘积求和，最后按原公式统一舍入；没有先量化成8位预乘颜色。
+NEON每次仍处理8像素，但源侧由重复拆分和乘法改为读取乘积平面，尾部用对应精确整数内核。
+构建、分配、逐次绘制和释放仍处于原PNG阶段计时内，不能把预处理挪出成绩。
+不透明/全透明素材不建乘积表；alpha字模因颜色可变，暂不建颜色相关乘积表，仍从P1受益。
+PNG128×128新增114688字节（112KiB）乘积/反透明度数据。更大内存读取可能抵消算术收益，必须单独对比v8-packed与v8-sprint。
+乘积缓存默认最大512Ki像素，连同原预处理最坏预算不超过16MiB；分配失败/超过预算会保留可用的原快照并回退普通混合。
+FB_PRODUCT_MAX_PIXELS可限制缓存容量；--disable products关闭源乘积，--disable packed关闭打包混合，可组合。
+源乘法重复部分由每次绘制计算变为预处理一次，目标混合仍必须逐次完成；不声称整个绘制复杂度随之下降。
+
+离线验证
+11种配置：标量、NEON算术模拟、OpenMP2/4线程、关闭packed、关闭products、乘积容量1像素回退、关闭many、关闭row-index、行索引容量回退及全关闭组合。
+每配置50266440项打包/源乘积oracle比较，覆盖全部256^3单通道输入组合并同时检查其他通道、alpha端点、向量偏移和尾部。
+预处理启用配置104项完整缓冲/脏区比较；主配置103项图像、69项JPG批量及50项文字布局检查通过。
+NEON模拟配置另通过19997056项已有行像素/混合检查；真实ARM NEON尚未执行。
+独立8项乘积存储检查验证确实启用、每项乘积/反透明度精确值、跳过无需缓存的素材、容量回退；还验证关闭预处理及主机LTO+NEON模拟编译组合。
+全开、关闭packed、关闭products、同时关闭两项的完整9阶段回放与保留的原版画面哈希一致。
+回放用Pillow适配素材/字模，时间固定为0且关闭等待，仅检查像素；正式测速仍用课程真实图像/字体库和真实时钟/等待。
+ARM原生检查入口已加入新行内核、算术及实际缓存存储检查，沿用与测速相同的编译参数，失败则不测速。
+
+下一次接板
+独立解压lab3-optimized-ready.tgz后，进入lab3-optimized-prepared：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --build-only
+build-only先做本板原生正确性验证及编译，不改变CPU策略/绑定。
+确认开发板桌面和其他画屏程序停止、1024×600/32位RGB后：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --runs 3
+入口依次比较baseline、v7-sprint、v8-packed、v8-sprint，编译LTO/本机CPU和运行配置一致，运行次序每轮轮换。
+每版独立记录检查、编译命令、逐项成绩、温度/频率和中位数。结果另标记packedArithmeticRequested/sourceProductsRequested；后者是请求配置，不假装已测得收益。
+--disable packed,products可检查关闭两项。v8-packed已固定关闭products，可与v7直接隔离打包混合的效果。
+CPU配置恢复和SIGKILL/断电后的人工恢复机制沿用v5-v7说明。普通board_compare.py默认仍保留旧安全比较入口，当前冲刺使用run-sprint.py。
+显式批量/预处理接口仍须单独标注；不得将减少工作或异步未等待当作原课程成绩。
+
+
+以下为v7及更早版本历史说明，当前入口以上文v8为准。
+
+实验三 v7：目标行命令索引（2026-10-17）
+
+原版与v6保留
+原始lab3-ready.tgz不变。v6整包已另存resources/lab3-optimized-v6-ready.tgz，SHA256为04c9413f1b57c2e12a1ca105caf15ed8dacd527d8731a5e0c37e13486ac58f30。
+v6源文件及API保留，新v7仅增加私有prepared_image_v7.h和graphic-v7-batch.c，沿用v6正式测试与公开接口。
+
+优化点
+v6整批透明绘制每行扫描全部命令，用上下界判断是否覆盖该行。
+v7在裁剪后建立按目标行组织的紧凑索引；命令按原先顺序写入每行列表，透明重叠的先后顺序保持一致。
+设H为目标行数、N为可见命令数、K为实际行/命令交集数：筛选与索引部分从v6的O(H*N)变成O(H+N+K)，实际可见像素混合仍需完成。
+构建索引有两次K项访问与H项前缀和、分配/释放开销，全纳入原PNG/字模计时，不能把筛选量下降当作总耗时同比下降。
+课程PNG：63000次逐行命令检查变为12600个有效绘制引用；索引构建另访问25200项，占50400字节。
+Pillow模拟30号“嵌”字30×29：249600次检查变为11310个引用；构建另访问22620项，占45240字节。真实FreeType尺寸仍需板上确认。
+索引上限262144项（1MiB），超过或malloc失败回退v6逐行扫描；--disable row-index可单独关闭。整个many接口关闭仍用--disable many。
+继承v6的JPG覆盖消除、PNG/字模预处理、NEON、布局缓存与精确几何，不改课程素材、循环次数或透明混合规则。
+
+离线检查
+标量、NEON模拟、OpenMP 2/4线程、关闭many、关闭row-index、强制索引上限1项回退及其余全量关闭配置执行图像、预处理与批量回归；未改动的几何、文字和SIMD穷举记录继承v6。
+每个启用预处理配置104项完整缓冲及脏区比较，含颜色交替、半透明重叠、裁剪及整数极限。
+完整课程9阶段画面及关闭行索引的9阶段画面与原始记录一致。
+测试使用主机NEON算术模拟及Pillow素材/字体适配器，不是ARM原生验证，不产生可用性能成绩。
+详见evidence/v7-offline-results.json、v7-replay-results.json、v7-replay-row-index.json与v7-row-workload.json。
+
+上板流程
+解压新lab3-optimized-ready.tgz到独立目录，进入lab3-optimized-prepared：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --build-only
+先做与测速配置相同编译参数的原生检查，build-only不改变调频或CPU绑定。
+确认开发板桌面和其他画屏程序停止、1024×600/32位RGB后：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --runs 3
+入口现在同条件比较baseline、v6-sprint、v7-sprint；保留LTO、本机CPU、2线程、4096阈值等v6配置与恢复机制。
+row-index消融：使用board_compare.py --variants v7-sprint --disable row-index，并保持其余参数与全开一致。
+既有强制终止恢复说明见v5记录；runtime-controls.json保存原调频策略，可用restore-controls.py恢复。
+最终按逐项中位数选择v6或v7，索引可能在小批次增加开销，不预先认定总耗时一定更低。
+显式批量/预处理接口实验须独立标注。40ms是目标，尚未板上测速，不提高无依据的达标概率。
+
+
+以下为v6及更早版本历史说明，当前入口比较版本以上文v7为准。
+
+实验三 v6：整批透明绘制共用一次并行阶段（2026-10-17）
+
+v5的PNG预处理减少透明像素扫描，但逐次调用仍可能启动多个OpenMP线程组。
+v6新增fb_draw_prepared_many：同一素材多次绘制先记录位置/颜色并裁剪，再按目标屏幕行分工，每行严格按原调用顺序完成所有重叠。
+PNG的105次和独立字模的416次绘制分别收集成一批。每阶段最多一个并行区，透明混合顺序不变，各行目标不重叠。
+字模原单张30号较小、通常未达到4096阈值；v6按整批工作量判断并行，使重复小字模也能共享一个线程组。
+算法仍要完成所有可见半透明混合，不把一般像素处理的时间复杂度说成下降。减少的是重复调度、同步和裁剪；额外增加每行命令筛选，板上也可能回退。
+
+新增API及边界
+fb_draw_prepared_many接受拥有独立像素快照的prepared对象及位置/颜色数组；调用返回前所有绘制完成，不延迟到计时之外。
+记录命令、裁剪、分配、绘制、释放均在PNG或字模阶段原计时范围内。字体和PNG素材、尺寸、颜色与105/416次循环保持一致。
+最多4096条命令分配裁剪表，超过或分配失败逐次绘制；无效/完全越界命令跳过。命令颜色顺序和脏区并集与逐次绘制相同。
+这是显式批量/预处理接口实验，仍须与原接口成绩分开标注。
+
+下一次接板
+独立解压新包后进入lab3-optimized-prepared：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --build-only
+先执行对应编译参数的原生正确性检查；此模式不改变调频/CPU绑定。
+确认开发板桌面及其他画屏程序已停止、显示模式1024×600/32位RGB后：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --runs 3
+入口现在比较baseline、v5-sprint、v6-sprint；保持LTO、本机CPU、2线程和4096阈值等配置一致。
+临时CPU配置的恢复、信号与强制终止恢复办法沿用v5说明。
+单项对比可用board_compare.py --variants v6-sprint --disable many，其他参数与全开比较一致，记录各项中位数。
+
+验证范围
+新增8组48次有重叠、不同颜色、边缘及整数极限位置的批次，与原普通逐次绘制比较完整缓冲及脏区；加原96项，共104项/启用配置。
+标量、NEON算术模拟、OpenMP 2/4线程、关闭整批优化及全量回退组合检查；完整课程9阶段哈希与原版相同。
+同样执行整批关闭时完整9阶段比对。模拟字体/图片适配器和NEON不能替代真实ARM、FreeType及板上测速。
+原始lab3-ready.tgz保持不变，v5归档resources/lab3-optimized-v5-ready.tgz；v6在lab3-optimized-ready.tgz。
+尚无v6板上成绩，40ms仍是待验证目标，不提供更窄的无依据预测。
+
+
+以下为v5及更早版本历史说明；当前入口比较版本以上文v6说明为准。
+
+实验三 v5 全量优化与上板配置（2026-10-16）
+
+本轮补齐前次审计中可直接实施的优化与验证缺口。保留原始155ms版本及v1至v4候选。
+已接入：
+1. JPG显式批量覆盖消除；PNG和单独字模新增拥有独立像素快照的预处理接口。
+2. 预处理按行记录透明/全不透明/半透明连续区间：透明区跳过，不透明区复制或填色，半透明区使用精确整数NEON混合与标量尾部。
+3. PNG/字模的快照、区间分析、分配与释放全部纳入对应计时；不把这些工作移出成绩计时区间。分配或类型不支持时回退普通绘制。
+4. 保留直线、矩形、NEON混合、字体缓存和文字布局/透明边缘范围优化，提供逐项关闭开关。
+5. 冲刺入口统一启用LTO、本机CPU编译、4096像素并行阈值、2线程、关闭v5高频统计，并生成向量化报告和可用时的反汇编。
+6. 原生正确性检查采用对应候选的同一组编译参数，包括LTO、CPU选项、阈值与功能开关，任何失败停止测速。
+7. 完整记录并清理继承的OMP/GOMP环境，统一设置线程；显式冲刺模式临时使用performance调频和最快一组核心，结束恢复。
+
+上板入口
+先解压到独立目录，在lab3-optimized-prepared目录执行：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --build-only
+build-only执行原生内存缓冲/真实字体验证及编译，不改变调频策略或CPU绑定。
+确认1024×600、32位RGB，开发板桌面和其他画屏程序已停止后：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --runs 3
+此入口比较baseline、v4-batch-parallel与v5-sprint，统一编译/CPU条件。普通board_compare.py默认仍为baseline、v4-neon、v4-parallel。
+
+逐项回退/消融
+board_compare.py支持 --disable line,rect,text-ranges,prepared,neon（可只选一个）；--no-stats关闭v5高频计数。
+比较某项时保留其余参数一致，包括--threads 2 --threshold 4096 --lto --native-cpu --governor performance --bind fast --active-wait。
+4096阈值、2线程、主动等待和绑定最快核心只是待测组合，不能预先认定为最佳；板上需按分项成绩比较1/2/4线程和不同阈值。
+统计关闭仍保留提交/刷新等少量计数；copied_pixels显示0表示该计数已关闭，并非未绘制。
+普通绘制、批量绘制和预处理绘制分别保留。批量只承诺批次结束画面，批次内不能插入其他绘制/读取/刷屏，素材在批次期间保持有效且不变。
+预处理快照独立拥有数据，原素材随后可修改或释放；快照用于重复绘制期间保持不变。每张最多512Ki像素，最坏分配上限16MiB。
+两种显式接口都改变测试调用方式，须单独标注，不能把其成绩冒充原接口不变的成绩。
+
+离线验证
+标量、NEON算术模拟、OpenMP 2/4线程和关闭优化的配置完成绘图/图像/文字/精确线段/批量检查。
+每个启用配置96项预处理比较，覆盖裁剪、透明度、颜色、步长及释放原素材后的快照生存期；完整课程测试9次刷屏哈希一致。
+逐项关闭line、rect、text-ranges、prepared、neon、stats的完整回放也保持9阶段一致。
+运行时控制的模拟测试通过正常恢复、部分调频失败回滚、环境清理、核心选择和build-only隔离。
+这些检查使用电脑模拟的NEON及Pillow素材/字体适配器；不能代替真实ARM指令、FreeType和板上性能验证。
+正确性回放时间固定为0，等待关闭，仅供比较画面；正式测速保持真实计时与课程等待。
+
+恢复与结果
+正常结束、异常退出、Ctrl-C及SIGTERM会恢复原调频策略；核心绑定仅影响运行器及其子进程。
+SIGKILL或断电无法执行恢复，记录目录中的runtime-controls.json保留原策略；重新连接后可执行：
+python3 restore-controls.py /完整路径/runtime-controls.json
+CPU调频不改变最大频率，不超频。支持情况不满足时明确失败，不静默声称已启用。
+结果保存在每次新建的board-comparison-*目录，保留原生检查日志、逐项成绩、中位数、环境和编译命令。
+40ms仍是目标，本包没有板上新成绩，不能给出可靠达标概率。
+
+
+以下为v4及更早版本历史说明；冲刺配置以上文v5入口为准。
+
+实验三整合优化候选v4（2026-10-16，以本文件为当前说明）
+
+已整合
+1. 屏内直线只登记一次脏区，逐点直接写入；越界保留安全路径。
+2. 保持逐像素结果一致的透明混合整数改写。
+3. 单次图片按行OpenMP并行，行间目标不重叠，调用结束等待全部行完成。
+4. 保留现有字模缓存、正确裁剪、图片行步长、真实framebuffer行跨度。
+5. 增加ARM NEON一次8像素的精确透明混合、全透明/全不透明块特例与标量尾部。
+6. 增加8项字符串布局缓存，保存字形与位置；重复文本减少字体接口调用、分配和复制，保持字形叠加顺序。
+7. fast版本小图直接走普通循环，避免进入OpenMP串行线程区；大图按阈值并行。
+8. 原课程test/main.c逐字节保留；旧候选、批量候选和v4新候选均可选择。
+9. v4增加屏内32位指针直线、矩形快速路径/NEON填充、缓存字模逐行透明边缘范围。
+
+当前状态
+离线正确性检查通过；未ARM原生编译、未上板、未测提速。
+新增候选标量、NEON算术模拟、2/4线程模拟各通过404绘图、103图像、48布局缓存检查。
+NEON算术模拟每个配置另通过19,997,056项行像素/混合检查，包括全部256³通道组合。
+这里的NEON是逐指令算术模拟，不是真实ARM指令执行；真实FreeType字符串输出也待接板验证。
+并行默认阈值65536像素，PNG原尺寸16384像素默认仍串行，阈值须上板比较。
+批量覆盖消除已作为单独实验变体实现，见下方v3章节；默认非批量版本保持原课程接口。
+没有修改原lab3-ready.tgz、课程项目文件或实验四至六。
+
+下次上板
+将lab3-optimized-ready.tgz传到开发板的独立目录后解压。
+进入lab3-optimized-prepared，先编译及运行不访问显示设备的原生像素/字体验证：
+python3 board_compare.py --project /root/course-project/lab-st-2026 --build-only
+
+确认显示模式1024×600、32位RGB，并暂时停止开发板桌面及其他画屏程序。
+本脚本只检查桌面是否活跃，不会替你停桌面、结束其他实验或改变CPU调频策略。
+确认无其他画屏程序后，默认运行基线、v4-neon、v4-parallel三版各3次：
+python3 board_compare.py --project /root/course-project/lab-st-2026 --runs 3 --threads 2 --threshold 65536
+
+每次原测试含等待，三版×3次约需一分钟以上；日志会持续打印。
+每次新建本包下board-comparison-随机目录，编译及记录都保留在那里；原项目只用来读取外部库。
+结果包含编译命令、逐次/逐项成绩、中位数、温度/频率状态和每次fb_update耗时。
+FLUSH_US独立输出在日志中，原课程成绩仍使用原计时口径；这些flush也含初始化及最终成绩画面，不能全部盲加到测试总分。
+先确认显示与原版一致，再比较性能。1/2/4线程、4096/16384/65536阈值分别测，不能预先认定线程越多越快。
+如果并行编译失败先读build.log，可能缺OpenMP运行库；不能因此声称候选已经通过板上编译。
+build-only也会运行ARM原生内存缓冲检查和真实FreeType字符串比对；如果任何检查失败，停止，不继续测速。
+原生检查在1/2/4线程下检查图像与文字，不使用电脑模拟头文件。
+build-only编译所选版本，尚未配置为缺运行库自动跳过并行版。
+
+进一步对比（每次都会新建记录目录）：
+python3 board_compare.py --project /root/course-project/lab-st-2026 --variants baseline,fast-scalar,fast-neon --runs 3
+python3 board_compare.py --project /root/course-project/lab-st-2026 --variants baseline,fast-neon,fast-parallel --runs 3 --threads 4 --threshold 16384 --lto
+--lto对所有所选版本使用相同链接时优化，避免只改候选编译条件后误归因。
+旧候选仍可用--variants baseline,serial,parallel比较。默认不改变CPU策略、线程亲和性或原项目。
+
+文件
+common/graphic.c：整合并行候选。
+common/graphic-serial.c：串行优化候选。
+common/graphic-baseline.c：已有155ms实测版本的绘图源码。
+common/image.c：现有字模缓存版本。
+common/graphic-fast.c、fast_pixels.h、text_layout.h：v2优化及ARM SIMD。
+common/image-fast.c：现有字模缓存加字体身份查询，原返回字形的所有权约定不变。
+native_checks.py、tests/：接板后真实ARM与FreeType验证，当前尚未执行。
+board_compare.py：独立编译与对比，不安装覆盖原项目。
+evidence/：离线测试记录、GitHub借鉴分析与来源清单。
+
+20～40ms是后续目标，不是本包已达到的成绩。
+v1/v2/v3候选包分别保存在resources/lab3-optimized-v1-ready.tgz、resources/lab3-optimized-v2-ready.tgz与resources/lab3-optimized-v3-ready.tgz；原始lab3-ready.tgz保持原样。
+
+布局缓存边界
+每项最多256字节文本、128个字形、64KiB字形数据，共8项；超出、失败时回退原顺序绘制。
+缓存键是字体身份、字号和文本，颜色和位置可变；保留透明背景和重叠字形的原顺序。
+缓存适合课程单线程绘图调用；不可从多个外部线程同时调用fb_draw_text，内部行并行不会访问布局缓存。
+缓存减少重复准备工作，全部可见字形仍真实绘制；没有硬编码课程最终画面。
+
+v3：显式批量覆盖消除实验（不默认启用）
+新增batch和batch-parallel两个可选版本，仅将JPG阶段改成显式批量接口。
+批量分配、提交、覆盖分析、实际复制、释放全部在JPG计时区间内完成。
+默认容量256时，课程JPG复制量从16413045降到614400像素；减少约96.3%，不是实测耗时下降96.3%。
+合成与课程JPG像素共552项全帧比较通过，完整测试9次刷屏哈希一致；ARM原生验证及性能仍待上板。
+此实验只保证批次结束最终画面；提交期间素材需保持不变、有效，不能插入其他绘制/读取/刷屏。半透明图片不支持该覆盖消除。
+显式接口改变须单独标注，不把其成绩当作原接口完全不变的成绩。
+测速命令：
+python3 board_compare.py --project /root/course-project/lab-st-2026 --variants fast-neon,batch,batch-parallel --runs 3 --threads 2
+脚本会先执行原生批量随机检查、真实课程JPG检查、真实字体/图片9阶段回放检查，任何失败就停止。
+正确性回放里的时间固定为0、等待关闭，仅检查像素；正式性能测试文件保留真实计时和等待，不能混用日志。
+原始test/main.c保留；单独实验文件test/batch-main.c；实现common/batch_api.h与opaque_batch.h。
+详细记录：evidence/批量覆盖消除实验记录.txt。
+
+v4：其余项目继续优化
+新增v4-scalar、v4-neon、v4-parallel，仍运行原课程测试；v4-batch/v4-batch-parallel额外使用JPG批量接口。
+屏内直线保留原舍入/端点规则；越界走旧安全路径。矩形使用屏内快速判断及向量填充。
+缓存字模边界减少空白扫描，元数据含在原布局内存上限中。PNG仍沿用精确向量混合，不声称已测得新提速。
+先做新旧组合对比：
+python3 board_compare.py --project /root/course-project/lab-st-2026 --variants batch-parallel,v4-batch-parallel --runs 3 --threads 2
+再统一加LTO做第二组：
+python3 board_compare.py --project /root/course-project/lab-st-2026 --variants batch-parallel,v4-batch-parallel --runs 3 --threads 2 --lto
+两组成绩独立保存，随后按瓶颈调整并行阈值和线程数。
+选择v4会先验证新几何和真实字体路径；选择v4-batch还验证批量及完整真实素材回放，失败则停止。
+结果targetAssessment标明各版中位数是否<=40ms、是否批量实验、课程计时不含刷屏。
+离线各配置1024项精确线段、50项稀疏字模检查通过，完整9阶段哈希保持一致。
+ARM与真实耗时尚未验证；40ms是目标，不是现有成绩。详见evidence/v4剩余项目优化记录.txt。

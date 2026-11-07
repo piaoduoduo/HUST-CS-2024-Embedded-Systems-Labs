@@ -1,0 +1,68 @@
+file,source,kind,caption,bytes,sha256
+图片/真实记录/图1-1-烧录完成.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab1\01-etcher-flash-complete.png,电脑真实截图,图1-1 balenaEtcher 完成镜像写入及校验。,100433,ff900df8293cc44084ad215f21af2acf38ac953c92ce5310f12faa28d9c87803
+图片/真实记录/图1-2-SSH运行lab1.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab1\04-lab1-ssh-run-success.png,电脑真实截图,图1-2 PowerShell 经SSH连接开发板，lab1输出Hello embedded linux!，返回值0。,209070,c989e1645efa1ab3c9ce914571a3f9ebc9b9701e6cd4bd89e73e773953c40662
+图片/真实记录/图3-1-图片文字显示.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab3\lab3-cache.png,真实开发板显存截图,图3-1 JPEG、透明PNG、独立字模和中文文本显示结果。,538419,223ddeba056e7d83edf3cf5a4eb62d359e82b3b00035309c54a86a315b0eb7dc
+图片/真实记录/图3-2-历史17ms.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261019\17ms重点留存\17ms-开发板原始成绩截图.png,真实开发板显存截图,图3-2 2026-10-19批量优化候选第三轮17 ms成绩；同组三轮22、21、17 ms。,39250,af26948d33513a3c626c665dbf5c47366376ea193bb2f623b908e32b5a8f7b2f
+图片/真实记录/图3-3-最新20ms.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261105\lab3\20261019-142918-954174\screen.png,真实开发板显存截图,图3-3 2026-11-05第三轮20 ms成绩；同组三轮58、19、20 ms。开发板时钟未校准。,39308,b58bd1010ec05f6a0144c8e0859dfa61907c085fa236a87b64e81b398e340849
+图片/真实记录/图4-1-五指五色轨迹.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab4\drawing.png,真实开发板显存截图,图4-1 五指画板显示五种颜色的连续粗轨迹。同时五指结论另由事件日志及用户确认支持。,9941,00826e33dead04ca43bc45bb99d7d3124be0d7d0adb246f4e2711543a857e1e7
+图片/真实记录/图4-2-画板初始界面.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab4\initial.png,真实开发板显存截图,图4-2 画板初始空白界面及清屏按钮；此图不是清屏操作过程录像。,8924,58d29d0f4d6d6299334231171709eef9eac99efc4e241dd41b4d5126a4fa983e
+图片/真实记录/图5-1-蓝牙收到中文.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab5-board-20261019\双向通信实测.png,真实开发板显存截图,图5-1 蓝牙SPP连接后，开发板显示Connected及手机发送的中文消息。,16453,b2b0f363c18f9c26693de161fbdc84c30ea91bbd232cb861d11ce6a2eeb8c706
+图片/真实记录/图6-2-五子棋旧模块实测.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab6-board-20261019\gomoku-first-run.png,旧版模块真实开发板显存截图,图6-2 复用五子棋模块的开发板初始界面；实际落子和AI应答另见对局日志。,59269,aff9b6d90dc00ab9ae34c17d9bf0f0ea04e92de073239c1a4b08beb49cc44754
+图片/真实记录/图6-4-最新游戏工坊板测.png,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261105\lab6-breakout-board.png,最新版真实开发板显存截图,图6-4 2026-11-05游戏工坊v2打砖块真实运行：第1/3关、350分、2条生命。,34422,617b1c549d0c7f0316ae26eded82046b148a58f59adc5fdba71abb1039dd936b
+图片/电脑模拟-仅设计说明/图6-1-菜单-电脑模拟.png,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\preview\menu.png,电脑模拟,图6-1 游戏工坊v2统一菜单的电脑模拟预览，不是开发板实测图。,63839,644d86a7b9c1a595dfa5a8bd8ccb1e3b04dda767bab0058480e3d1c0f7801f48
+图片/电脑模拟-仅设计说明/图6-3-2048-电脑模拟.png,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\preview\2048.png,电脑模拟,图6-3 2048电脑模拟界面，展示撤销及提示设计；图中局面为测试场景。,47469,1c2dfdaa5e23e6f0996c5845c032de7fdc1ac2f0a61907a7f10c5117a7c00095
+图片/电脑模拟-仅设计说明/图6-5-道具效果-电脑模拟.png,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\preview\effects.png,电脑模拟,图6-5 道具与粒子效果的电脑模拟测试场景，不表示实际通过该关卡。,38596,97a5a62620dd072477b48b42069c1aba1c54dd09357821c8113c9a8d0646801b
+图片/电脑模拟-仅设计说明/图6-6-挑战纪录-电脑模拟.png,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\preview\records.png,电脑模拟,图6-6 挑战纪录及徽章的电脑模拟测试场景；显示分数不是本次实际取得的成绩。,64775,9b4185273a1e4a1ac5f0e22027433e333190275b03910b4f2a201e9d55c5bbb3
+日志/实验一-SSH运行确认.txt,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab1\03-user-ssh-verification.txt,原始记录副本,,1590,eb58ed46df7beae78dd659a07d5ac21565d93ece978cd7ca7c89b5e55ae0e07d
+日志/实验一-环境.json,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab1\environment.json,原始记录副本,,877,0cfc61c9de7411e6410a507ecaedfeac5249e8244e36902e736a31a639138337
+日志/实验二-运行.log,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab2\run.log,原始记录副本,,226,26f8dfdd27bfc91ba28996b4b46f22a2e4650fd68b345e0de88668c63babf19d
+日志/实验二-验收状态.json,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab2\status.json,原始记录副本,,359,2ce5a25df5033dc8d5ecb355a37c9e0e7c8dfbf8cd0af9265b3cb349b661fbc1
+日志/实验三-早期完整三轮.json,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab3\results.json,原始记录副本,,2887,1215392b82459c84cc115c12ea8c555903d2df3e3671ff9ba512706e54cabad5
+日志/实验三-早期155ms.log,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab3\o3-2.log,原始记录副本,,386,9d84099bfb15fe56a5953814ca9dfa1bd58be303787906c51ad86fe77be7253e
+日志/实验三-历史17ms.log,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261019\17ms重点留存\17ms-第三轮原始日志.log,原始记录副本,,591,5ab6334d4c60ca89bf898e413072797da0c96893ebe4b87af8e4da77ef972e6c
+日志/实验三-历史完整三轮与编译参数.json,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261019\17ms重点留存\三轮完整结果及编译参数.json,原始记录副本,,37645,b0cbe13a2732b1d8fea3685d61270f4a3e13067d9d7552af8028f9ae250f4344
+日志/实验三-17ms测试说明.txt,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261019\17ms重点留存\测试说明.txt,原始记录副本,,1749,dc30771750dd3de55d45ac0c6ca0bb53b81a975f4051ed144460a50aa83f56a7
+日志/实验三-20261105完整三轮.log,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261105\lab3-three-runs.log,原始记录副本,,2642,0fa39d3e0174553aa12a9202f629f5f5609f747aea58f3862ce5796cd3f53ad9
+日志/实验三-20261105结构化数据.json,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261105\lab3-metrics.json,原始记录副本,,1044,5c559675678ef8ca3193e3bc0b1437101183baff360013e86a46217515781eef
+日志/实验四-五指事件统计.json,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab4\event-summary.json,原始记录副本,,347,ddf136d16e8eac4977217d957fe293997bc572ebd5cc8ff36aa3d8e88fa7ddbf
+日志/实验四-原始触摸事件.log,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab4\run-snapshot.log,原始记录副本,,129400,10b69e670b3f6c99a946ad43ffa12127f1fcba04d66cd69885aa3360afb6d8ee
+日志/实验五-双向收发与真实重连确认.txt,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab5-board-20261019\实测确认.txt,原始记录副本,,1100,fa539f50c23dae8615a79e1140bd385e685093a54401a841b1993cf6aa8a0a29
+日志/实验五-真实收发.log,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab5-board-20261019\run.log,原始记录副本,,650,b9d1e2b85b25a80eb37eb235d9a5a4775cfc62e80e2792c5e91abce29efbf09c
+日志/实验五-伪终端测试.log,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab5-board-20261019\serial-test.log,原始记录副本,,660,14e6815dbadc775437344f3f99aae3caccbc62bfd3e74a90c2983d891a4b3e9a
+日志/实验六-五子棋旧模块实际对局.log,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab6-board-20261019\实际对局日志.log,原始记录副本,,3355,3a534274e72518e23030621e81d5e28fecb19c8ee0687a376eb3e5f28aba0e27
+日志/实验六-五子棋旧模块操作确认.txt,D:\Work\ChatGPT\嵌入式系统实验\evidence\lab6-board-20261019\用户实测确认.txt,原始记录副本,,328,9dffb21a706ce939f0c71a1346f10f11e671f0dbcca83a8f6e10e09cbf1f7def
+日志/实验六-最新工坊ARM构建与板端自动测试.log,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261105\build-v2.log,原始记录副本,,4523,f7146bfa20c8d3bc7c1f18d66b74dda98c6a35649f53a72a324468fe2564a242
+日志/实验六-20261105实测状态.json,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261105\session.json,原始记录副本,,1093,f588d786078c7a36d7484d2e2e9fecd8ebe0aa56184cb6c4d065863f714f2aa0
+日志/实验六-20261105设备识别与二进制哈希.json,D:\Work\ChatGPT\嵌入式系统实验\evidence\board-20261105\board-metadata.json,原始记录副本,,4871,84aa2d463296cc24b365c7ae76782b4193986de9db8cceaa6089853befb7259e
+日志/实验六-20261030电脑离线测试-历史.json,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\test-results\result.json,原始记录副本,,1381,14c1d479d0d866771663a9d1319d62ef52064317b3a7e09e8069af96ea9a9a54
+代码附件/实验六-游戏工坊v2-开发板源码包.tgz,D:\Work\ChatGPT\嵌入式系统实验\resources\lab6-arcade-v2-board-source.tgz,20261105修正后的源码准备包,,52002,df7d381342f180b2aa3da568f6a93b0e5cbddb60d58d4f00f646967dd75796c3
+代码附件/实验六-游戏工坊v2-电脑试玩包.zip,D:\Work\ChatGPT\嵌入式系统实验\resources\lab6-arcade-v2-offline.zip,Windows离线试玩包,,1518195,374e39522f08a36637ea01704e6602e76fec5164b53da98506ec87e26ada14cf
+代码附件/原始包校验值.json,D:\Work\ChatGPT\嵌入式系统实验\resources\lab6-arcade-v2-packages.json,源码包与试玩包的原始校验记录,,298,fdf1b2a691eb74f7b94756406a75c431d7ae3abd0f1c5a98ee3fa6d47bfe1552
+代码附件/选读源码/实验二/graphic.c,D:\Work\ChatGPT\嵌入式系统实验\lab2-prepared\common\graphic.c,源码选读副本-具体板测版本以日志哈希为准,,8287,dccfc7483cbf3c46fe2981a680d91044a8ccae776b2d492e7eec41b32739b6f5
+代码附件/选读源码/实验三/graphic.c,D:\Work\ChatGPT\嵌入式系统实验\lab3-optimized-v10-directrect-prepared\common\graphic.c,源码选读副本-具体板测版本以日志哈希为准,,10877,0826827dbba0e60a3508ae8d1621846e69b1a0a3d788adc16d290d78d9670c0d
+代码附件/选读源码/实验四/main.c,D:\Work\ChatGPT\嵌入式系统实验\lab4-prepared\lab4\main.c,源码选读副本-具体板测版本以日志哈希为准,,1068,d67c4a1294629c3053d6a38357a8f4b64253499859dda144fa2d479a1cf7d4d9
+代码附件/选读源码/实验五/main.c,D:\Work\ChatGPT\嵌入式系统实验\lab5-boardfix-prepared\lab5_bt\main.c,源码选读副本-具体板测版本以日志哈希为准,,6281,4459c9ad63f0eb6ee066979c111bcbe1f21dc881b6216125b6ce58fdf91dab69
+代码附件/选读源码/实验六/arcade/app.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\app.c,游戏工坊v2当前源码副本,,3332,d1c273d7178f7cc41fe1ac42b666a562ff44571a3062ffd22e0a8427c45cdfa3
+代码附件/选读源码/实验六/arcade/app.h,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\app.h,游戏工坊v2当前源码副本,,574,e041f3f4e13d61b31dcccbc862a482644f2d25d027ed2f778c36ad27d31b9b98
+代码附件/选读源码/实验六/arcade/breaker.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\breaker.c,游戏工坊v2当前源码副本,,4857,08496423c79d3f529840ece27f2a0b3dcaf7e65b33329fbb341780b9358d8580
+代码附件/选读源码/实验六/arcade/engine.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\engine.c,游戏工坊v2当前源码副本,,3034,931051f8bb5761f79134d5ff7fd9423abfc0fc0d2281e6b9e12138095ca6cb3f
+代码附件/选读源码/实验六/arcade/engine.h,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\engine.h,游戏工坊v2当前源码副本,,1135,bd169f462e0a9dd0ac05812cb7dac213932ea4ee0fe093acad26e378687cb850
+代码附件/选读源码/实验六/arcade/main.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\main.c,游戏工坊v2当前源码副本,,3079,3367e1593c46965dbe9fd47f46b72196c137ea34235ef6c7076d7644f48de60e
+代码附件/选读源码/实验六/arcade/Makefile,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\Makefile,游戏工坊v2当前源码副本,,112,2aec400c96099c526059bb8e2f90a78c4db1c633d93ee96756a53f76a3253eea
+代码附件/选读源码/实验六/arcade/profile.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\profile.c,游戏工坊v2当前源码副本,,3014,93be69e7af53503268018f27a6a008ea12ae9645e8970311306981ab9178993a
+代码附件/选读源码/实验六/arcade/profile.h,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\profile.h,游戏工坊v2当前源码副本,,532,d6b29db41a5ee6a341e6a18241e2ab04127e1f9e54dfce12c399e33391e381df
+代码附件/选读源码/实验六/arcade/render.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\arcade\render.c,游戏工坊v2当前源码副本,,5759,c1f147f0f47161c461b325b44e20d9489c53ccd468e73e0a4bf41efa4bd653fc
+代码附件/选读源码/实验六/lab6_gomoku/ai.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\ai.c,游戏工坊v2当前源码副本,,4964,d53b4375d53a0fdfb18ad283f683a7fe41c8349f6cd62b85fbded75280ce819b
+代码附件/选读源码/实验六/lab6_gomoku/ai.h,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\ai.h,游戏工坊v2当前源码副本,,384,f0d36a4d37fc7be80b70c847c91a6142452abc29a9d6b4f8368e9ce095d51f6d
+代码附件/选读源码/实验六/lab6_gomoku/app.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\app.c,游戏工坊v2当前源码副本,,3616,5e5f8ea8202bbea945dfd9756672493eef10e0fc15bf894670e6e83f596c3cc7
+代码附件/选读源码/实验六/lab6_gomoku/app.h,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\app.h,游戏工坊v2当前源码副本,,1136,52d544be5e5f662317ac3132951fae140d886fcd32d1a8d7f24ea1a87e314791
+代码附件/选读源码/实验六/lab6_gomoku/gomoku.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\gomoku.c,游戏工坊v2当前源码副本,,2160,b036c1f677b91b107bf038750931aba19b59dc8a38f94b4e31ea5ffce32bf0b7
+代码附件/选读源码/实验六/lab6_gomoku/gomoku.h,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\gomoku.h,游戏工坊v2当前源码副本,,639,8ee5b50dbca399c9b4ecbff20224acb20325c46981e04ccd0f3cc455d8101fb8
+代码附件/选读源码/实验六/lab6_gomoku/main.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\main.c,游戏工坊v2当前源码副本,,4949,262a2de59ef93e67f6d4bd48aff5dfa308931ab3a6f6bffe1fe60ed196939aeb
+代码附件/选读源码/实验六/lab6_gomoku/Makefile,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\Makefile,游戏工坊v2当前源码副本,,117,a2f14e78dfc3188992aabb3cf62dcc9573df429fa793fb027c70822806a3b824
+代码附件/选读源码/实验六/lab6_gomoku/render.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\render.c,游戏工坊v2当前源码副本,,4906,ffd760e3d3a49b6d8bd597a3590619c6ae5702c49e888d451f9884ec9384c90d
+代码附件/选读源码/实验六/lab6_gomoku/session.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\session.c,游戏工坊v2当前源码副本,,2563,b0c2d832f559d44491b2da62d6ba4923c827560234cda7a79da9c503c3ae4198
+代码附件/选读源码/实验六/lab6_gomoku/session.h,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\session.h,游戏工坊v2当前源码副本,,302,4628bdf7cf5f9c68e2ac0b9779426667bd98154bc63d5e935773cd894f816aa1
+代码附件/选读源码/实验六/lab6_gomoku/storage.c,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\storage.c,游戏工坊v2当前源码副本,,1925,c2a8bfbfa5f10562a0ed39c11f50814960f97400357960756493039934c5fc97
+代码附件/选读源码/实验六/lab6_gomoku/storage.h,D:\Work\ChatGPT\嵌入式系统实验\lab6-arcade-v2\lab6_gomoku\storage.h,游戏工坊v2当前源码副本,,247,fcc7a6554c3eebeab7d67c24ae78d428473b70d720d6d8e06a80a5783bb87dc8
+模板/用户原始模板-未填充.docx,/example/user\Desktop\嵌入式系统实验报告模板.docx,用户原始模板副本-未修改,,309751,e5f93f2cab88ef4636f351094c1d2683400bfbbacbd8a4a698feed0d82762e3d

@@ -1,0 +1,145 @@
+[
+  {
+    "repository": "nivag8899/HUST-Embedded-System",
+    "files": [
+      {
+        "path": "README.md",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "common/graphic.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "common/image.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "common/rules.mk",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab2/main.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab3/main.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "test/main.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      }
+    ],
+    "commit": "40ecd41708cf53d1de46f2ce553ad17e537a46d4"
+  },
+  {
+    "repository": "vaaandark/hust-embedded-labs",
+    "files": [],
+    "error": "HTTP Error 403: rate limit exceeded"
+  },
+  {
+    "repository": "13eholder/HUST_Embedded_System",
+    "files": [
+      {
+        "path": "README.md",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab-2022-st/common/graphic.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab-2022-st/common/image.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab-2022-st/common/rules.mk",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab-2022-st/lab2/main.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab-2022-st/lab3/main.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab-2022-st/test/main.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      }
+    ],
+    "commit": "df9f5b79a8d54529c56f108f428424df0e59efa4"
+  },
+  {
+    "repository": "KiritoKing/HUST-Embedding-2022",
+    "files": [
+      {
+        "path": "README.MD",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "common/graphic.c",
+        "sha256": "e8405a0a22166b94e194b420f7f7d09c5287b91cff688c378573f0e660ae22ea",
+        "url": "https://github.com/KiritoKing/HUST-Embedding-2022/blob/817ff72cc91ecd83c4c5d0caffd27b3c07e34224/common/graphic.c"
+      },
+      {
+        "path": "common/image.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "common/rules.mk",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab2/main.c",
+        "sha256": "4aa999c35176ed5661f60e4b8a4608fa89b4788d0e64be89cc5760c730aae12d",
+        "url": "https://github.com/KiritoKing/HUST-Embedding-2022/blob/817ff72cc91ecd83c4c5d0caffd27b3c07e34224/lab2/main.c"
+      },
+      {
+        "path": "lab3/main.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "lab6/README.MD",
+        "error": "HTTP Error 403: rate limit exceeded"
+      },
+      {
+        "path": "test/main.c",
+        "error": "HTTP Error 403: rate limit exceeded"
+      }
+    ],
+    "commit": "817ff72cc91ecd83c4c5d0caffd27b3c07e34224"
+  },
+  {
+    "repository": "dylan751/hust-embedded-system",
+    "files": [
+      {
+        "path": "README.md",
+        "error": "HTTP Error 403: rate limit exceeded"
+      }
+    ],
+    "commit": "7daaf403714c5f8b8498ae8e220cdc8c3d5b544a"
+  },
+  {
+    "repository": "Sylver-W/hust_embsys",
+    "files": [],
+    "error": "HTTP Error 403: rate limit exceeded"
+  },
+  {
+    "repository": "Leslie20031207/HUST-Embedded-System",
+    "files": [],
+    "error": "HTTP Error 403: rate limit exceeded"
+  },
+  {
+    "repository": "5uperbu9/HUST-Embedded-System",
+    "files": [],
+    "error": "HTTP Error 403: rate limit exceeded"
+  },
+  {
+    "repository": "FlashLizard/OrangePiLab",
+    "files": [],
+    "error": "HTTP Error 403: rate limit exceeded"
+  }
+]

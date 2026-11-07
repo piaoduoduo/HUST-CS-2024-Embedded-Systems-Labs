@@ -1,0 +1,153 @@
+{
+  "hostOnly": true,
+  "hardwareValidated": false,
+  "armPerformanceMeasured": false,
+  "compiler": "gcc.exe (x86_64-win32-seh-rev0, Built by MinGW-W64 project) 8.1.0",
+  "scope": "157685 original calls / 153600 visible writes; only draw loop timed; dirty updates immediate; full buffer verification outside interval prevents dead-store elimination",
+  "allLoopsRetained": true,
+  "results": {
+    "v9-calls": {
+      "samplesNs": [
+        212250,
+        208437,
+        219387,
+        209412,
+        221918,
+        280825,
+        262287,
+        217175,
+        221356
+      ],
+      "medianNs": 219387,
+      "minimumNs": 208437,
+      "maximumNs": 280825,
+      "fullPixelAndDirtyCheckPassed": true
+    },
+    "unsigned-calls": {
+      "samplesNs": [
+        209100,
+        224456,
+        244900,
+        232537,
+        212106,
+        275687,
+        236981,
+        211337,
+        210500
+      ],
+      "medianNs": 224456,
+      "minimumNs": 209100,
+      "maximumNs": 275687,
+      "fullPixelAndDirtyCheckPassed": true
+    },
+    "axis-calls": {
+      "samplesNs": [
+        215381,
+        229775,
+        300925,
+        237875,
+        194800,
+        206225,
+        198400,
+        209562,
+        217368
+      ],
+      "medianNs": 215381,
+      "minimumNs": 194800,
+      "maximumNs": 300925,
+      "fullPixelAndDirtyCheckPassed": true
+    },
+    "minmax-calls": {
+      "samplesNs": [
+        295637,
+        302418,
+        304293,
+        293931,
+        312306,
+        296837,
+        290525,
+        322506,
+        306875
+      ],
+      "medianNs": 302418,
+      "minimumNs": 290525,
+      "maximumNs": 322506,
+      "fullPixelAndDirtyCheckPassed": true
+    },
+    "v9-lto": {
+      "samplesNs": [
+        159406,
+        168987,
+        145981,
+        154162,
+        147675,
+        161668,
+        168737,
+        172568,
+        165806
+      ],
+      "medianNs": 161668,
+      "minimumNs": 145981,
+      "maximumNs": 172568,
+      "fullPixelAndDirtyCheckPassed": true
+    },
+    "unsigned-lto": {
+      "samplesNs": [
+        119593,
+        114443,
+        114206,
+        117668,
+        119800,
+        134862,
+        115062,
+        116387,
+        139100
+      ],
+      "medianNs": 117668,
+      "minimumNs": 114206,
+      "maximumNs": 139100,
+      "fullPixelAndDirtyCheckPassed": true
+    },
+    "axis-lto": {
+      "samplesNs": [
+        115131,
+        109356,
+        108150,
+        116231,
+        108656,
+        111568,
+        126175,
+        116081,
+        106006
+      ],
+      "medianNs": 111568,
+      "minimumNs": 106006,
+      "maximumNs": 126175,
+      "fullPixelAndDirtyCheckPassed": true
+    },
+    "minmax-lto": {
+      "samplesNs": [
+        111731,
+        112268,
+        110387,
+        120850,
+        126831,
+        119287,
+        135556,
+        144812,
+        114956
+      ],
+      "medianNs": 119287,
+      "minimumNs": 110387,
+      "maximumNs": 144812,
+      "fullPixelAndDirtyCheckPassed": true
+    }
+  },
+  "assemblyFiles": {
+    "v9-calls": "build-bench/v9-calls.s",
+    "unsigned-calls": "build-bench/unsigned-calls.s",
+    "axis-calls": "build-bench/axis-calls.s",
+    "minmax-calls": "build-bench/minmax-calls.s"
+  },
+  "headerSHA256": "3f749239643e0f5677d64fbdf06093cfff821e3e8e6fb9f62079e198570ef07a"
+}

@@ -1,0 +1,21 @@
+{
+  "hostTestsPassed": true,
+  "generated2048Moves": 8000,
+  "simulatedUIStates": 6,
+  "hostSyntaxWithLinuxShimsPassed": true,
+  "originalSourceUnchanged": true,
+  "nativeLinuxBuildVerified": false,
+  "hardwareVerified": false,
+  "formalAcceptance": false,
+  "sources": {
+    "arcade\\app.c": "ae53caf990f1af35629a1687d78d66e0f470d4b1752b3d6e057bdfe0a32f6960",
+    "arcade\\app.h": "d9c67a7078aded2899ea593a97fa997a7e298b0bb96b4ce523f5895f7af84a9a",
+    "arcade\\engine.c": "5de677a4a553244b993f5b2d49704a25860ea454ab54a2317efde81c55d7686b",
+    "arcade\\engine.h": "cf755c6d7f5f28701d406bb920df6bd9341fb83458b584f784c2039017771335",
+    "arcade\\main.c": "78a0a5c77406990e8169494dc37398490a45e7ca243f8330ba0ddb5dbf716034",
+    "arcade\\Makefile": "d9e783fd9709ec005a9e1fecc8779a2607bfeaaa834f603ecb54e22edc9914a3",
+    "arcade\\render.c": "0e8e3e1a71f0d90eacb8d987334299db4621437e4d9ca9252e5ff61246d006a8"
+  },
+  "windowsSimulatorStartupSmokePassed": true,
+  "interactiveSimulatorAcceptance": false
+}

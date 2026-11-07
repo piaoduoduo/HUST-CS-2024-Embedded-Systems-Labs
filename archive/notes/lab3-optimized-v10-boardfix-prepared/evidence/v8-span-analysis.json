@@ -1,0 +1,23 @@
+{
+  "performanceMeasured": false,
+  "scope": "one unclipped material, not full course clipped workload",
+  "glyphMaskIsPillowSimulation": true,
+  "materials": {
+    "png": {
+      "partialPixels": 6010,
+      "partialRuns": 1085,
+      "shortPartialRuns": 873,
+      "scalarTailPixels": 3522,
+      "vectorEightPixelBlocks": 311,
+      "scalarTailSharePercent": 58.6
+    },
+    "glyph": {
+      "partialPixels": 311,
+      "partialRuns": 101,
+      "shortPartialRuns": 96,
+      "scalarTailPixels": 239,
+      "vectorEightPixelBlocks": 9,
+      "scalarTailSharePercent": 76.85
+    }
+  }
+}

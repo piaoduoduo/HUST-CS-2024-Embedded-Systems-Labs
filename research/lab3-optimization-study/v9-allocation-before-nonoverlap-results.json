@@ -1,0 +1,14 @@
+{
+  "hardwareValidated": false,
+  "performanceMeasured": false,
+  "actualMallocFailuresInjected": [
+    "command array",
+    "CSR row index"
+  ],
+  "logs": {
+    "scalar": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "neon": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "omp2": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "omp4": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n"
+  }
+}

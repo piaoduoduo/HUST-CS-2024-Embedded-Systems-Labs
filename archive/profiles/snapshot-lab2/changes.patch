@@ -1,0 +1,1136 @@
+--- a/common/graphic.c
++++ b/common/graphic.c
+@@ -146,26 +146,92 @@
+ 
+ void fb_draw_rect(int x, int y, int w, int h, int color)
+ {
+-	if(x < 0) { w += x; x = 0;}
+-	if(x+w > SCREEN_WIDTH) { w = SCREEN_WIDTH-x;}
+-	if(y < 0) { h += y; y = 0;}
+-	if(y+h >SCREEN_HEIGHT) { h = SCREEN_HEIGHT-y;}
+-	if(w<=0 || h<=0) return;
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_rect()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    if(w <= 0 || h <= 0) return;
++
++    /* Clip before indexing. Widen the sums to avoid signed-int overflow. */
++    int64_t left = x;
++    int64_t top = y;
++    int64_t right = (int64_t)x + w;
++    int64_t bottom = (int64_t)y + h;
++
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++
++    x = (int)left;
++    y = (int)top;
++    w = (int)(right - left);
++    h = (int)(bottom - top);
++    int *buf = _begin_draw(x, y, w, h);
++
++    for(int row = y; row < y + h; ++row) {
++        int *pixel = buf + row * SCREEN_WIDTH + x;
++        for(int column = 0; column < w; ++column) {
++            pixel[column] = color;
++        }
++    }
++    return;
+ }
+ 
+ void fb_draw_line(int x1, int y1, int x2, int y2, int color)
+ {
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_line()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++
++    /* Use the longer axis, ordered consistently for reversed endpoints. */
++    int64_t major1 = steep ? y1 : x1;
++    int64_t major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1;
++    int64_t minor2 = steep ? x2 : y2;
++    if(major1 > major2) {
++        int64_t temporary = major1;
++        major1 = major2;
++        major2 = temporary;
++        temporary = minor1;
++        minor1 = minor2;
++        minor2 = temporary;
++    }
++
++    uint64_t length = (uint64_t)(major2 - major1);
++    if(length == 0) {
++        fb_draw_pixel(x1, y1, color);
++        return;
++    }
++
++    int direction = minor2 < minor1 ? -1 : 1;
++    uint64_t minor_distance = (uint64_t)llabs(minor2 - minor1);
++    int64_t limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int64_t first = major1 < 0 ? 0 : major1;
++    int64_t last = major2 >= limit ? limit - 1 : major2;
++    if(first > last) return;
++
++    /*
++     * Integer error accumulation, rounded to the nearest pixel.
++     * Preserve the error phase when skipping off-screen major coordinates.
++     * For 32-bit int endpoints, this product and sum fit in uint64_t.
++     * The loop visits at most SCREEN_WIDTH or SCREEN_HEIGHT coordinates.
++     */
++    uint64_t numerator = minor_distance * (uint64_t)(first - major1)
++                       + length / 2;
++    int64_t minor = minor1 + direction * (int64_t)(numerator / length);
++    uint64_t remainder = numerator % length;
++
++    for(int64_t major = first; major <= last; ++major) {
++        if(steep) {
++            fb_draw_pixel((int)minor, (int)major, color);
++        } else {
++            fb_draw_pixel((int)major, (int)minor, color);
++        }
++        remainder += minor_distance;
++        if(remainder >= length) {
++            remainder -= length;
++            minor += direction;
++        }
++    }
++    return;
+ }
+ 
+ void fb_draw_image(int x, int y, fb_image *image, int color)
+--- a/common/rules.mk
++++ b/common/rules.mk
+@@ -1,7 +1,7 @@
+ 
+ CROSS_COMPILE := /work/HUST/OrangePi4/gcc-aarch64/bin/aarch64-none-linux-gnu-
+ 
+-CC := $(CROSS_COMPILE)gcc
++CC := gcc
+ 
+ CFLAGS := -Wall -O2
+ LDFLAGS := -Wall
+--- /dev/null
++++ b/fb-probe.c
+@@ -0,0 +1,37 @@
++/* Read-only framebuffer checks before the course's fixed-size renderer runs. */
++#include <linux/fb.h>
++#include <sys/ioctl.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <stdint.h>
++#include <stdio.h>
++
++int main(void)
++{
++    struct fb_fix_screeninfo fix;
++    struct fb_var_screeninfo var;
++    int fd = open("/dev/fb0", O_RDONLY);
++    if(fd < 0) { perror("open /dev/fb0"); return 1; }
++    if(ioctl(fd, FBIOGET_FSCREENINFO, &fix) < 0 ||
++       ioctl(fd, FBIOGET_VSCREENINFO, &var) < 0) {
++        perror("framebuffer ioctl"); close(fd); return 1;
++    }
++    close(fd);
++    printf("{\"width\":%u,\"height\":%u,\"bits_per_pixel\":%u,"
++           "\"line_length\":%u,\"memory_bytes\":%u,\"xoffset\":%u,\"yoffset\":%u,"
++           "\"red\":[%u,%u],\"green\":[%u,%u],\"blue\":[%u,%u]}\n",
++           var.xres,var.yres,var.bits_per_pixel,fix.line_length,fix.smem_len,
++           var.xoffset,var.yoffset,var.red.offset,var.red.length,
++           var.green.offset,var.green.length,var.blue.offset,var.blue.length);
++    if(var.xres != 1024 || var.yres != 600 || var.bits_per_pixel != 32 ||
++       var.red.offset != 16 || var.red.length != 8 ||
++       var.green.offset != 8 || var.green.length != 8 ||
++       var.blue.offset != 0 || var.blue.length != 8 ||
++       fix.line_length < 1024*4 ||
++       (uint64_t)fix.smem_len < (uint64_t)fix.line_length*600) {
++        fprintf(stderr,"Framebuffer mode differs from the course renderer; adjust mode before running lab2.\n");
++        return 2;
++    }
++    puts("PASS: course framebuffer geometry, RGB layout, stride and memory size");
++    return 0;
++}
+--- /dev/null
++++ b/install-lab2.sh
+@@ -0,0 +1,39 @@
++#!/usr/bin/env bash
++set -euo pipefail
++if [ "$#" -ne 1 ]; then
++    printf 'Usage: bash install-lab2.sh /absolute/path/to/lab-st-2026\n' >&2
++    exit 1
++fi
++package_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
++project_dir=$1
++project_dir=$(CDPATH= cd -- "$project_dir" && pwd)
++test -f "$project_dir/common/graphic.c"
++test -f "$project_dir/lab2/Makefile"
++cmp -s "$project_dir/lab2/main.c" "$package_dir/lab2/main.c" || {
++    printf 'lab2/main.c differs from the current course template; review before installing.\n' >&2
++    exit 1
++}
++cmp -s "$project_dir/common/common.h" "$package_dir/common/common.h" || {
++    printf 'common.h differs from the current course template; review before installing.\n' >&2
++    exit 1
++}
++if cmp -s "$project_dir/common/graphic.c" "$package_dir/common/graphic.c"; then
++    printf 'Prepared graphic.c is already installed.\n'
++elif cmp -s "$project_dir/common/graphic.c" "$package_dir/original/common/graphic.c"; then
++    backup_dir=$(mktemp -d "$project_dir/../lab2-backup-XXXXXX")
++    cp -p "$project_dir/common/graphic.c" "$backup_dir/graphic.c"
++    cp "$package_dir/common/graphic.c" "$project_dir/common/graphic.c"
++    printf 'Original graphic.c backed up at %s\n' "$backup_dir/graphic.c"
++else
++    printf 'graphic.c has other changes; review them before installing this version.\n' >&2
++    exit 1
++fi
++record_dir=$(mktemp -d "$project_dir/../lab2-build-record-XXXXXX")
++printf 'Build log: %s/build.log\n' "$record_dir"
++{
++    date -Is
++    uname -a
++    make -C "$project_dir/lab2" CC=gcc || exit $?
++    file "$project_dir/out/lab2" || exit $?
++} 2>&1 | tee "$record_dir/build.log"
++printf 'Build finished. Run lab2 after restoring screen power and stopping the desktop.\n'
+--- /dev/null
++++ b/original/common/graphic.c
+@@ -0,0 +1,252 @@
++#include "common.h"
++#include <sys/ioctl.h>
++#include <linux/fb.h>
++#include <linux/kd.h>
++#include <linux/vt.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <stdio.h>
++#include <sys/mman.h>
++#include <string.h>
++
++static int LCD_FB_FD;
++static int *LCD_FB_BUF;
++static int LCD_FB_LINELEN;
++static int DRAW_BUF[SCREEN_WIDTH*SCREEN_HEIGHT];
++
++static struct area {
++	int x1, x2, y1, y2;
++} update_area = {0,0,0,0};
++
++#define AREA_SET_EMPTY(pa) do {\
++	(pa)->x1 = SCREEN_WIDTH;\
++	(pa)->x2 = 0;\
++	(pa)->y1 = SCREEN_HEIGHT;\
++	(pa)->y2 = 0;\
++} while(0)
++
++void fb_init(char *dev)
++{
++	int fd;
++	struct fb_fix_screeninfo fb_fix;
++	struct fb_var_screeninfo fb_var;
++
++	if(LCD_FB_BUF != NULL) return; /*already done*/
++
++	//进入终端图形模式
++	fd = open("/dev/tty0",O_RDWR,0);
++	ioctl(fd, KDSETMODE, KD_GRAPHICS);
++	close(fd);
++
++	//First: Open the device
++	if((fd = open(dev, O_RDWR)) < 0){
++		printf("Unable to open framebuffer %s, errno = %d\n", dev, errno);
++		return;
++	}
++	if(ioctl(fd, FBIOGET_FSCREENINFO, &fb_fix) < 0){
++		printf("Unable to FBIOGET_FSCREENINFO %s\n", dev);
++		return;
++	}
++	if(ioctl(fd, FBIOGET_VSCREENINFO, &fb_var) < 0){
++		printf("Unable to FBIOGET_VSCREENINFO %s\n", dev);
++		return;
++	}
++
++	printf("framebuffer info: bits_per_pixel=%u,size=(%d,%d),virtual_pos_size=(%d,%d)(%d,%d),line_length=%u,smem_len=%u\n",
++		fb_var.bits_per_pixel, fb_var.xres, fb_var.yres, fb_var.xoffset, fb_var.yoffset,
++		fb_var.xres_virtual, fb_var.yres_virtual, fb_fix.line_length, fb_fix.smem_len);
++
++	//Second: mmap
++	void *addr = mmap(NULL, fb_fix.smem_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
++	if(addr == (void *)-1){
++		printf("failed to mmap memory for framebuffer.\n");
++		return;
++	}
++
++	if((fb_var.xoffset != 0)||(fb_var.yoffset != 0))
++	{
++		fb_var.xoffset = 0;
++		fb_var.yoffset = 0;
++		if(ioctl(fd, FBIOPAN_DISPLAY, &fb_var) < 0) {
++			printf("FBIOPAN_DISPLAY framebuffer failed\n");
++		}
++	}
++
++	LCD_FB_FD = fd;
++	LCD_FB_BUF = addr;
++	LCD_FB_LINELEN = fb_fix.line_length;
++
++	//set empty
++	AREA_SET_EMPTY(&update_area);
++	return;
++}
++
++static void _copy_area(int *dst, int *src, struct area *pa)
++{
++	int x, y, w, h;
++	x = pa->x1; w = pa->x2-x;
++	y = pa->y1; h = pa->y2-y;
++	char *psrc = (char *)src + y*(SCREEN_WIDTH*4) + x*4;
++	char *pdst = (char *)dst + y*LCD_FB_LINELEN + x*4;
++	while(h-- > 0){
++		memcpy(pdst, psrc, w*4);
++		psrc += SCREEN_WIDTH*4;
++		pdst += LCD_FB_LINELEN;
++	}
++}
++
++static int _check_area(struct area *pa)
++{
++	if(pa->x2 == 0) return 0; //is empty
++
++	if(pa->x1 < 0) pa->x1 = 0;
++	if(pa->x2 > SCREEN_WIDTH) pa->x2 = SCREEN_WIDTH;
++	if(pa->y1 < 0) pa->y1 = 0;
++	if(pa->y2 > SCREEN_HEIGHT) pa->y2 = SCREEN_HEIGHT;
++
++	if((pa->x2 > pa->x1) && (pa->y2 > pa->y1))
++		return 1; //no empty
++
++	//set empty
++	AREA_SET_EMPTY(pa);
++	return 0;
++}
++
++void fb_update(void)
++{
++	if(_check_area(&update_area) == 0) return; //is empty
++	_copy_area(LCD_FB_BUF, DRAW_BUF, &update_area);
++	AREA_SET_EMPTY(&update_area); //set empty
++	return;
++}
++
++/*======================================================================*/
++
++static void * _begin_draw(int x, int y, int w, int h)
++{
++	int x2 = x+w;
++	int y2 = y+h;
++	if(update_area.x1 > x) update_area.x1 = x;
++	if(update_area.y1 > y) update_area.y1 = y;
++	if(update_area.x2 < x2) update_area.x2 = x2;
++	if(update_area.y2 < y2) update_area.y2 = y2;
++	return DRAW_BUF;
++}
++
++void fb_draw_pixel(int x, int y, int color)
++{
++	if(x<0 || y<0 || x>=SCREEN_WIDTH || y>=SCREEN_HEIGHT) return;
++	int *buf = _begin_draw(x,y,1,1);
++/*---------------------------------------------------*/
++	*(buf + y*SCREEN_WIDTH + x) = color;
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_rect(int x, int y, int w, int h, int color)
++{
++	if(x < 0) { w += x; x = 0;}
++	if(x+w > SCREEN_WIDTH) { w = SCREEN_WIDTH-x;}
++	if(y < 0) { h += y; y = 0;}
++	if(y+h >SCREEN_HEIGHT) { h = SCREEN_HEIGHT-y;}
++	if(w<=0 || h<=0) return;
++	int *buf = _begin_draw(x,y,w,h);
++/*---------------------------------------------------*/
++	printf("you need implement fb_draw_rect()\n"); exit(0);
++
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_line(int x1, int y1, int x2, int y2, int color)
++{
++/*---------------------------------------------------*/
++	printf("you need implement fb_draw_line()\n"); exit(0);
++
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_image(int x, int y, fb_image *image, int color)
++{
++	if(image == NULL) return;
++
++	int ix = 0; //image x
++	int iy = 0; //image y
++	int w = image->pixel_w; //draw width
++	int h = image->pixel_h; //draw height
++
++	if(x<0) {w+=x; ix-=x; x=0;}
++	if(y<0) {h+=y; iy-=y; y=0;}
++	
++	if(x+w > SCREEN_WIDTH) {
++		w = SCREEN_WIDTH - x;
++	}
++	if(y+h > SCREEN_HEIGHT) {
++		h = SCREEN_HEIGHT - y;
++	}
++	if((w <= 0)||(h <= 0)) return;
++
++	int *buf = _begin_draw(x,y,w,h);
++/*---------------------------------------------------------------*/
++	char *dst = (char *)(buf + y*SCREEN_WIDTH + x);
++	char *src; //不同的图像颜色格式定位不同
++/*---------------------------------------------------------------*/
++
++	int alpha;
++	int ww;
++
++	if(image->color_type == FB_COLOR_RGB_8880) /*lab3: jpg*/
++	{
++		printf("you need implement fb_draw_image() FB_COLOR_RGB_8880\n"); exit(0);
++
++		return;
++	}
++	else if(image->color_type == FB_COLOR_RGBA_8888) /*lab3: png*/
++	{
++		printf("you need implement fb_draw_image() FB_COLOR_RGBA_8888\n"); exit(0);
++
++		return;
++	}
++	else if(image->color_type == FB_COLOR_ALPHA_8) /*lab3: font*/
++	{
++		printf("you need implement fb_draw_image() FB_COLOR_ALPHA_8\n"); exit(0);
++
++		return;
++	}
++/*---------------------------------------------------------------*/
++	return;
++}
++
++void fb_draw_border(int x, int y, int w, int h, int color)
++{
++	if(w<=0 || h<=0) return;
++	fb_draw_rect(x, y, w, 1, color);
++	if(h > 1) {
++		fb_draw_rect(x, y+h-1, w, 1, color);
++		fb_draw_rect(x, y+1, 1, h-2, color);
++		if(w > 1) fb_draw_rect(x+w-1, y+1, 1, h-2, color);
++	}
++}
++
++/** draw a text string **/
++void fb_draw_text(int x, int y, char *text, int font_size, int color)
++{
++	fb_image *img;
++	fb_font_info info;
++	int i=0;
++	int len = strlen(text);
++	while(i < len)
++	{
++		img = fb_read_font_image(text+i, font_size, &info);
++		if(img == NULL) break;
++		fb_draw_image(x+info.left, y-info.top, img, color);
++		fb_free_image(img);
++
++		x += info.advance_x;
++		i += info.bytes;
++	}
++	return;
++}
++
+--- /dev/null
++++ b/run-lab2.sh
+@@ -0,0 +1,22 @@
++#!/usr/bin/env bash
++set -euo pipefail
++if [ "$#" -ne 1 ]; then
++    printf 'Usage: bash run-lab2.sh /absolute/path/to/lab-st-2026\n' >&2
++    exit 1
++fi
++project_dir=$1
++project_dir=$(CDPATH= cd -- "$project_dir" && pwd)
++test -x "$project_dir/out/lab2"
++test -c /dev/fb0
++test -r /dev/fb0
++test -w /dev/fb0
++record_dir=$(mktemp -d "$project_dir/../lab2-run-record-XXXXXX")
++set +e
++(cd "$project_dir/out" && ./lab2) >"$record_dir/run.log" 2>&1
++status=$?
++set -e
++printf 'Program exit status: %s\n' "$status" >>"$record_dir/run.log"
++cat "$record_dir/run.log"
++printf 'Run log saved at %s/run.log\n' "$record_dir"
++printf 'Also photograph the physical screen to verify the drawing result.\n'
++exit "$status"
+--- /dev/null
++++ b/tests/build_offline.py
+@@ -0,0 +1,184 @@
++from pathlib import Path
++import argparse
++import datetime
++import difflib
++import hashlib
++import json
++import os
++import re
++import subprocess
++import sys
++import tarfile
++
++sys.stdout.reconfigure(encoding="utf-8")
++ROOT = Path(__file__).resolve().parents[1]
++BUILD = ROOT / "build"
++RESULTS = ROOT / "test-results"
++PREVIEW = ROOT / "preview"
++for directory in (BUILD, RESULTS, PREVIEW):
++    directory.mkdir(exist_ok=True)
++
++parser = argparse.ArgumentParser()
++parser.add_argument("--cc", required=True)
++args = parser.parse_args()
++compiler = Path(args.cc).resolve()
++environment = dict(os.environ)
++environment["PATH"] = str(compiler.parent) + os.pathsep + environment.get("PATH", "")
++
++def execute(command, log_name):
++    result = subprocess.run([str(item) for item in command], cwd=ROOT,
++                            env=environment, capture_output=True,
++                            encoding="utf-8", errors="replace", timeout=60)
++    output = result.stdout + result.stderr
++    (RESULTS / log_name).write_text(output, encoding="utf-8", newline="\n")
++    if output:
++        print(output.rstrip())
++    if result.returncode:
++        raise RuntimeError(f"{log_name}: process exited with {result.returncode}")
++    return output
++
++original = (ROOT / "original/common/graphic.c").read_text(encoding="utf-8")
++source = (ROOT / "common/graphic.c").read_text(encoding="utf-8")
++header = (ROOT / "common/common.h").read_text(encoding="utf-8")
++course = ROOT.parent / "course-source/lab-st-2026"
++assert (ROOT / "lab2/main.c").read_bytes() == (course / "lab2/main.c").read_bytes()
++assert (ROOT / "lab2/Makefile").read_bytes() == (course / "lab2/Makefile").read_bytes()
++
++def remove_assignment_functions(text):
++    start = text.index("void fb_draw_rect(")
++    end = text.index("void fb_draw_image(", start)
++    return text[:start] + "[LAB2 DRAWING FUNCTIONS]\n" + text[end:]
++
++assert remove_assignment_functions(source) == remove_assignment_functions(original), \
++       "A production function outside lab2 was modified"
++patch = "".join(difflib.unified_diff(original.splitlines(True), source.splitlines(True),
++                                   fromfile="original/common/graphic.c",
++                                   tofile="common/graphic.c"))
++(ROOT / "lab2-functions.patch").write_text(patch, encoding="utf-8", newline="\n")
++defines = []
++for name in ("SCREEN_WIDTH", "SCREEN_HEIGHT", "FB_COLOR"):
++    match = re.search(r"(?m)^#define " + name + r"(?:\(|\s)[^\n]*", header)
++    assert match, name
++    defines.append(match.group())
++globals_start = source.index("static int LCD_FB_FD;")
++globals_end = source.index("void fb_init(")
++globals_text = source[globals_start:globals_end]
++globals_text = globals_text.replace("static int LCD_FB_FD;\n", "")
++assert globals_text.count("static int DRAW_BUF[SCREEN_WIDTH*SCREEN_HEIGHT];") == 1
++globals_text = globals_text.replace(
++    "static int DRAW_BUF[SCREEN_WIDTH*SCREEN_HEIGHT];",
++    "static struct {\n"
++    "    int before[GUARD_WORDS];\n"
++    "    int pixels[SCREEN_WIDTH*SCREEN_HEIGHT];\n"
++    "    int after[GUARD_WORDS];\n"
++    "} TEST_BACK;\n"
++    "#define DRAW_BUF TEST_BACK.pixels")
++functions_start = source.index("static void _copy_area(")
++functions_end = source.index("void fb_draw_image(", functions_start)
++portable = (
++    "#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n"
++    "#include <stdint.h>\n#include <limits.h>\n#include <math.h>\n"
++    "#include <time.h>\n#define GUARD_WORDS 64\n"
++    + "\n".join(defines) + "\n" + globals_text
++    + source[functions_start:functions_end])
++(BUILD / "graphics-under-test.c").write_text(portable, encoding="utf-8", newline="\n")
++
++flags = ["-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
++         "-Wno-unused-parameter", "-static", "-I", str(BUILD)]
++test_executable = BUILD / "test-graphics.exe"
++execute([compiler, *flags, ROOT / "tests/test_graphics.c", "-o", test_executable, "-lm"],
++        "compile-tests.log")
++unit_output = execute([test_executable], "offline-tests.log")
++case_count = int(re.search(r"PASS: (\d+) offline cases", unit_output).group(1))
++
++course_main = (ROOT / "lab2/main.c").read_text(encoding="utf-8")
++course_main = re.sub(r"(?m)^#include[^\n]*\n?", "", course_main)
++replay = r'''#include "fixture.h"
++void fb_init(char *device)
++{
++    (void)device;
++    reset_surfaces(0);
++}
++int32_t task_get_time(void)
++{
++    return (int32_t)((int64_t)clock() * 1000 / CLOCKS_PER_SEC);
++}
++unsigned int sleep(unsigned int seconds)
++{
++    (void)seconds;
++    return 0;
++}
++#define main course_lab2_main
++'''
++replay += course_main
++replay += r'''
++#undef main
++int main(int argc, char **argv)
++{
++    require(argc == 2, "preview output path argument");
++    printf("OFFLINE memory framebuffer replay; timing values are host-only.\n");
++    int status = course_lab2_main(0, NULL);
++    require(status == 0, "course main exit status");
++    check_front_matches_back();
++    write_preview_ppm(argv[1]);
++    printf("PASS: original course lab2/main.c completed; preview written.\n");
++    free(front_storage);
++    return 0;
++}
++'''
++replay_file = BUILD / "replay-course-main.c"
++replay_file.write_text(replay, encoding="utf-8", newline="\n")
++replay_executable = BUILD / "replay-course-main.exe"
++execute([compiler, *flags, "-I", ROOT / "tests", replay_file,
++         "-o", replay_executable, "-lm"], "compile-preview.log")
++ppm_path = PREVIEW / "lab2-simulated.ppm"
++execute([replay_executable, ppm_path], "course-main-offline.log")
++
++from PIL import Image
++with ppm_path.open("rb") as image_file:
++    assert image_file.readline() == b"P6\n"
++    dimensions = tuple(map(int, image_file.readline().split()))
++    assert image_file.readline() == b"255\n"
++    pixels = image_file.read()
++assert dimensions == (1024, 600)
++assert len(pixels) == dimensions[0] * dimensions[1] * 3
++Image.frombytes("RGB", dimensions, pixels).save(PREVIEW / "lab2-simulated.png")
++
++report = {
++    "recordedAt": datetime.datetime.now().astimezone().isoformat(),
++    "mode": "Windows-host C tests and memory framebuffer simulation",
++    "offlineCasesPassed": case_count,
++    "compiler": str(compiler),
++    "compilerFlags": flags,
++    "productionSourceSHA256": hashlib.sha256(
++        (ROOT / "common/graphic.c").read_bytes()).hexdigest(),
++    "onlyLab2FunctionsChangedInGraphicC": True,
++    "courseLab2MainAndMakefileUnchanged": True,
++    "originalCourseMainCompletedInSimulation": True,
++    "backBufferAndFrontBufferCanariesIntact": True,
++    "paddedFramebufferStrideVerified": True,
++    "hardwareValidated": False,
++    "preview": "preview/lab2-simulated.png",
++    "pending": [
++        "ARM-native compilation on the Orange Pi",
++        "Real framebuffer format and geometry check",
++        "Physical screen verification and teaching-assistant acceptance"
++    ]
++}
++(RESULTS / "offline-result.json").write_text(
++    json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
++
++members = [
++    "common/graphic.c", "common/common.h", "common/rules.mk",
++    "original/common/graphic.c", "lab2/main.c", "lab2/Makefile",
++    "lab2-functions.patch", "install-lab2.sh", "run-lab2.sh",
++    "下一步操作.txt"
++]
++archive_path = ROOT.parent / "lab2-ready.tgz"
++with tarfile.open(archive_path, "w:gz") as archive:
++    for relative in members:
++        archive.add(ROOT / relative, arcname="lab2-prepared/" + relative)
++with tarfile.open(archive_path, "r:gz") as archive:
++    assert archive.getnames() == ["lab2-prepared/" + item for item in members]
++print(f"Ready source package: {archive_path.name}")
++print("Hardware validation is pending; no board connection is used by this script.")
+--- /dev/null
++++ b/tests/fixture.h
+@@ -0,0 +1,94 @@
++#include "graphics-under-test.c"
++
++#define PAD_WORDS 4
++#define PITCH_WORDS (SCREEN_WIDTH + PAD_WORDS)
++#define FRONT_WORDS (PITCH_WORDS * SCREEN_HEIGHT)
++#define CANARY 0x13579bdf
++#define TEST_COLOR 0x1234ab
++
++int *front_storage;
++unsigned tested_cases;
++char case_label[128] = "initialization";
++
++void require(int condition, const char *message)
++{
++    if(!condition) {
++        fprintf(stderr, "FAIL [%s]: %s\n", case_label, message);
++        exit(1);
++    }
++}
++
++void reset_surfaces(int visible_color)
++{
++    require(sizeof(int) == 4, "framebuffer requires 32-bit int pixels");
++    if(front_storage == NULL) {
++        front_storage = malloc((FRONT_WORDS + 2 * GUARD_WORDS) * sizeof(int));
++        require(front_storage != NULL, "front-buffer allocation");
++    }
++    for(int i = 0; i < FRONT_WORDS + 2 * GUARD_WORDS; ++i)
++        front_storage[i] = CANARY;
++    LCD_FB_BUF = front_storage + GUARD_WORDS;
++    LCD_FB_LINELEN = PITCH_WORDS * sizeof(int);
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = 0; x < SCREEN_WIDTH; ++x)
++            LCD_FB_BUF[y * PITCH_WORDS + x] = visible_color;
++    for(int i = 0; i < GUARD_WORDS; ++i) {
++        TEST_BACK.before[i] = CANARY;
++        TEST_BACK.after[i] = CANARY;
++    }
++    memset(DRAW_BUF, 0, sizeof(DRAW_BUF));
++    AREA_SET_EMPTY(&update_area);
++}
++
++void check_canaries(void)
++{
++    for(int i = 0; i < GUARD_WORDS; ++i) {
++        require(TEST_BACK.before[i] == CANARY, "write before back buffer");
++        require(TEST_BACK.after[i] == CANARY, "write after back buffer");
++        require(front_storage[i] == CANARY, "write before front buffer");
++        require(front_storage[GUARD_WORDS + FRONT_WORDS + i] == CANARY,
++                "write after front buffer");
++    }
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = SCREEN_WIDTH; x < PITCH_WORDS; ++x)
++            require(LCD_FB_BUF[y * PITCH_WORDS + x] == CANARY,
++                    "framebuffer row-padding was overwritten");
++}
++
++void check_front_matches_back(void)
++{
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = 0; x < SCREEN_WIDTH; ++x)
++            require(LCD_FB_BUF[y * PITCH_WORDS + x] ==
++                    DRAW_BUF[y * SCREEN_WIDTH + x], "refresh pixel mismatch");
++    check_canaries();
++}
++
++uint64_t front_hash(void)
++{
++    uint64_t hash = UINT64_C(14695981039346656037);
++    for(int i = 0; i < FRONT_WORDS; ++i) {
++        hash ^= (uint32_t)LCD_FB_BUF[i];
++        hash *= UINT64_C(1099511628211);
++    }
++    return hash;
++}
++
++void write_preview_ppm(const char *path)
++{
++    FILE *file = fopen(path, "wb");
++    require(file != NULL, "open preview file");
++    fprintf(file, "P6\n%d %d\n255\n", SCREEN_WIDTH, SCREEN_HEIGHT);
++    for(int y = 0; y < SCREEN_HEIGHT; ++y) {
++        for(int x = 0; x < SCREEN_WIDTH; ++x) {
++            uint32_t color = (uint32_t)LCD_FB_BUF[y * PITCH_WORDS + x];
++            unsigned char rgb[3] = {
++                (unsigned char)(color >> 16),
++                (unsigned char)(color >> 8),
++                (unsigned char)color
++            };
++            require(fwrite(rgb, 1, 3, file) == 3, "write preview pixels");
++        }
++    }
++    require(fclose(file) == 0, "close preview file");
++}
+--- /dev/null
++++ b/tests/prepare_sources.py
+@@ -0,0 +1,126 @@
++from pathlib import Path
++import difflib
++import shutil
++
++ROOT = Path(__file__).resolve().parents[1]
++COURSE = ROOT.parent / "course-source" / "lab-st-2026"
++for relative in ("common/common.h", "common/rules.mk", "lab2/main.c", "lab2/Makefile"):
++    destination = ROOT / relative
++    destination.parent.mkdir(parents=True, exist_ok=True)
++    shutil.copyfile(COURSE / relative, destination)
++
++original_file = COURSE / "common/graphic.c"
++original_copy = ROOT / "original/common/graphic.c"
++original_copy.parent.mkdir(parents=True, exist_ok=True)
++shutil.copyfile(original_file, original_copy)
++original = original_file.read_text(encoding="utf-8")
++
++rectangle = r'''void fb_draw_rect(int x, int y, int w, int h, int color)
++{
++    if(w <= 0 || h <= 0) return;
++
++    /* Clip before indexing. Widen the sums to avoid signed-int overflow. */
++    int64_t left = x;
++    int64_t top = y;
++    int64_t right = (int64_t)x + w;
++    int64_t bottom = (int64_t)y + h;
++
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++
++    x = (int)left;
++    y = (int)top;
++    w = (int)(right - left);
++    h = (int)(bottom - top);
++    int *buf = _begin_draw(x, y, w, h);
++
++    for(int row = y; row < y + h; ++row) {
++        int *pixel = buf + row * SCREEN_WIDTH + x;
++        for(int column = 0; column < w; ++column) {
++            pixel[column] = color;
++        }
++    }
++    return;
++}
++
++'''
++line = r'''void fb_draw_line(int x1, int y1, int x2, int y2, int color)
++{
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++
++    /* Use the longer axis, ordered consistently for reversed endpoints. */
++    int64_t major1 = steep ? y1 : x1;
++    int64_t major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1;
++    int64_t minor2 = steep ? x2 : y2;
++    if(major1 > major2) {
++        int64_t temporary = major1;
++        major1 = major2;
++        major2 = temporary;
++        temporary = minor1;
++        minor1 = minor2;
++        minor2 = temporary;
++    }
++
++    uint64_t length = (uint64_t)(major2 - major1);
++    if(length == 0) {
++        fb_draw_pixel(x1, y1, color);
++        return;
++    }
++
++    int direction = minor2 < minor1 ? -1 : 1;
++    uint64_t minor_distance = (uint64_t)llabs(minor2 - minor1);
++    int64_t limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int64_t first = major1 < 0 ? 0 : major1;
++    int64_t last = major2 >= limit ? limit - 1 : major2;
++    if(first > last) return;
++
++    /*
++     * Integer error accumulation, rounded to the nearest pixel.
++     * Preserve the error phase when skipping off-screen major coordinates.
++     * For 32-bit int endpoints, this product and sum fit in uint64_t.
++     * The loop visits at most SCREEN_WIDTH or SCREEN_HEIGHT coordinates.
++     */
++    uint64_t numerator = minor_distance * (uint64_t)(first - major1)
++                       + length / 2;
++    int64_t minor = minor1 + direction * (int64_t)(numerator / length);
++    uint64_t remainder = numerator % length;
++
++    for(int64_t major = first; major <= last; ++major) {
++        if(steep) {
++            fb_draw_pixel((int)minor, (int)major, color);
++        } else {
++            fb_draw_pixel((int)major, (int)minor, color);
++        }
++        remainder += minor_distance;
++        if(remainder >= length) {
++            remainder -= length;
++            minor += direction;
++        }
++    }
++    return;
++}
++
++'''
++start = original.index("void fb_draw_rect(")
++middle = original.index("void fb_draw_line(", start)
++end = original.index("void fb_draw_image(", middle)
++prepared = original[:start] + rectangle + line + original[end:]
++(ROOT / "common/graphic.c").write_text(prepared, encoding="utf-8", newline="\n")
++rules_file = ROOT / "common/rules.mk"
++rules = rules_file.read_text(encoding="utf-8")
++assert rules.count("CC := $(CROSS_COMPILE)gcc") == 1
++rules_file.write_text(rules.replace("CC := $(CROSS_COMPILE)gcc", "CC := gcc"),
++                      encoding="utf-8", newline="\n")
++patch = "".join(difflib.unified_diff(original.splitlines(True),
++                                   prepared.splitlines(True),
++                                   fromfile="original/common/graphic.c",
++                                   tofile="common/graphic.c"))
++(ROOT / "lab2-functions.patch").write_text(patch, encoding="utf-8", newline="\n")
++print("Prepared source: only fb_draw_rect and fb_draw_line changed in graphic.c.")
++print("Course lab2/main.c and Makefile preserved; local rules.mk uses native GCC.")
+--- /dev/null
++++ b/tests/test_graphics.c
+@@ -0,0 +1,236 @@
++#include "fixture.h"
++
++static int saved_pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
++static uint32_t random_state = UINT32_C(0x20261008);
++
++static int random_between(int low, int high)
++{
++    random_state = random_state * UINT32_C(1664525) + UINT32_C(1013904223);
++    return low + (int)(random_state % (uint32_t)(high - low + 1));
++}
++
++static void test_rectangle(int x, int y, int width, int height)
++{
++    snprintf(case_label, sizeof(case_label), "rectangle %u (%d,%d,%d,%d)",
++             tested_cases, x, y, width, height);
++    reset_surfaces(0);
++    fb_draw_rect(x, y, width, height, TEST_COLOR);
++    int64_t right = (int64_t)x + width;
++    int64_t bottom = (int64_t)y + height;
++    for(int row = 0; row < SCREEN_HEIGHT; ++row) {
++        for(int column = 0; column < SCREEN_WIDTH; ++column) {
++            int inside = width > 0 && height > 0 &&
++                         (int64_t)column >= x && (int64_t)column < right &&
++                         (int64_t)row >= y && (int64_t)row < bottom;
++            require(DRAW_BUF[row * SCREEN_WIDTH + column] ==
++                    (inside ? TEST_COLOR : 0), "rectangle point-containment oracle");
++        }
++    }
++    check_canaries();
++    fb_update();
++    check_front_matches_back();
++    ++tested_cases;
++}
++
++static void test_line(int x1, int y1, int x2, int y2)
++{
++    snprintf(case_label, sizeof(case_label), "line %u (%d,%d)-(%d,%d)",
++             tested_cases, x1, y1, x2, y2);
++    reset_surfaces(0);
++    fb_draw_line(x1, y1, x2, y2, TEST_COLOR);
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++    int64_t major1 = steep ? y1 : x1, major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1, minor2 = steep ? x2 : y2;
++    int major_limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int minor_limit = steep ? SCREEN_WIDTH : SCREEN_HEIGHT;
++    int counts[SCREEN_WIDTH] = {0};
++    int count = 0;
++
++    for(int row = 0; row < SCREEN_HEIGHT; ++row) {
++        for(int column = 0; column < SCREEN_WIDTH; ++column) {
++            int pixel = DRAW_BUF[row * SCREEN_WIDTH + column];
++            if(pixel == 0) continue;
++            require(pixel == TEST_COLOR, "line color");
++            ++count;
++            int major = steep ? row : column;
++            int minor = steep ? column : row;
++            ++counts[major];
++            if(major1 == major2) {
++                require(column == x1 && row == y1, "degenerate line is one pixel");
++            } else {
++                int64_t low = major1 < major2 ? major1 : major2;
++                int64_t high = major1 > major2 ? major1 : major2;
++                require(major >= low && major <= high, "pixel beyond endpoints");
++                double parameter = ((double)major - major1) /
++                                   ((double)major2 - major1);
++                double ideal = minor1 + ((double)minor2 - minor1) * parameter;
++                require(fabs(minor - ideal) <= 0.50001,
++                        "line exceeds half-pixel geometric error");
++            }
++        }
++    }
++    if(major1 == major2) {
++        int visible = x1 >= 0 && x1 < SCREEN_WIDTH &&
++                      y1 >= 0 && y1 < SCREEN_HEIGHT;
++        require(count == visible, "single-point count");
++    } else {
++        int64_t low = major1 < major2 ? major1 : major2;
++        int64_t high = major1 > major2 ? major1 : major2;
++        for(int major = 0; major < major_limit; ++major) {
++            require(counts[major] <= 1, "more than one pixel per major coordinate");
++            if(major < low || major > high) {
++                require(counts[major] == 0, "major coordinate outside segment");
++                continue;
++            }
++            double parameter = ((double)major - major1) /
++                               ((double)major2 - major1);
++            double ideal = minor1 + ((double)minor2 - minor1) * parameter;
++            if(ideal >= 0 && ideal <= minor_limit - 1)
++                require(counts[major] == 1, "gap on a visible line");
++            if(ideal < -0.50001 || ideal > minor_limit - 0.49999)
++                require(counts[major] == 0, "pixel outside clipping tolerance");
++        }
++    }
++    check_canaries();
++    memcpy(saved_pixels, DRAW_BUF, sizeof(saved_pixels));
++    reset_surfaces(0);
++    fb_draw_line(x2, y2, x1, y1, TEST_COLOR);
++    require(memcmp(saved_pixels, DRAW_BUF, sizeof(saved_pixels)) == 0,
++            "endpoint reversal changed rasterization");
++    check_canaries();
++    fb_update();
++    check_front_matches_back();
++    ++tested_cases;
++}
++
++static void test_golden_octants(void)
++{
++    const int points[6][2] = {{0,0},{1,0},{2,1},{3,1},{4,2},{5,2}};
++    for(int transpose = 0; transpose < 2; ++transpose) {
++        for(int sx = -1; sx <= 1; sx += 2) {
++            for(int sy = -1; sy <= 1; sy += 2) {
++                snprintf(case_label, sizeof(case_label), "golden octant %d %d %d",
++                         transpose, sx, sy);
++                reset_surfaces(0);
++                memset(saved_pixels, 0, sizeof(saved_pixels));
++                for(int i = 0; i < 6; ++i) {
++                    int x = 20 + sx * points[i][transpose ? 1 : 0];
++                    int y = 20 + sy * points[i][transpose ? 0 : 1];
++                    saved_pixels[y * SCREEN_WIDTH + x] = TEST_COLOR;
++                }
++                int end_x = 20 + sx * (transpose ? 2 : 5);
++                int end_y = 20 + sy * (transpose ? 5 : 2);
++                fb_draw_line(20, 20, end_x, end_y, TEST_COLOR);
++                require(memcmp(saved_pixels, DRAW_BUF, sizeof(saved_pixels)) == 0,
++                        "golden pixel coordinates");
++                fb_update();
++                check_front_matches_back();
++                ++tested_cases;
++            }
++        }
++    }
++}
++
++static void test_pixel_and_double_buffer(void)
++{
++    snprintf(case_label, sizeof(case_label), "pixel clipping");
++    reset_surfaces(0);
++    fb_draw_pixel(-1, 0, TEST_COLOR);
++    fb_draw_pixel(0, -1, TEST_COLOR);
++    fb_draw_pixel(SCREEN_WIDTH, 0, TEST_COLOR);
++    fb_draw_pixel(0, SCREEN_HEIGHT, TEST_COLOR);
++    fb_draw_pixel(INT_MIN, INT_MAX, TEST_COLOR);
++    fb_draw_pixel(0, 0, TEST_COLOR);
++    fb_draw_pixel(SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, TEST_COLOR);
++    int count = 0;
++    for(int i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT; ++i) {
++        if(DRAW_BUF[i] == TEST_COLOR) ++count;
++        else require(DRAW_BUF[i] == 0, "unexpected pixel color");
++    }
++    require(count == 2, "pixel clipping count");
++    check_canaries();
++    fb_update();
++    check_front_matches_back();
++    ++tested_cases;
++
++    snprintf(case_label, sizeof(case_label), "deferred dirty-region refresh");
++    reset_surfaces(CANARY);
++    uint64_t before = front_hash();
++    fb_draw_rect(10, 20, 3, 4, TEST_COLOR);
++    require(front_hash() == before, "drawing changed front buffer before update");
++    require(update_area.x1 == 10 && update_area.x2 == 13 &&
++            update_area.y1 == 20 && update_area.y2 == 24, "dirty-region bounds");
++    fb_update();
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = 0; x < SCREEN_WIDTH; ++x) {
++            int inside = x >= 10 && x < 13 && y >= 20 && y < 24;
++            require(LCD_FB_BUF[y * PITCH_WORDS + x] ==
++                    (inside ? TEST_COLOR : CANARY), "update copied unrelated region");
++        }
++    require(update_area.x2 == 0, "dirty region not reset");
++    before = front_hash();
++    fb_update();
++    require(front_hash() == before, "empty update changed front buffer");
++    check_canaries();
++    ++tested_cases;
++
++    snprintf(case_label, sizeof(case_label), "merged dirty regions");
++    reset_surfaces(0);
++    fb_draw_pixel(3, 4, TEST_COLOR);
++    fb_draw_rect(20, 30, 2, 2, TEST_COLOR);
++    require(update_area.x1 == 3 && update_area.x2 == 22 &&
++            update_area.y1 == 4 && update_area.y2 == 32, "dirty-region union");
++    fb_update();
++    check_front_matches_back();
++    ++tested_cases;
++}
++
++int main(void)
++{
++    test_pixel_and_double_buffer();
++    printf("PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\n");
++    const int rectangles[][4] = {
++        {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},{0,0,1,1},{-5,-5,20,20},
++        {SCREEN_WIDTH-5,SCREEN_HEIGHT-5,20,20},{-30,5,20,20},
++        {SCREEN_WIDTH,5,20,20},{5,-30,20,20},{5,SCREEN_HEIGHT,20,20},
++        {5,5,0,20},{5,5,20,0},{5,5,-1,20},{5,5,20,-1},
++        {INT_MIN,INT_MIN,INT_MAX,INT_MAX},
++        {-100,-100,INT_MAX,INT_MAX},{INT_MAX,INT_MAX,INT_MAX,INT_MAX},
++        {INT_MIN,0,INT_MAX,100}
++    };
++    for(unsigned i = 0; i < sizeof(rectangles)/sizeof(rectangles[0]); ++i)
++        test_rectangle(rectangles[i][0], rectangles[i][1],
++                       rectangles[i][2], rectangles[i][3]);
++    for(int i = 0; i < 120; ++i)
++        test_rectangle(random_between(-50,SCREEN_WIDTH+50),
++                       random_between(-50,SCREEN_HEIGHT+50),
++                       random_between(-30,SCREEN_WIDTH+80),
++                       random_between(-30,SCREEN_HEIGHT+80));
++    printf("PASS: rectangle geometry, clipping, invalid sizes and integer extremes\n");
++
++    test_golden_octants();
++    const int lines[][4] = {
++        {0,0,0,0},{-1,-1,-1,-1},{17,20,900,20},{20,17,20,500},
++        {0,0,SCREEN_WIDTH-1,SCREEN_HEIGHT-1},
++        {-5,-5,20,20},{-20,100,1100,100},{100,-20,100,700},
++        {-20,-20,-1,-1},{1024,100,1100,500},
++        {0,-1,1023,-1},{0,600,1023,600},
++        {INT_MIN,123,INT_MAX,123},{456,INT_MIN,456,INT_MAX},
++        {INT_MIN,INT_MIN,INT_MAX,INT_MAX},
++        {INT_MIN,INT_MAX,INT_MAX,INT_MIN},
++        {INT_MAX,INT_MAX,INT_MAX,INT_MAX}
++    };
++    for(unsigned i = 0; i < sizeof(lines)/sizeof(lines[0]); ++i)
++        test_line(lines[i][0], lines[i][1], lines[i][2], lines[i][3]);
++    for(int i = 0; i < 240; ++i)
++        test_line(random_between(-80,SCREEN_WIDTH+80),
++                  random_between(-80,SCREEN_HEIGHT+80),
++                  random_between(-80,SCREEN_WIDTH+80),
++                  random_between(-80,SCREEN_HEIGHT+80));
++    printf("PASS: eight octants, geometric error, reversed endpoints and extreme clipping\n");
++    printf("PASS: %u offline cases\n", tested_cases);
++    free(front_storage);
++    return 0;
++}

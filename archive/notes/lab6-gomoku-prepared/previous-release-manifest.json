@@ -1,0 +1,159 @@
+{
+  "version": "2026-10-15-gomoku-v2",
+  "courseHeaderSHA256": "5c5ff5aebd76714db0695cdc3218ad6777bb88582e9d225a0d563d950cb1ff49",
+  "files": [
+    {
+      "path": "common/common.h",
+      "sha256": "5c5ff5aebd76714db0695cdc3218ad6777bb88582e9d225a0d563d950cb1ff49",
+      "allowedPreviousSHA256": [
+        "5c5ff5aebd76714db0695cdc3218ad6777bb88582e9d225a0d563d950cb1ff49"
+      ]
+    },
+    {
+      "path": "common/graphic.c",
+      "sha256": "578f85d10551995e0289c4faae7d62876317521d40c7d8106c741eba4e9c0709",
+      "allowedPreviousSHA256": [
+        "578f85d10551995e0289c4faae7d62876317521d40c7d8106c741eba4e9c0709",
+        "dccfc7483cbf3c46fe2981a680d91044a8ccae776b2d492e7eec41b32739b6f5",
+        "fa36cd49cc4348ae549136835df01efcc689dc1964dced24c03709040c1da7b5"
+      ]
+    },
+    {
+      "path": "common/image.c",
+      "sha256": "7f14dbd2814514d573af373063347d36fa4abd11674148df2b43fcc04161cee2",
+      "allowedPreviousSHA256": [
+        "7f14dbd2814514d573af373063347d36fa4abd11674148df2b43fcc04161cee2",
+        "a0bb7ea75d6e32e738830a3cf6f3dcc528815ac657cc2917de45d1a5e26d13b7",
+        "e327f83f03e44946b74d2d9763f340ca66b1f0fbbc10aaf2e6a234380c0cb86f"
+      ]
+    },
+    {
+      "path": "common/rules.mk",
+      "sha256": "58c1ed433aad7a6cc3dbc389d6fa51a81f1ef672818e1867645bf37693f5bcc6",
+      "allowedPreviousSHA256": [
+        "0887be6a868d57eb5174c69a5179f7945f78698f3c1639735af039f3a52e9e1a",
+        "58c1ed433aad7a6cc3dbc389d6fa51a81f1ef672818e1867645bf37693f5bcc6",
+        "8e26e0d5d13404bffdb2a02bc1fafaf2d6d3c4ea93ea19ff05968194dc60ca45"
+      ]
+    },
+    {
+      "path": "common/touch.c",
+      "sha256": "281c414caf8c121be0cfcaae4579871c749d57a8a75411cc700586477fe892fa",
+      "allowedPreviousSHA256": [
+        "281c414caf8c121be0cfcaae4579871c749d57a8a75411cc700586477fe892fa",
+        "43563e094288fba76d23e3bc80fc871be82b5782b530c12fd54295eb04ba6601"
+      ]
+    },
+    {
+      "path": "common/touch_protocol.c",
+      "sha256": "6eb7c7837e9d9962739f4bbb444766a11e388aea4d81fad7019054ba7cbd3fc7",
+      "allowedPreviousSHA256": [
+        "6eb7c7837e9d9962739f4bbb444766a11e388aea4d81fad7019054ba7cbd3fc7"
+      ]
+    },
+    {
+      "path": "common/touch_protocol.h",
+      "sha256": "f617c459900c97749f98023f7daed61b2a717af58f5631345004d905daa45ab8",
+      "allowedPreviousSHA256": [
+        "f617c459900c97749f98023f7daed61b2a717af58f5631345004d905daa45ab8"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/ai.c",
+      "sha256": "d53b4375d53a0fdfb18ad283f683a7fe41c8349f6cd62b85fbded75280ce819b",
+      "allowedPreviousSHA256": [
+        "d53b4375d53a0fdfb18ad283f683a7fe41c8349f6cd62b85fbded75280ce819b"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/ai.h",
+      "sha256": "f0d36a4d37fc7be80b70c847c91a6142452abc29a9d6b4f8368e9ce095d51f6d",
+      "allowedPreviousSHA256": [
+        "f0d36a4d37fc7be80b70c847c91a6142452abc29a9d6b4f8368e9ce095d51f6d"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/app.c",
+      "sha256": "2c51989f4aadac045ffb91f02a889f0245c7fe38c009e225ea1aaeaba50b97b2",
+      "allowedPreviousSHA256": [
+        "a566ad2e4398cc9643f98e4154ce57242cf9180333582b3d2f4130f36bb94aed"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/app.h",
+      "sha256": "22090573070bc696af438ad940a4b6ff3bf89590d3e5132bace3ce52f77e7f75",
+      "allowedPreviousSHA256": [
+        "76fb7da1407604e13a2c443a884c113f775aa3c92e5dfeda52102572a14343b5"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/gomoku.c",
+      "sha256": "b036c1f677b91b107bf038750931aba19b59dc8a38f94b4e31ea5ffce32bf0b7",
+      "allowedPreviousSHA256": [
+        "b036c1f677b91b107bf038750931aba19b59dc8a38f94b4e31ea5ffce32bf0b7"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/gomoku.h",
+      "sha256": "8ee5b50dbca399c9b4ecbff20224acb20325c46981e04ccd0f3cc455d8101fb8",
+      "allowedPreviousSHA256": [
+        "8ee5b50dbca399c9b4ecbff20224acb20325c46981e04ccd0f3cc455d8101fb8"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/main.c",
+      "sha256": "77328977c7410ef65ffd939034262e388079323b3df747266271ec1cef6474e4",
+      "allowedPreviousSHA256": [
+        "1659f9ed31fa340f2178bb567c145f7c28b6e7b64333e606401b18f3777a2cca"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/Makefile",
+      "sha256": "a2f14e78dfc3188992aabb3cf62dcc9573df429fa793fb027c70822806a3b824",
+      "allowedPreviousSHA256": [
+        "5976e5c30d06f4408c86166ceac7c6de030d8888762f39920e8842660ab253d6"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/render.c",
+      "sha256": "080d06f8372433a783b35dc7ea4c7cc90821787ccda071675e92ba4b92874340",
+      "allowedPreviousSHA256": [
+        "187821f15ed6592fbf1606c783decc3c893e0de51ed50b4da28041846deb1857"
+      ]
+    },
+    {
+      "path": "lab6_gomoku/session.c",
+      "sha256": "b0c2d832f559d44491b2da62d6ba4923c827560234cda7a79da9c503c3ae4198",
+      "allowedPreviousSHA256": []
+    },
+    {
+      "path": "lab6_gomoku/session.h",
+      "sha256": "4628bdf7cf5f9c68e2ac0b9779426667bd98154bc63d5e935773cd894f816aa1",
+      "allowedPreviousSHA256": []
+    },
+    {
+      "path": "lab6_gomoku/storage.c",
+      "sha256": "c2a8bfbfa5f10562a0ed39c11f50814960f97400357960756493039934c5fc97",
+      "allowedPreviousSHA256": []
+    },
+    {
+      "path": "lab6_gomoku/storage.h",
+      "sha256": "fcc7a6554c3eebeab7d67c24ae78d428473b70d720d6d8e06a80a5783bb87dc8",
+      "allowedPreviousSHA256": []
+    },
+    {
+      "path": "tests/test_game.c",
+      "sha256": "a9002414bf9d46b6c5846a2067224606c3445d97c33109ae68b9cd0292cb5f8c",
+      "allowedPreviousSHA256": [
+        "e7a95e307fc68f14dfa897c9bea20b74265f02d8089e53e9ec44cde068a10f4d"
+      ]
+    },
+    {
+      "path": "tests/test_storage.c",
+      "sha256": "dcf2d3465dc9fb55c72b7bbd47a4621ba093a78ec479f6684de28bfab0d727ba",
+      "allowedPreviousSHA256": []
+    }
+  ],
+  "hardwareValidated": false,
+  "target": "Orange Pi 4 LTS, Linux aarch64"
+}

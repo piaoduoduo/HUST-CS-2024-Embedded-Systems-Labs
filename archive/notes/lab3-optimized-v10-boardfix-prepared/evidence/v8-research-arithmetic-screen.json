@@ -1,0 +1,17 @@
+{
+  "roundingOrderCounterexample": {
+    "numerator": 33023,
+    "currentMix": 130,
+    "alternativeShiftOrder": 129
+  },
+  "packedArithmeticRandomCases": 100000,
+  "productionIntegrated": false,
+  "performanceMeasured": false,
+  "separatePremultiplyRoundingCounterexample": {
+    "s": 1,
+    "d": 2,
+    "alpha": 64,
+    "currentMix": 2,
+    "separatelyRounded": 1
+  }
+}

@@ -1,0 +1,1 @@
+PASS: actual host file round-trip, atomic replacement, delayed writes, malformed/overflow/truncated checksum rejection, corrupt file preserved, I/O failure

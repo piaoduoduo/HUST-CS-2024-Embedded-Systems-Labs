@@ -1,0 +1,7 @@
+simulator: scripted window test
+window-test: start
+window-test: 2048 complete
+window-test: breakout complete
+window-test: gomoku complete
+window-test: destroyed
+PASS: hidden Win32 window events: menus, swipe, undo, hint, launch, pause, escape, gomoku AI handoff

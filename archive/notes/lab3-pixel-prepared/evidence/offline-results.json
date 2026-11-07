@@ -1,0 +1,28 @@
+{
+  "baselineSha256": "578f85d10551995e0289c4faae7d62876317521d40c7d8106c741eba4e9c0709",
+  "candidateSha256": "272a860aebae09ccc1f86ab767bfab61543be425ff7d9232166a791276c3926f",
+  "roundedDivisionNumeratorsChecked": 65026,
+  "logs": {
+    "baseline-test_lab2_regression": "PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\nPASS: rectangle geometry, clipping, invalid sizes and integer extremes\nPASS: eight octants, geometric error, reversed endpoints and extreme clipping\nPASS: 404 offline cases\n",
+    "baseline-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",
+    "candidate-test_lab2_regression": "PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\nPASS: rectangle geometry, clipping, invalid sizes and integer extremes\nPASS: eight octants, geometric error, reversed endpoints and extreme clipping\nPASS: 404 offline cases\n",
+    "candidate-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",
+    "openmp-1-test_lab2_regression": "PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\nPASS: rectangle geometry, clipping, invalid sizes and integer extremes\nPASS: eight octants, geometric error, reversed endpoints and extreme clipping\nPASS: 404 offline cases\n",
+    "openmp-1-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",
+    "openmp-2-test_lab2_regression": "PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\nPASS: rectangle geometry, clipping, invalid sizes and integer extremes\nPASS: eight octants, geometric error, reversed endpoints and extreme clipping\nPASS: 404 offline cases\n",
+    "openmp-2-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",
+    "openmp-4-test_lab2_regression": "PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\nPASS: rectangle geometry, clipping, invalid sizes and integer extremes\nPASS: eight octants, geometric error, reversed endpoints and extreme clipping\nPASS: 404 offline cases\n",
+    "openmp-4-test_images": "PASS: 103 image cases (three formats, alpha endpoints, clipping, padding, subimages)\n"
+  },
+  "hardwareValidated": false,
+  "armNativeBuildValidated": false,
+  "openmpThreadsTested": [
+    1,
+    2,
+    4
+  ],
+  "openmpTestPixelThreshold": 1,
+  "openmpDeploymentPixelThreshold": 65536,
+  "performanceMeasured": false,
+  "deploymentPackagesModified": false
+}

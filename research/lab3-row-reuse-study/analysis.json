@@ -1,0 +1,48 @@
+{
+  "type": "offline work counts and byte-equality oracle; no board timing",
+  "sourcePNGDecodedSHA256": "962b3966a36fe7d23f290d3579d5f02eea993fde75dc98b35874bd2abf99fcb7",
+  "screen": [
+    1024,
+    600
+  ],
+  "drawCalls": 105,
+  "distinctRecipes": 128,
+  "cases": {
+    "black": {
+      "equalAllBytes": true,
+      "bytesChecked": 2457600,
+      "groups": 128,
+      "rowsReused": 472,
+      "partialBlendsBefore": 427251,
+      "partialBlendsAfter": 92795,
+      "opaqueWritesBefore": 344107,
+      "opaqueWritesAfter": 69788,
+      "additionalFollowerCopyBytes": 1933312,
+      "finalSHA256": "79317d6cb9e7e79b7c4ff8274de81ec29ff623514f01fc14188ac92380a9335a"
+    },
+    "random-distinct": {
+      "equalAllBytes": true,
+      "bytesChecked": 2457600,
+      "groups": 600,
+      "rowsReused": 0,
+      "partialBlendsBefore": 427251,
+      "partialBlendsAfter": 427251,
+      "opaqueWritesBefore": 344107,
+      "opaqueWritesAfter": 344107,
+      "additionalFollowerCopyBytes": 0,
+      "finalSHA256": "02681a0fb295962d547646616d8a8e94616cd984646cfe1d3241d8dd2c7a2bef"
+    },
+    "nonuniform-repeated": {
+      "equalAllBytes": true,
+      "bytesChecked": 2457600,
+      "groups": 128,
+      "rowsReused": 472,
+      "partialBlendsBefore": 427251,
+      "partialBlendsAfter": 92795,
+      "opaqueWritesBefore": 344107,
+      "opaqueWritesAfter": 69788,
+      "additionalFollowerCopyBytes": 1933312,
+      "finalSHA256": "064d2fd3a07041f4dc2233fafc8d00cf851d343484b0f56c0b9e7731fd0dcd36"
+    }
+  }
+}

@@ -1,0 +1,2 @@
+PASS: install dry-run, hashes, idempotence, unchanged current common code/voice example, edit protection and path bounds
+PASS: known v1-to-v2 upgrade, backups and untouched user save

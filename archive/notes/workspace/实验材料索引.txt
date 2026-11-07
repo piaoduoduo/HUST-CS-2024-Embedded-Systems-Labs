@@ -1,0 +1,149 @@
+最新补充：实验三 v10（2026-10-18）
+  lab3-optimized-v10-prepared/开始前看这里.txt、v10说明.txt：画点整合、版本对照与上板命令。
+  lab3-optimized-v10-ready.tgz：v10版本包；lab3-optimized-ready.tgz：同步的最新包。
+  resources/lab3-optimized-v9-ready.tgz、lab3-optimized-prepared：完整v9归档与原源码，均保留。
+  lab3-v10-study/validation.json、verification.json：整合回归和包检查。
+  公开仓库hust-embedded-labs-orangepi保持原快照，未纳入v10。
+
+最新补充：实验三 v9（2026-10-18）
+  lab3-optimized-ready.tgz：当前离线候选安装包，未上板测速。
+  lab3-optimized-prepared/开始前看这里.txt：实现、验证、复杂度及下次上板命令。
+  lab3-optimization-study/v9优化记录.txt：v9完整说明。
+  lab3-optimization-study/v9-integrated-results.json：最终16配置、9阶段画面与源码哈希。
+  resources/lab3-optimized-v8-ready.tgz：完整v8备份；lab3-ready.tgz：原已实测版本。
+  原有实验五/六最新包保持本日复审后的版本。
+
+实验材料索引（2026-10-15整理）
+工作区：/example/user/Documents/ChatGPT/嵌入式系统实验
+
+下次先看
+  下次上课连接操作单.txt：两次连接经过、下次快速连接、常见故障、实验五顺序。
+  当前进度.txt：以这个文件的最新状态为准。
+
+实验一（助教已验收）
+  evidence/lab1/01-etcher-flash-complete.png：烧录成功。
+  evidence/lab1/02-lab1-build-and-run.txt：编译运行记录。
+  evidence/lab1/03-user-ssh-verification.txt：用户实际运行输出。
+  evidence/lab1/04-lab1-ssh-run-success.png：SSH与运行截图。
+  evidence/lab1/environment.json：当时环境信息。
+
+实验二（助教已验收）
+  evidence/lab2/build.log、run.log、status.json。
+  lab2-prepared、lab2-ready.tgz：历史实验二准备版本。
+  后续公共图形代码已扩展，不能用旧包直接覆盖当前版本。
+
+实验三（真实显示与性能测试通过，助教验收未获反馈）
+  lab3-ready.tgz、lab3-ready.tgz.sha256：最终代码安装包及校验值。
+  lab3-prepared/实验三说明.txt：构建、运行与优化说明。
+  evidence/lab3/results.json：三组真实测量和正确性结果。
+  evidence/lab3/o3-2.log：155ms那次完整原始日志，未保存该次屏幕截图。
+  evidence/lab3/performance-final.png：最后一次173ms的真实framebuffer图。
+  evidence/lab3/lab3-o3.png：真实图片/文字合成画面。
+  evidence/lab3/glyph-cache-o3-check.log：960项真实FreeType对比通过。
+  evidence/lab3/build-o3.log、environment.txt：实际编译参数与源码/二进制哈希。
+
+实验四（用户实测通过，助教验收未获反馈）
+  lab4-ready.tgz、lab4-ready.tgz.sha256：已上板版本，含实验三缓存改动。
+  lab4-prepared/实验四说明.txt：操作与复现说明。
+  evidence/lab4/drawing.png：五种颜色连续粗轨迹的真实framebuffer图。
+  evidence/lab4/initial.png：初始画板。
+  evidence/lab4/run-snapshot.log：真实触摸事件。
+  evidence/lab4/preflight.json：触摸屏event2、坐标范围、屏幕格式。
+  evidence/lab4/event-summary.json、status.json：最大五指同时按下和用户确认。
+  evidence/lab4/build.log、environment.txt：真实编译与运行环境。
+
+实验五（待下次继续）
+  labs3-5-prepared/lab5_bt：离线准备的应用代码。
+  labs3-5-prepared/tests/board-serial-test.py：待运行的Linux伪终端集成测试。
+  labs3-5-prepared/开始前看这里.txt、验收清单.txt：历史离线计划。
+  labs3-5-ready.tgz：10月9日总准备包，未合入后来实测的字模缓存。
+  上板时先合并最新公共代码，再安装；不能把离线准备当成蓝牙实测通过。
+
+课程和参考材料
+  原课件：/example/user/Downloads/4.实验-Orangepi-20250815-V25.pptx。
+  .ppt-reading：课件文字与部分页面图。
+  resources/lab-st-2026.tgz：当期课程原始代码包。
+  references/hust-2020、labs3-5-prepared/references.json：实际读取的往届参考材料与链接。
+  1037.wiki此前访问失败，未声称读取其内容。
+
+证据使用
+  framebuffer图取自开发板真实显示内存，但不等于显示屏实物照片。
+  preview目录下的simulated图片属于离线模拟，不作为硬件实测照片。
+  报告使用本人的真实日志、照片与验收反馈，未反馈的助教验收不记为通过。
+  实验三20/40/42ms为同学成绩线索，用户怀疑简化，后续先核对测试是否相同。
+
+
+实验六五子棋（2026-10-15离线实现，待上板）
+  lab6-gomoku-ready.tgz、对应.sha256：完整源码准备包。
+  lab6-gomoku-prepared/开始前看这里.txt：功能、安装和运行步骤。
+  lab6-gomoku-prepared/验收清单.txt：下一次真实开发板验证项目。
+  lab6-gomoku-prepared/test-results：规则/AI/触摸逻辑、界面渲染和安装器记录。
+  lab6-gomoku-prepared/preview：八种界面模拟图，不是板上照片。
+  不覆盖课程原lab6语音示例，不依赖实验五蓝牙连接才能运行。
+
+实验六当前为v2：包含自动存档、二次确认和棋盘坐标；v1回退包在resources/lab6-gomoku-v1-ready.tgz。
+
+2026-10-16：lab3-optimization-study/实验三优化推演与上板计划.txt（独立候选、离线验证结果、下次上板A/B流程）
+
+GitHub全流程优化：lab3-optimization-study/GitHub代码对照与全流程优化.txt；原始来源清单：references/20261016/；独立并行候选：lab3-optimization-study/common/graphic-openmp.c。
+
+实验三整合候选：lab3-optimized-ready.tgz；说明：lab3-optimized-prepared/开始前看这里.txt；开发板对比：lab3-optimized-prepared/board_compare.py。
+
+实验三v2记录：lab3-optimization-study/v2优化记录.txt；新包仍为lab3-optimized-ready.tgz；原生检查入口lab3-optimized-prepared/native_checks.py。
+
+实验三v3批量实验：lab3-optimization-study/批量覆盖消除实验记录.txt；整合包lab3-optimized-ready.tgz默认不开批量，需选择batch/batch-parallel。
+
+实验三v4：lab3-optimization-study/v4剩余项目优化记录.txt；新版包lab3-optimized-ready.tgz，v3候选另存resources/lab3-optimized-v3-ready.tgz。
+
+v4优化启用与验证缺口：lab3-optimization-study/v4现有优化审计.txt。
+
+
+2026-10-16 v5 全量优化完成（以此记录为准）
+前次审计可实施项已接入：PNG/独立字模快照与透明区间预处理、专用NEON混合、显式JPG批量、逐项回退开关、v5高频统计关闭。
+新增run-sprint.py统一启用LTO、本机CPU编译、4096并行阈值、2线程、临时performance策略与最快核心绑定，退出恢复；build-only不改系统配置。
+原生正确性检查继承对应测速编译参数，记录完整线程环境、向量化报告及可用的反汇编。
+离线绘图/图像/文字/线段/批量及96项预处理检查通过；六个单项回退与全开版本完整9阶段画面哈希一致。配置恢复测试为主机模拟。
+新版包：lab3-optimized-ready.tgz（20261016-integrated-candidate-5）。原始lab3-ready.tgz校验值不变；v4备份resources/lab3-optimized-v4-ready.tgz。
+入口与限制：lab3-optimized-prepared/开始前看这里.txt；详细记录lab3-optimization-study/v5全量优化与上板配置.txt。
+尚未ARM原生编译/真实FreeType验证/板上测速；40ms只是目标。显式批量及预处理改变测试调用接口，成绩须标注。
+
+
+2026-10-17 实验三v6整批透明绘制优化完成
+PNG105次、独立字模416次重复绘制分别按目标屏幕行并行，每行保留原调用顺序；每阶段最多一次线程组，准备和释放均在原计时内。
+新增fb_draw_prepared_many与--disable many回退。相同配置下run-sprint.py现在比较baseline/v5-sprint/v6-sprint。
+离线标量、NEON模拟、2/4线程及关闭整批优化配置均通过104项预处理检查；原有几何/字体/批量回归通过。完整9阶段及关闭many的完整画面均与原版一致。
+新版lab3-optimized-ready.tgz版本20261017-integrated-candidate-6；v5备份resources/lab3-optimized-v5-ready.tgz，原始lab3-ready.tgz校验值未变。
+详见lab3-optimization-study/v6优化记录.txt和lab3-optimized-prepared/开始前看这里.txt。未ARM原生验证/板上测速，不声称已达40ms。
+
+
+2026-10-17 实验三v7目标行索引优化完成
+v6包完整备份resources/lab3-optimized-v6-ready.tgz（SHA256 04c9413f1b57c2e12a1ca105caf15ed8dacd527d8731a5e0c37e13486ac58f30），v6源码/正式测试与原版包均保持不变。
+v7在整批透明绘制中建立保持命令顺序的行索引，将筛选部分O(H*N)降为O(H+N+K)；像素混合仍全部完成，建索引成本纳入计时。
+PNG逐行检查63000→12600个有效引用；模拟字模249600→11310个引用，含额外索引构建/内存成本，不能视为耗时下降同比。
+图像/预处理/批量离线检查通过：标量、NEON模拟、2/4线程、关闭many、关闭行索引、强制1项容量回退及其他关闭配置；启用预处理配置104项完整缓冲/脏区比较。
+全开及关闭row-index完整课程9阶段画面哈希与原记录一致，未改动几何/文字/SIMD穷举证据沿用v6。
+lab3-optimized-ready.tgz版本20261017-integrated-candidate-7，run-sprint.py比较baseline/v6-sprint/v7-sprint，增加--disable row-index。
+操作与限制见lab3-optimized-prepared/开始前看这里.txt、lab3-optimization-study/v7优化记录.txt。未ARM原生/板上测速，40ms待实测。
+
+
+2026-10-17 扩展网络检索：已阅读Qt/Arm/GCC/OpenMP/RGA原始材料并复核HUST已缓存资料。发现短半透明区间标量尾部占比较高，新增打包算术、精确源乘积预计算、文字行批次、几何批次、PGO/线程绑定等候选。见lab3-optimization-study/全网检索与后续优化清单-20261017.txt；sources和离线研究数据见references/20261017。未改v7包、未生成v8、未板测。
+
+
+2026-10-17 实验三v8两项新优化完成
+保留v6/v7完整包与源码，v7归档resources/lab3-optimized-v7-ready.tgz；原始lab3-ready.tgz校验不变。
+新增fast_pixels_v8.h的精确打包红/蓝混合与端点快路，已分类半透明区间不重复判断端点；普通图片及文字标量尾部也使用新内核。
+PNG预处理可选缓存16位未舍入source*alpha与反透明度，重复绘制减少源侧乘法；112KiB额外数据、分配/构建/释放均纳入计时，超限或失败回退。
+11配置各50266440项算术oracle比较通过，图像/字模/文字/批量和2/4线程检查通过；乘积存储确实启用、精确值、跳过与容量回退及主机LTO组合检查通过。
+全开、关闭packed、关闭products、同时关闭两项的完整9阶段画面均与原记录一致。NEON/字模为主机模拟，未ARM原生或板测。
+新版lab3-optimized-ready.tgz版本20261017-integrated-candidate-8。run-sprint.py同配置比较baseline/v7-sprint/v8-packed/v8-sprint，新增--disable packed/products开关。
+说明lab3-optimized-prepared/开始前看这里.txt与lab3-optimization-study/v8优化记录.txt。P3文字批次、几何批次、PGO等尚未实现。40ms仍待实测，不提高无依据预测。
+
+
+2026-10-18 实验三、五、六复审材料
+  实验3-5-6复审-20261018.txt：总审计、修复、复杂度和接板检查顺序。
+  lab5-ready.tgz / lab5-prepared：新的实验五独立审计修复包，优先使用，保留已用字模缓存。
+  lab6-gomoku-ready.tgz / lab6-gomoku-prepared：五子棋v3审计修复包。
+  resources/lab6-gomoku-v2-ready.tgz：上版完整回退包。
+  lab3-optimization-study/audit-20261018：PNG遮挡验证、矩形/直线覆盖消除PoC、精细计时工具。
+  evidence/audit-20261018/verification.json：原包保留、新包逐文件校验和材料哈希。
+  本轮没有ARM/无线/触摸实测，没有20ms或40ms新成绩；实验三v8正式候选包未修改。

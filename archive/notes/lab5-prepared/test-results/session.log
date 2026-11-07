@@ -1,0 +1,1 @@
+PASS: 131 serial session checks (retry, EOF/error reconnect, UTF-8 isolation, backpressure, fairness, wrap).

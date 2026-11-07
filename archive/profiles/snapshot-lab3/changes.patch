@@ -1,0 +1,1068 @@
+--- /dev/null
++++ b/build-on-board.sh
+@@ -0,0 +1,18 @@
++#!/usr/bin/env bash
++set -euo pipefail
++if [ "$#" -ne 1 ]; then
++    echo 'Usage: bash build-on-board.sh /absolute/path/to/lab-st-2026' >&2
++    exit 2
++fi
++project_dir=$(realpath -- "$1")
++test -f "$project_dir/common/common.h"
++test -e "$project_dir/common/external/lib/libjpeg.so"
++record_dir=$(mktemp -d "$project_dir/build-lab3-XXXXXX")
++exec > >(tee "$record_dir/build.log") 2>&1
++date -Is
++gcc --version
++for lab in lab3 test; do
++    make -B -C "$project_dir/$lab" CC=gcc CFLAGS='-Wall -O3'
++    file "$project_dir/out/$lab"
++done
++echo "Build log: $record_dir/build.log"
+--- /dev/null
++++ b/capture-board-framebuffer.py
+@@ -0,0 +1,31 @@
++"""Read the visible 32-bit BGR framebuffer and save a PPM without changing it."""
++import array
++import fcntl
++import os
++import struct
++import sys
++
++fd = os.open('/dev/fb0', os.O_RDONLY)
++try:
++    var = array.array('I', [0] * 40)
++    fix = bytearray(80)
++    fcntl.ioctl(fd, 0x4600, var, True)
++    fcntl.ioctl(fd, 0x4602, fix, True)
++    width, height, _, _, xoffset, yoffset, bpp = var[:7]
++    # fb_fix_screeninfo on this verified Linux aarch64 board: line_length at 48.
++    stride = struct.unpack_from('I', fix, 48)[0]
++    assert bpp == 32 and var[8:16:3].tolist() == [16, 8, 0]
++    assert width <= 4096 and height <= 4096 and stride >= (width + xoffset) * 4
++    with open(sys.argv[1], 'wb') as output:
++        output.write(f'P6\n{width} {height}\n255\n'.encode())
++        for row in range(height):
++            bgra = os.pread(fd, width * 4, (row + yoffset) * stride + xoffset * 4)
++            assert len(bgra) == width * 4
++            rgb = bytearray(width * 3)
++            rgb[0::3] = bgra[2::4]
++            rgb[1::3] = bgra[1::4]
++            rgb[2::3] = bgra[0::4]
++            output.write(rgb)
++    print(f'Saved actual framebuffer: {width}x{height}, stride={stride}, {sys.argv[1]}')
++finally:
++    os.close(fd)
+--- a/common/graphic.c
++++ b/common/graphic.c
+@@ -146,77 +146,150 @@
+ 
+ void fb_draw_rect(int x, int y, int w, int h, int color)
+ {
+-	if(x < 0) { w += x; x = 0;}
+-	if(x+w > SCREEN_WIDTH) { w = SCREEN_WIDTH-x;}
+-	if(y < 0) { h += y; y = 0;}
+-	if(y+h >SCREEN_HEIGHT) { h = SCREEN_HEIGHT-y;}
+-	if(w<=0 || h<=0) return;
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_rect()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    if(w <= 0 || h <= 0) return;
++
++    /* Clip before indexing. Widen the sums to avoid signed-int overflow. */
++    int64_t left = x;
++    int64_t top = y;
++    int64_t right = (int64_t)x + w;
++    int64_t bottom = (int64_t)y + h;
++
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++
++    x = (int)left;
++    y = (int)top;
++    w = (int)(right - left);
++    h = (int)(bottom - top);
++    int *buf = _begin_draw(x, y, w, h);
++
++    for(int row = y; row < y + h; ++row) {
++        int *pixel = buf + row * SCREEN_WIDTH + x;
++        for(int column = 0; column < w; ++column) {
++            pixel[column] = color;
++        }
++    }
++    return;
+ }
+ 
+ void fb_draw_line(int x1, int y1, int x2, int y2, int color)
+ {
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_line()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++
++    /* Use the longer axis, ordered consistently for reversed endpoints. */
++    int64_t major1 = steep ? y1 : x1;
++    int64_t major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1;
++    int64_t minor2 = steep ? x2 : y2;
++    if(major1 > major2) {
++        int64_t temporary = major1;
++        major1 = major2;
++        major2 = temporary;
++        temporary = minor1;
++        minor1 = minor2;
++        minor2 = temporary;
++    }
++
++    uint64_t length = (uint64_t)(major2 - major1);
++    if(length == 0) {
++        fb_draw_pixel(x1, y1, color);
++        return;
++    }
++
++    int direction = minor2 < minor1 ? -1 : 1;
++    uint64_t minor_distance = (uint64_t)llabs(minor2 - minor1);
++    int64_t limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int64_t first = major1 < 0 ? 0 : major1;
++    int64_t last = major2 >= limit ? limit - 1 : major2;
++    if(first > last) return;
++
++    /*
++     * Integer error accumulation, rounded to the nearest pixel.
++     * Preserve the error phase when skipping off-screen major coordinates.
++     * For 32-bit int endpoints, this product and sum fit in uint64_t.
++     * The loop visits at most SCREEN_WIDTH or SCREEN_HEIGHT coordinates.
++     */
++    uint64_t numerator = minor_distance * (uint64_t)(first - major1)
++                       + length / 2;
++    int64_t minor = minor1 + direction * (int64_t)(numerator / length);
++    uint64_t remainder = numerator % length;
++
++    for(int64_t major = first; major <= last; ++major) {
++        if(steep) {
++            fb_draw_pixel((int)minor, (int)major, color);
++        } else {
++            fb_draw_pixel((int)major, (int)minor, color);
++        }
++        remainder += minor_distance;
++        if(remainder >= length) {
++            remainder -= length;
++            minor += direction;
++        }
++    }
++    return;
++}
++
++/* Blend one channel over an opaque framebuffer, with exact 0/255 endpoints. */
++static unsigned blend_channel(unsigned src, unsigned dst, unsigned alpha)
++{
++    return (src * alpha + dst * (255-alpha) + 127) / 255;
+ }
+ 
+ void fb_draw_image(int x, int y, fb_image *image, int color)
+ {
+-	if(image == NULL) return;
+-
+-	int ix = 0; //image x
+-	int iy = 0; //image y
+-	int w = image->pixel_w; //draw width
+-	int h = image->pixel_h; //draw height
+-
+-	if(x<0) {w+=x; ix-=x; x=0;}
+-	if(y<0) {h+=y; iy-=y; y=0;}
+-	
+-	if(x+w > SCREEN_WIDTH) {
+-		w = SCREEN_WIDTH - x;
+-	}
+-	if(y+h > SCREEN_HEIGHT) {
+-		h = SCREEN_HEIGHT - y;
+-	}
+-	if((w <= 0)||(h <= 0)) return;
+-
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------------------*/
+-	char *dst = (char *)(buf + y*SCREEN_WIDTH + x);
+-	char *src; //不同的图像颜色格式定位不同
+-/*---------------------------------------------------------------*/
+-
+-	int alpha;
+-	int ww;
+-
+-	if(image->color_type == FB_COLOR_RGB_8880) /*lab3: jpg*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_RGB_8880\n"); exit(0);
+-
+-		return;
+-	}
+-	else if(image->color_type == FB_COLOR_RGBA_8888) /*lab3: png*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_RGBA_8888\n"); exit(0);
+-
+-		return;
+-	}
+-	else if(image->color_type == FB_COLOR_ALPHA_8) /*lab3: font*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_ALPHA_8\n"); exit(0);
+-
+-		return;
+-	}
+-/*---------------------------------------------------------------*/
+-	return;
++    if(!image || !image->content || image->pixel_w <= 0 || image->pixel_h <= 0) return;
++    int bytes = image->color_type == FB_COLOR_ALPHA_8 ? 1 : 4;
++    if(image->color_type != FB_COLOR_RGB_8880 &&
++       image->color_type != FB_COLOR_RGBA_8888 &&
++       image->color_type != FB_COLOR_ALPHA_8) return;
++    if(image->line_byte <= 0 || (int64_t)image->pixel_w * bytes > image->line_byte) return;
++
++    int64_t left = x, top = y;
++    int64_t right = (int64_t)x + image->pixel_w;
++    int64_t bottom = (int64_t)y + image->pixel_h;
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++    int ix = (int)(left-x), iy = (int)(top-y);
++    int w = (int)(right-left), h = (int)(bottom-top);
++    int *buf = _begin_draw((int)left, (int)top, w, h);
++    const unsigned char *source = (const unsigned char *)image->content
++        + (size_t)iy * image->line_byte + (size_t)ix * bytes;
++    uint32_t foreground = (uint32_t)color;
++
++    for(int row = 0; row < h; ++row) {
++        uint32_t *dst = (uint32_t *)(buf + ((int)top+row)*SCREEN_WIDTH + (int)left);
++        const unsigned char *src = source + (size_t)row * image->line_byte;
++        if(image->color_type == FB_COLOR_RGB_8880) {
++            memcpy(dst, src, (size_t)w * 4);
++            continue;
++        }
++        for(int column = 0; column < w; ++column) {
++            unsigned alpha, b, g, r;
++            if(bytes == 1) {
++                alpha = src[column];
++                b = foreground & 255; g = (foreground >> 8) & 255; r = (foreground >> 16) & 255;
++            } else {
++                const unsigned char *p = src + column*4;
++                b = p[0]; g = p[1]; r = p[2]; alpha = p[3];
++            }
++            if(alpha == 0) continue;
++            if(alpha != 255) {
++                uint32_t old = dst[column];
++                b = blend_channel(b, old & 255, alpha);
++                g = blend_channel(g, (old >> 8) & 255, alpha);
++                r = blend_channel(r, (old >> 16) & 255, alpha);
++            }
++            dst[column] = UINT32_C(0xff000000) | (r << 16) | (g << 8) | b;
++        }
++    }
+ }
+ 
+ void fb_draw_border(int x, int y, int w, int h, int color)
+--- a/common/image.c
++++ b/common/image.c
+@@ -5,13 +5,14 @@
+ #include <linux/fb.h>
+ 
+ #include "common.h"
++#include <limits.h>
+ 
+ /*w, h maybe == 0*/
+ fb_image * fb_new_image(int color_type, int w, int h, int line_byte)
+ {
+ 	fb_image *image;
+ 
+-	if((w<0)||(h<0)) return NULL;
++	if((w<0)||(h<0) || w > INT_MAX/4) return NULL;
+ 	switch(color_type)
+ 	{
+ 	case FB_COLOR_RGB_8880:
+@@ -25,7 +26,8 @@
+ 		return NULL;
+ 	}
+ 
+-	image = (fb_image *)malloc(sizeof(fb_image) + line_byte*h);
++	if(line_byte < 0 || (h > 0 && (size_t)line_byte > (SIZE_MAX-sizeof(fb_image))/(size_t)h)) return NULL;
++	image = (fb_image *)malloc(sizeof(fb_image) + (size_t)line_byte*h);
+ 	if(image == NULL) return NULL;
+ 
+ 	image->color_type = color_type;
+@@ -42,8 +44,8 @@
+ 	if(img == NULL) return NULL;
+ 	if((x<0)||(y<0)||
+ 		(w<0)||(h<0)||
+-		(x+w > img->pixel_w)||
+-		(y+h > img->pixel_w))
++		((int64_t)x+w > img->pixel_w)||
++		((int64_t)y+h > img->pixel_h))
+ 		return NULL;
+ 
+ 	ret = (fb_image *)malloc(sizeof(fb_image));
+@@ -53,7 +55,7 @@
+ 		ret->pixel_w = w;
+ 		ret->pixel_h = h;
+ 		if(img->color_type != FB_COLOR_ALPHA_8) x*=4;
+-		ret->content = img->content + y*img->line_byte + x;
++		ret->content = img->content + (size_t)y*img->line_byte + x;
+ 	}
+ 	return ret;
+ }
+@@ -235,6 +237,31 @@
+ static FT_Library library=NULL;
+ static FT_Face face;
+ 
++/* Cache rendered glyphs for any text/size. Returned images remain caller-owned.
++ * Round-robin eviction bounds retained bitmap data to 64 * 64 KiB.
++ * Failed cache allocations simply fall back to normal FreeType rendering.
++ */
++#define GLYPH_CACHE_COUNT 64
++#define GLYPH_CACHE_MAX_BYTES (64U * 1024U)
++static struct glyph_cache_entry {
++	FT_Face face;
++	FT_ULong codepoint;
++	int pixel_size;
++	fb_font_info info;
++	fb_image *image;
++} glyph_cache[GLYPH_CACHE_COUNT];
++static unsigned glyph_cache_next;
++
++static fb_image *copy_glyph_image(const fb_image *source)
++{
++	fb_image *copy = fb_new_image(source->color_type, source->pixel_w,
++		source->pixel_h, source->line_byte);
++	if(copy && source->pixel_h && source->line_byte)
++		memcpy(copy->content, source->content,
++			(size_t)source->pixel_h * source->line_byte);
++	return copy;
++}
++
+ #if 0 /** Change UTF-8 to Unicode **/
+ static FT_ULong Utf8ToUnicode(const char *utf8, int len)
+ {
+@@ -293,12 +320,6 @@
+ 	}
+ 	if((text == NULL)||(pixel_size <= 0)) {
+ 		printf("arg error\n");
+-		return NULL;
+-	}
+-
+-	FT_Error error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
+-	if(error){
+-		printf("FT_Set_Pixel_Sizes: error %d\n", error);
+ 		return NULL;
+ 	}
+ 
+@@ -321,6 +342,24 @@
+ 		return NULL;
+ 	}
+ 
++	for(unsigned entry = 0; entry < GLYPH_CACHE_COUNT; ++entry) {
++		struct glyph_cache_entry *cached = &glyph_cache[entry];
++		if(cached->image && cached->face == face &&
++		   cached->codepoint == ucs4 && cached->pixel_size == pixel_size) {
++			fb_image *copy = copy_glyph_image(cached->image);
++			if(copy) {
++				if(info) { *info = cached->info; info->bytes = sinfo.bytes; }
++				return copy;
++			}
++			break;
++		}
++	}
++
++	FT_Error error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
++	if(error){
++		printf("FT_Set_Pixel_Sizes: error %d\n", error);
++		return NULL;
++	}
+ 	error = FT_Load_Char(face, ucs4, FT_LOAD_RENDER);
+ 	if(error){
+ 		printf("FT_Load_Char: error %d", error);
+@@ -335,12 +374,22 @@
+ 		printf("fb_new_image(\"%s\", %d,%d,%d) failed\n", text, slot->bitmap.width, slot->bitmap.rows, slot->bitmap.pitch);
+ 		return NULL;
+ 	}
+-	memcpy(image->content, slot->bitmap.buffer, slot->bitmap.rows * slot->bitmap.pitch);
++	if(slot->bitmap.rows && slot->bitmap.pitch > 0)
++		memcpy(image->content, slot->bitmap.buffer, (size_t)slot->bitmap.rows * slot->bitmap.pitch);
+ 
+ 	sinfo.advance_x = slot->advance.x >> 6;
+ 	sinfo.left = slot->bitmap_left;
+ 	sinfo.top = slot->bitmap_top;
+ 	if(info) *info = sinfo;
++	if((size_t)image->pixel_h * image->line_byte <= GLYPH_CACHE_MAX_BYTES) {
++		fb_image *copy = copy_glyph_image(image);
++		if(copy) {
++			struct glyph_cache_entry *cached = &glyph_cache[glyph_cache_next];
++			fb_free_image(cached->image);
++			*cached = (struct glyph_cache_entry){face, ucs4, pixel_size, sinfo, copy};
++			glyph_cache_next = (glyph_cache_next + 1) % GLYPH_CACHE_COUNT;
++		}
++	}
+ 	return image;
+ }
+ 
+--- /dev/null
++++ b/install.py
+@@ -0,0 +1,69 @@
++"""Safe source overlay installer. Default: inspect only. No network or service changes."""
++from pathlib import Path
++import argparse, datetime, hashlib, json, os, shutil, sys
++
++ROOT=Path(__file__).resolve().parent
++def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
++def inside(base,relative):
++    path=(base/relative).resolve()
++    try:path.relative_to(base)
++    except ValueError:raise ValueError(f"Path leaves project: {relative}")
++    if path==base:raise ValueError(f"Path leaves project: {relative}")
++    return path
++
++def install(project,apply=False):
++    project=Path(project).resolve(strict=True)
++    manifest=json.loads((ROOT/"manifest.json").read_text(encoding="utf-8"))
++    sentinel=project/"common/common.h"
++    if not sentinel.is_file() or digest(sentinel)!=manifest["courseHeaderSHA256"]:
++        raise ValueError("This is not the matching 2026 course project (common/common.h differs).")
++    changes=[]
++    for item in manifest["files"]:
++        source=inside(ROOT,item["path"]);target=inside(project,item["path"])
++        if digest(source)!=item["sha256"]:raise ValueError(f"Prepared source changed: {item['path']}")
++        if target.with_name(target.name+".codex-new").exists():
++            raise ValueError(f"Temporary path already exists beside: {target}")
++        if target.exists():
++            if not target.is_file():raise ValueError(f"Target is not a regular file: {target}")
++            current=digest(target)
++            if current==item["sha256"]:continue
++            if current not in item["allowedPreviousSHA256"]:
++                raise ValueError(f"Existing edits would be overwritten: {item['path']}. Save/review those edits first.")
++        changes.append((item,source,target))
++    print(f"Project: {project}\nFiles needing installation: {len(changes)}")
++    if not apply:
++        print("Inspection only. Add --apply to back up and install these files.")
++        return None
++    if not changes:
++        print("Already installed; no files changed.");return None
++    backup_parent=inside(project,".codex-backups")
++    backup_parent.mkdir(exist_ok=True)
++    stamp=datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
++    backup=backup_parent/("labs3-5-"+stamp);backup.mkdir()
++    records=[]
++    for item,source,target in changes:
++        existed=target.exists()
++        if existed:
++            saved=backup/item["path"];saved.parent.mkdir(parents=True,exist_ok=True)
++            shutil.copy2(target,saved)
++        records.append({"path":item["path"],"existed":existed,
++                        "oldSHA256":digest(target) if existed else None,"installedSHA256":item["sha256"]})
++    (backup/"backup.json").write_text(json.dumps({"project":str(project),"files":records},ensure_ascii=False,indent=2),encoding="utf-8")
++    for item,source,target in changes:
++        target.parent.mkdir(parents=True,exist_ok=True)
++        temporary=target.with_name(target.name+".codex-new")
++        if temporary.exists():raise ValueError(f"Temporary path already exists: {temporary}")
++        try:
++            shutil.copy2(source,temporary);os.replace(temporary,target)
++        finally:
++            if temporary.exists():temporary.unlink()
++    print(f"Installed. Backup of previous files: {backup}\nNo binaries were run and no system services were changed.")
++    return backup
++
++if __name__=="__main__":
++    parser=argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--project",required=True,help="Existing extracted lab-st-2026 directory")
++    parser.add_argument("--apply",action="store_true")
++    args=parser.parse_args()
++    try:install(args.project,args.apply)
++    except (OSError,ValueError) as error:print(f"STOP: {error}",file=sys.stderr);sys.exit(1)
+--- a/lab3/main.c
++++ b/lab3/main.c
+@@ -21,22 +21,25 @@
+ 
+ 	fb_image *img;
+ 	img = fb_read_jpeg_image("./test.jpg");
++	if(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\n"); return EXIT_FAILURE; }
+ 	fb_draw_image(0,0,img,0);
+ 	fb_update();
+ 	fb_free_image(img);
+ 
+ 	img = fb_read_png_image("./test.png");
++	if(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\n"); return EXIT_FAILURE; }
+ 	fb_draw_image(100,300,img,0);
+ 	fb_update();
+ 	fb_free_image(img);
+ 
+ 	img = fb_read_font_image("嵌",30,NULL);
++	if(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\n"); return EXIT_FAILURE; }
+ 	fb_draw_image(400,350,img,RED);
+ 	fb_update();
+ 	fb_free_image(img);
+ 
+-	fb_draw_text(50,50,"床前明月光，疑是地上霜。",64,PURPLE);
+-	fb_draw_text(50,120,"举头望明月，低头思故乡。",64,PURPLE);
++	fb_draw_text(50,70,"床前明月光，疑是地上霜。",64,PURPLE);
++	fb_draw_text(50,140,"举头望明月，低头思故乡。",64,PURPLE);
+ 	fb_update();
+ 	return 0;
+ }
+--- /dev/null
++++ b/preflight.py
+@@ -0,0 +1,60 @@
++"""Read-only checks on the Orange Pi. Does not stop the desktop or change Bluetooth."""
++from pathlib import Path
++import argparse, array, fcntl, json, os, shutil, subprocess, sys
++
++def touchscreen_info(path):
++    descriptor=os.open(path,os.O_RDONLY|os.O_NONBLOCK)
++    try:
++        axes={}
++        for name,code in (("slot",0x2f),("x",0x35),("y",0x36)):
++            values=array.array("i",[0]*6)
++            request=(2<<30)|(24<<16)|(ord("E")<<8)|(0x40+code)
++            fcntl.ioctl(descriptor,request,values,True)
++            axes[name]={"minimum":values[1],"maximum":values[2]}
++        return {"path":str(path),"axes":axes}
++    finally:os.close(descriptor)
++
++def main():
++    parser=argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--project",required=True)
++    parser.add_argument("--lab",choices=("lab2","lab3","lab4","lab5_bt","test"),required=True)
++    parser.add_argument("--touch");parser.add_argument("--serial",default="/dev/rfcomm0")
++    parser.add_argument("--headless",action="store_true")
++    args=parser.parse_args();project=Path(args.project).resolve(strict=True)
++    failures=[];info={"project":str(project),"lab":args.lab,"checksAreReadOnly":True}
++    binary=project/"out"/args.lab
++    if not binary.is_file() or not os.access(binary,os.X_OK):failures.append(f"Build executable first: {binary}")
++    if not args.headless:
++        try:
++            descriptor=os.open("/dev/fb0",os.O_RDONLY)
++            try:
++                values=array.array("I",[0]*40);fcntl.ioctl(descriptor,0x4600,values,True)
++            finally:os.close(descriptor)
++            info["framebuffer"]={"width":values[0],"height":values[1],"bitsPerPixel":values[6],
++                "red":[values[8],values[9]],"green":[values[11],values[12]],"blue":[values[14],values[15]]}
++            if (values[0],values[1],values[6],values[8],values[9],values[11],values[12],values[14],values[15])!=(1024,600,32,16,8,8,8,0,8):
++                failures.append("Framebuffer format differs from course constants; adjust mode/code before running.")
++        except OSError as error:failures.append(f"Framebuffer unavailable: {error}")
++        if not os.access("/dev/fb0",os.R_OK|os.W_OK):failures.append("Framebuffer is not readable/writable.")
++        for name in ("font.ttc", "test.jpg", "test.png"):
++            if args.lab in ("lab3","test") or name=="font.ttc":
++                if not (project/"out"/name).is_file():failures.append(f"Missing asset: out/{name}")
++        if args.lab in ("lab4","lab5_bt"):
++            devices=[]
++            for path in ([Path(args.touch)] if args.touch else sorted(Path("/dev/input").glob("event*"))):
++                try:devices.append(touchscreen_info(path))
++                except OSError:continue
++            info["protocolBTouchscreens"]=devices
++            if not devices:failures.append("No protocol-B touchscreen detected; check its USB touch cable.")
++            if len(devices)>1 and not args.touch:failures.append("Multiple touchscreens; choose --touch /dev/input/eventN explicitly.")
++        if shutil.which("systemctl"):
++            check=subprocess.run(["systemctl","is-active","display-manager"],capture_output=True,text=True)
++            info["displayManager"]=check.stdout.strip()
++            if check.returncode==0:
++                failures.append("Board desktop is active. Follow PPT 37-38 to stop the board desktop before framebuffer experiments.")
++    if args.lab=="lab5_bt":
++        info["bluetoothTools"]={name:shutil.which(name) for name in ("bluetoothctl","rfcomm","sdptool","hciconfig")}
++        if not Path(args.serial).exists():failures.append(f"Pair/connect the Bluetooth client and keep rfcomm watch running: {args.serial} absent.")
++    info["problems"]=failures;print(json.dumps(info,ensure_ascii=False,indent=2))
++    return bool(failures)
++if __name__=="__main__":sys.exit(main())
+--- /dev/null
++++ b/run-lab.sh
+@@ -0,0 +1,28 @@
++#!/usr/bin/env bash
++set -euo pipefail
++if [ "$#" -lt 2 ]; then echo 'Usage: bash run-lab.sh /absolute/path/lab-st-2026 lab3|lab4|lab5_bt|test [program options]' >&2; exit 2; fi
++project_dir=$(realpath -- "$1")
++lab=$2
++shift 2
++case "$lab" in lab3|lab4|lab5_bt|test) ;; *) echo 'Unknown lab' >&2; exit 2;; esac
++tool_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
++check_options=()
++remaining=("$@")
++for ((i=0; i<${#remaining[@]}; i++)); do
++    case "${remaining[$i]}" in
++        --touch|--serial)
++            if ((i+1>=${#remaining[@]})); then echo 'Missing device path' >&2; exit 2; fi
++            check_options+=("${remaining[$i]}" "${remaining[$((i+1))]}"); i=$((i+1));;
++        --headless) check_options+=(--headless);;
++    esac
++done
++python3 "$tool_dir/preflight.py" --project "$project_dir" --lab "$lab" "${check_options[@]}"
++run_dir=$(mktemp -d "$project_dir/run-$lab-XXXXXX")
++cd -- "$project_dir/out"
++echo "Log: $run_dir/run.log"
++set +e
++"./$lab" "$@" 2>&1 | tee "$run_dir/run.log"
++status=${PIPESTATUS[0]}
++set -e
++printf '\nProgram exit status: %d\n' "$status" | tee -a "$run_dir/run.log"
++exit "$status"
+--- a/test/main.c
++++ b/test/main.c
+@@ -93,6 +93,7 @@
+ 	img1 = fb_read_jpeg_image("./test.jpg");
+ 	img2 = fb_read_png_image("./test.png");
+ 	img3 = fb_read_font_image("嵌",30,NULL);
++	if(!img1 || !img2 || !img3) { fprintf(stderr,"Missing test image/font assets\n"); return EXIT_FAILURE; }
+ 	start = task_get_time();
+ 	for(row=-5; row<605; row+=100){
+ 		for(column=-5; column<1029; column+=50){
+@@ -176,14 +177,14 @@
+ 	fb_draw_text(135,402,"合计total",30,ORANGE);
+ 	fb_draw_text(260,454,"华中科技大学",30,PURPLE);
+ 	
+-	char str[5];
++	char str[32];
+ 	for(i=0; i<5; i++){
+-		memset(str,'\0',5);
+-		sprintf(str,"%d",time[i]);
++		memset(str,0,sizeof(str));
++		snprintf(str,sizeof(str),"%d",time[i]);
+ 		fb_draw_text(370,90+52*(i+1),str,30,CYAN);
+ 	}
+-	memset(str,'\0',5);
+-	sprintf(str,"%d",time_total);
++	memset(str,0,sizeof(str));
++	snprintf(str,sizeof(str),"%d",time_total);
+ 	fb_draw_text(370,402,str,30,ORANGE);
+ 
+ 	fb_update();
+--- /dev/null
++++ b/tests/image-baseline.c
+@@ -0,0 +1,349 @@
++#include <fcntl.h>
++#include <stdio.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <linux/fb.h>
++
++#include "common.h"
++#include <limits.h>
++
++/*w, h maybe == 0*/
++fb_image * fb_new_image(int color_type, int w, int h, int line_byte)
++{
++	fb_image *image;
++
++	if((w<0)||(h<0) || w > INT_MAX/4) return NULL;
++	switch(color_type)
++	{
++	case FB_COLOR_RGB_8880:
++	case FB_COLOR_RGBA_8888:
++		if(line_byte < w*4) line_byte = w*4;
++		break;
++	case FB_COLOR_ALPHA_8:
++		if(line_byte < w) line_byte = w;
++		break;
++	default:
++		return NULL;
++	}
++
++	if(line_byte < 0 || (h > 0 && (size_t)line_byte > (SIZE_MAX-sizeof(fb_image))/(size_t)h)) return NULL;
++	image = (fb_image *)malloc(sizeof(fb_image) + (size_t)line_byte*h);
++	if(image == NULL) return NULL;
++
++	image->color_type = color_type;
++	image->line_byte = line_byte;
++	image->pixel_w = w;
++	image->pixel_h = h;
++	image->content = (char *)(image+1);
++	return image;
++}
++
++fb_image *fb_get_sub_image(fb_image *img, int x, int y, int w, int h)
++{
++	fb_image *ret;
++	if(img == NULL) return NULL;
++	if((x<0)||(y<0)||
++		(w<0)||(h<0)||
++		((int64_t)x+w > img->pixel_w)||
++		((int64_t)y+h > img->pixel_h))
++		return NULL;
++
++	ret = (fb_image *)malloc(sizeof(fb_image));
++	if(ret != NULL) {
++		ret->color_type = img->color_type;
++		ret->line_byte = img->line_byte;
++		ret->pixel_w = w;
++		ret->pixel_h = h;
++		if(img->color_type != FB_COLOR_ALPHA_8) x*=4;
++		ret->content = img->content + (size_t)y*img->line_byte + x;
++	}
++	return ret;
++}
++
++void fb_free_image(fb_image *image)
++{
++	if(image) free(image);
++}
++
++/*================== read a jpeg image ===============*/
++#include <jpeglib.h>
++fb_image *fb_read_jpeg_image(char *file)
++{
++	fb_image *image;
++	//指定错误处理器
++	struct jpeg_error_mgr errpub;
++	//申请jpeg解压对象
++	struct jpeg_decompress_struct cinfo;
++	//将错误处理结构对象绑定在JPEG对象上
++	cinfo.err = jpeg_std_error(&errpub);
++	//初始化cinfo结构
++	jpeg_create_decompress(&cinfo);
++
++	//指定解压数据源
++	FILE *infile;
++	if((infile = fopen(file, "rb")) == NULL){
++		printf("fb_read_jpeg_image: Failed to open file %s", file);
++		return NULL;
++	}
++	jpeg_stdio_src(&cinfo, infile);
++
++	//获取文件信息
++	jpeg_read_header(&cinfo, TRUE);
++	//为解压缩设定参数
++	cinfo.dct_method = JDCT_IFAST;
++	cinfo.do_fancy_upsampling = FALSE;
++	cinfo.out_color_space = JCS_EXT_BGRX; //输出图像的色彩空间
++	
++	//开始解压缩
++	jpeg_start_decompress(&cinfo);
++
++	image = (fb_image *)fb_new_image(FB_COLOR_RGB_8880, cinfo.output_width, cinfo.output_height, 0);
++	if(image == NULL){
++		jpeg_destroy_decompress(&cinfo);
++		fclose(infile);
++		return NULL;
++	}
++	//取出数据
++	char *dst_row = image->content;
++	int dst_line = image->line_byte;
++	while(cinfo.output_scanline < cinfo.output_height){
++		jpeg_read_scanlines(&cinfo, (JSAMPARRAY)&dst_row, 1);
++		dst_row += dst_line;
++	}
++
++	//解压缩完毕
++	jpeg_finish_decompress(&cinfo);
++	//释放资源
++	jpeg_destroy_decompress(&cinfo);
++	fclose(infile);
++	return image;
++}
++
++/*================== read a png image ===============*/
++#include <png.h>
++fb_image *fb_read_png_image(char *file)
++{
++	fb_image *image=NULL;
++	png_structp png_ptr;
++	png_infop info_ptr;
++	FILE *fp;
++	
++	fp = fopen(file, "rb");
++	if(fp == NULL) {
++		printf("open png file failed: error %d\n",errno);
++		return NULL;
++	}
++
++	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
++	if (png_ptr == NULL) {
++		printf("png_create_read_struct failed\n");
++		fclose(fp);
++		return NULL;
++	}
++	
++	// Allocate/initialize the memory for image information.  REQUIRED. 
++	info_ptr = png_create_info_struct(png_ptr);
++	if(info_ptr == NULL) {
++		printf("png_create_info_struct failed\n");
++		fclose(fp);
++		png_destroy_read_struct(&png_ptr, NULL, NULL);
++		return NULL;
++	}
++	
++	/* Set error handling if you are using the setjmp/longjmp method (this is
++	* the normal method of doing things with libpng).  REQUIRED unless you
++	* set up your own error handlers in the png_create_read_struct() earlier.
++	*/
++	if (setjmp(png_jmpbuf(png_ptr))) {
++		/* Free all of the memory associated with the png_ptr and info_ptr */
++		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++		/* If we get here, we had a problem reading the file */
++		/*TLogE("open png image error \n");*/
++		fclose(fp);
++		fb_free_image(image);
++		return NULL;
++	}
++	
++	//bind libpng with fp
++	png_init_io(png_ptr, fp);
++	png_set_sig_bytes(png_ptr, 0);
++	
++	png_read_png(png_ptr, info_ptr, 
++		PNG_TRANSFORM_STRIP_16|
++		PNG_TRANSFORM_PACKING|
++		PNG_TRANSFORM_EXPAND|
++		PNG_TRANSFORM_BGR, NULL);
++
++	if(png_get_bit_depth(png_ptr, info_ptr) == 16) {
++		png_set_strip_16(png_ptr);
++	}
++	/*if(png_get_valid(png_ptr,info_ptr,PNG_INFO_tRNS)) {
++		png_set_tRNS_to_alpha(png_ptr);
++	}*/
++
++	//not support color type
++	if(png_get_channels(png_ptr, info_ptr) != 4) {
++		printf("unrecognized image format.\n");
++		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++		fclose(fp);
++		return NULL; 
++	}
++	int pngheight =png_get_image_height(png_ptr, info_ptr);
++	int pngwidth = png_get_image_width(png_ptr, info_ptr);
++	image = fb_new_image(FB_COLOR_RGBA_8888,pngwidth, pngheight , 0);
++	if(image == NULL){
++		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++		fclose(fp);
++		return NULL;
++	}
++	
++	char *dst = image->content;
++	char **row_pointers;
++	char *src;
++	row_pointers = (char **)png_get_rows(png_ptr, info_ptr);
++	int i = 0;
++	while(i <pngheight )
++	{
++		src = row_pointers[i];
++		memcpy(dst, src, pngwidth * 4);
++		dst += image->line_byte;
++		++i;
++	}
++
++	png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++	fclose(fp);
++	return image;
++}
++
++/*================== read a font image ===============*/
++
++#include <ft2build.h>
++#include FT_FREETYPE_H
++
++/* typedef struct  FT_Bitmap_
++  {
++    unsigned int    rows;
++    unsigned int    width;
++    int             pitch;
++    unsigned char*  buffer;
++    unsigned short  num_grays;
++    unsigned char   pixel_mode;
++    unsigned char   palette_mode;
++    void*           palette;
++
++  } FT_Bitmap;
++ */
++
++static FT_Library library=NULL;
++static FT_Face face;
++
++#if 0 /** Change UTF-8 to Unicode **/
++static FT_ULong Utf8ToUnicode(const char *utf8, int len)
++{
++	FT_ULong unic=0;
++	int i;
++	unsigned char flag = (len==2?0x1F:(len==3?0x0F:(len==4?0x07:0xFF)));
++	if(len == 1){
++		return (FT_ULong)(unsigned char)utf8[0];
++	}else{
++		for(i=0;i<len-1;i++){
++			unic |= (((FT_ULong)((unsigned char)utf8[len-i-1]&0x3f)) << 6*i);
++		}
++		unic |= (((FT_ULong)((unsigned char)utf8[0]&flag))<<(len-1)*6);
++	}
++	return unic;
++}
++#endif
++
++void font_init(char *font_file)
++{
++	FT_Error error;
++
++	if(library == NULL)
++	{
++		error = FT_Init_FreeType(&library);
++		if(error){
++			printf("FT_Init_FreeType: error %d\n",error);
++			library = NULL;
++			return;
++		}
++	}
++	if(face == NULL)
++	{
++		error = FT_New_Face(library, font_file, 0, &face);
++		if(error){
++			printf("FT_New_Face(\"%s\"): error %d\n", font_file, error);
++			face = NULL;
++			return;
++		}
++		error = FT_Select_Charmap(face, FT_ENCODING_UNICODE);
++		if(error){
++			printf("FT_Select_Charmap: error %d\n",error);
++			face = NULL;
++			return;
++		}
++	}
++	return;
++}
++
++/** read a font image **/ 
++fb_image* fb_read_font_image(const char *text, int pixel_size, fb_font_info *info)
++{
++	if(face == NULL) {
++		printf("call font_init(\"font_file\") first\n");
++		return NULL;
++	}
++	if((text == NULL)||(pixel_size <= 0)) {
++		printf("arg error\n");
++		return NULL;
++	}
++
++	FT_Error error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
++	if(error){
++		printf("FT_Set_Pixel_Sizes: error %d\n", error);
++		return NULL;
++	}
++
++	fb_font_info sinfo;
++	FT_ULong ucs4;
++	if((text[0]&0x80) == 0){
++		sinfo.bytes = 1;
++		ucs4 = (unsigned char)text[0];
++	}else if((text[0]&0xE0) == 0xC0){
++		sinfo.bytes = 2;
++		ucs4 = ((text[0]&0x1F)<<6)|(text[1]&0x3F);
++	}else if((text[0]&0xF0) == 0xE0){
++		sinfo.bytes = 3;
++		ucs4 = ((text[0]&0x0F)<<12)|((text[1]&0x3F)<<6)|(text[2]&0x3F);
++	}else if((text[0]&0xF8) == 0xF0){
++		sinfo.bytes = 4;
++		ucs4 = ((text[0]&0x07)<<18)|((text[1]&0x3F)<<12)|((text[2]&0x3F)<<6)|(text[3]&0x3F);
++	}else{
++		printf("code error!\n");
++		return NULL;
++	}
++
++	error = FT_Load_Char(face, ucs4, FT_LOAD_RENDER);
++	if(error){
++		printf("FT_Load_Char: error %d", error);
++		return NULL;
++	}
++	FT_GlyphSlot slot = face->glyph;
++
++	fb_image* image;
++	/*when ucs4 == 0x20 (blank), the bitmap.width/rows/pitch is 0*/
++	image = fb_new_image(FB_COLOR_ALPHA_8, slot->bitmap.width, slot->bitmap.rows, slot->bitmap.pitch);
++	if(image == NULL){
++		printf("fb_new_image(\"%s\", %d,%d,%d) failed\n", text, slot->bitmap.width, slot->bitmap.rows, slot->bitmap.pitch);
++		return NULL;
++	}
++	if(slot->bitmap.rows && slot->bitmap.pitch > 0)
++		memcpy(image->content, slot->bitmap.buffer, (size_t)slot->bitmap.rows * slot->bitmap.pitch);
++
++	sinfo.advance_x = slot->advance.x >> 6;
++	sinfo.left = slot->bitmap_left;
++	sinfo.top = slot->bitmap_top;
++	if(info) *info = sinfo;
++	return image;
++}
++
+--- /dev/null
++++ b/tests/test_glyph_cache.c
+@@ -0,0 +1,56 @@
++#include "common.h"
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++
++void baseline_font_init(char *path);
++fb_image *baseline_fb_read_font_image(const char *, int, fb_font_info *);
++void baseline_fb_free_image(fb_image *);
++
++static unsigned cases;
++static void compare(const char *text, int size)
++{
++    fb_font_info expected_info = {0}, actual_info = {0};
++    fb_image *expected = baseline_fb_read_font_image(text, size, &expected_info);
++    assert(expected);
++    for (int repeat = 0; repeat < 3; ++repeat) {
++        fb_image *actual = fb_read_font_image(text, size, &actual_info);
++        assert(actual && actual->color_type == expected->color_type);
++        assert(actual->pixel_w == expected->pixel_w && actual->pixel_h == expected->pixel_h);
++        assert(actual->line_byte == expected->line_byte);
++        assert(actual_info.bytes == expected_info.bytes);
++        assert(actual_info.advance_x == expected_info.advance_x);
++        assert(actual_info.left == expected_info.left && actual_info.top == expected_info.top);
++        size_t bytes = (size_t)actual->line_byte * actual->pixel_h;
++        assert(memcmp(actual->content, expected->content, bytes) == 0);
++        /* Clients own returned storage: mutation must not change a cached glyph. */
++        memset(actual->content, 0x5a, bytes);
++        fb_free_image(actual);
++        ++cases;
++    }
++    baseline_fb_free_image(expected);
++}
++
++int main(int argc, char **argv)
++{
++    assert(argc == 2);
++    font_init(argv[1]);
++    baseline_font_init(argv[1]);
++    const char *samples[] = {" ", "A", "g", "嵌", "入", "式", "系", "统", "床", "前", "明", "月", "光", "。", "é", "😀"};
++    const int sizes[] = {20, 30, 40, 64};
++    for (unsigned pass = 0; pass < 2; ++pass) {
++        for (unsigned s = 0; s < sizeof(sizes)/sizeof(sizes[0]); ++s) {
++            for (unsigned i = 0; i < sizeof(samples)/sizeof(samples[0]); ++i)
++                compare(samples[i], sizes[s]);
++        }
++        /* More distinct keys than the cache capacity exercises eviction. */
++        for (int c = 32; c < 127; ++c) {
++            char text[2] = {(char)c, 0};
++            compare(text, 31 + (c % 5));
++        }
++    }
++    compare("嵌", 512); /* Oversized bitmap bypasses the bounded cache. */
++    compare("嵌", 30);
++    printf("PASS: %u real FreeType glyph comparisons, including hits, eviction, sizes, UTF-8, empty glyphs and caller ownership\n", cases);
++    return 0;
++}
+--- /dev/null
++++ b/tests/verify-glyph-cache.sh
+@@ -0,0 +1,15 @@
++#!/usr/bin/env bash
++set -euo pipefail
++if [ "$#" -ne 1 ]; then echo 'Usage: bash verify-glyph-cache.sh /absolute/path/to/lab-st-2026' >&2; exit 2; fi
++project_dir=$(realpath -- "$1")
++prepared_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
++check_dir=$(mktemp -d "$project_dir/glyph-cache-check-XXXXXX")
++flags=(-O3 -Wall -I"$project_dir/common" -I"$project_dir/common/external/include")
++renames=()
++for function in fb_new_image fb_get_sub_image fb_free_image fb_read_jpeg_image fb_read_png_image font_init fb_read_font_image; do
++    renames+=("-D$function=baseline_$function")
++done
++gcc "${flags[@]}" "${renames[@]}" -c "$prepared_dir/tests/image-baseline.c" -o "$check_dir/baseline.o"
++gcc "${flags[@]}" "$prepared_dir/tests/test_glyph_cache.c" "$prepared_dir/common/image.c" "$check_dir/baseline.o" \
++    -L"$project_dir/common/external/lib" -ljpeg -lpng -lfreetype -lz -o "$check_dir/check"
++"$check_dir/check" "$project_dir/out/font.ttc" | tee "$check_dir/result.log"

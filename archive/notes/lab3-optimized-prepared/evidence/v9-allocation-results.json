@@ -1,0 +1,18 @@
+{
+  "hardwareValidated": false,
+  "performanceMeasured": false,
+  "sourceHashes": {
+    "fast_pixels_v9.h": "5ff15bda753a463adb8351d3e5c119bcf327dc878a3a7b2e58ebab1e67c57775",
+    "prepared_image_v9.h": "f8703568006f92001288d8d851521d813fd774bb29777cb618db137711921656"
+  },
+  "actualMallocFailuresInjected": [
+    "command array",
+    "CSR row index"
+  ],
+  "logs": {
+    "scalar": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "neon": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "omp2": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n",
+    "omp4": "PASS: commands and CSR-index malloc failures preserve ordered draw and dirty bounds\n"
+  }
+}

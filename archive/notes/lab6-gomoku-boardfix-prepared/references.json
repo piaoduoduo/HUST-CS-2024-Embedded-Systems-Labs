@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-15",
+  "courseDeck": "/example/user/Downloads/4.实验-Orangepi-20250815-V25.pptx",
+  "relevantPages": [
+    17,
+    88
+  ],
+  "currentCourseSource": "resources/lab-st-2026.tgz",
+  "commonCodeBase": "lab4-prepared/common, including the board-tested lab3 glyph cache",
+  "historicalRepository": "https://github.com/Oliver-242/HUST-Embedded-System",
+  "historicalReadScope": "Repository root/README was read; lab6 directory/source fetches failed and the contents API was rate-limited. No lab6 report was read.",
+  "wiki": {
+    "url": "https://1037.wiki/",
+    "readScope": "Homepage controls only; no matching course document obtained."
+  },
+  "implementation": "Rules, bounded AI search, app and UI modules implemented in this session; no historical lab6 implementation copied.",
+  "validation": "Windows C tests, host Linux-header syntax shims and memory framebuffer previews; Linux ARM compilation and physical touch/display pending."
+}

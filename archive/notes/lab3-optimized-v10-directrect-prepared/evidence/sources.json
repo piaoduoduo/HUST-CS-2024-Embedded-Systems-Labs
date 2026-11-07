@@ -1,0 +1,113 @@
+[
+  {
+    "repository": "uniqueFranky/Embedded-System",
+    "branch": "master",
+    "files": [
+      {
+        "path": "common/graphic.c",
+        "gitBlob": "e705cfb7ec891ffd4cc9fdd541f5e10e811bf6f1",
+        "sha256": "720f41c2107a3a155de07498d486c4e4cb5188b3dd2b46f1c1defb648c01cbdb",
+        "url": "https://github.com/uniqueFranky/Embedded-System/blob/a706a84909fa652f99416aa090afba101e4801b4/common/graphic.c"
+      },
+      {
+        "path": "common/image.c",
+        "gitBlob": "e688222cc236fb2aad24a448f799a5ace9d7015e",
+        "sha256": "a0bb7ea75d6e32e738830a3cf6f3dcc528815ac657cc2917de45d1a5e26d13b7",
+        "url": "https://github.com/uniqueFranky/Embedded-System/blob/a706a84909fa652f99416aa090afba101e4801b4/common/image.c"
+      },
+      {
+        "path": "common/rules.mk",
+        "gitBlob": "70d90caa99083cd9dae8fd330e559d819b9b9d4f",
+        "sha256": "08c66d47b7f1cca2a036a030d479b60042469f71810a32057f15ef91a64729de",
+        "url": "https://github.com/uniqueFranky/Embedded-System/blob/a706a84909fa652f99416aa090afba101e4801b4/common/rules.mk"
+      },
+      {
+        "path": "lab3/Makefile",
+        "gitBlob": "3915fb5d671e7bdd5efc1a045f14860a7a41891e",
+        "sha256": "e14781892d616e64c0a69819a8058c187c638bc80ccd0c61ecfb65392dfbd8cc",
+        "url": "https://github.com/uniqueFranky/Embedded-System/blob/a706a84909fa652f99416aa090afba101e4801b4/lab3/Makefile"
+      },
+      {
+        "path": "lab3/main.c",
+        "gitBlob": "32c22ed71a0d0136021bf3b616a825698769e30f",
+        "sha256": "7be9b477928fba3fde0e7516cfa39604af1a813ba7c806c3bd2948039e6af0f7",
+        "url": "https://github.com/uniqueFranky/Embedded-System/blob/a706a84909fa652f99416aa090afba101e4801b4/lab3/main.c"
+      }
+    ],
+    "commit": "a706a84909fa652f99416aa090afba101e4801b4"
+  },
+  {
+    "repository": "Oliver-242/HUST-Embedded-System",
+    "branch": "main",
+    "files": [
+      {
+        "path": "README.md",
+        "gitBlob": "7cc6e47fce859963e303b57c82aaadf5baaffbc7",
+        "sha256": "7dcb2e35a52dfa4a785b7e4466f76f2b711b68686b0b1fe1175128d07b5495c4",
+        "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/a3e991c364aa5e3f1840eddfa2de35c8020eb048/README.md"
+      },
+      {
+        "path": "common/graphic.c",
+        "gitBlob": "7d28b6a4a2df75ae004ca2938ada0c3bf8aff9ce",
+        "sha256": "acc586b2c4e28a92c701b9bace3774f05baf7ca4dd2affc3e8b5efa835694e63",
+        "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/a3e991c364aa5e3f1840eddfa2de35c8020eb048/common/graphic.c"
+      },
+      {
+        "path": "common/image.c",
+        "gitBlob": "e688222cc236fb2aad24a448f799a5ace9d7015e",
+        "sha256": "a0bb7ea75d6e32e738830a3cf6f3dcc528815ac657cc2917de45d1a5e26d13b7",
+        "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/a3e991c364aa5e3f1840eddfa2de35c8020eb048/common/image.c"
+      },
+      {
+        "path": "common/rules.mk",
+        "gitBlob": "9d6ee50e2423cfc0a8241d51c3a9b162d7b6d0f5",
+        "sha256": "60765963017fcbbd838eae0faf16deb1ac354847feb7cca979b3c1c48889343f",
+        "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/a3e991c364aa5e3f1840eddfa2de35c8020eb048/common/rules.mk"
+      },
+      {
+        "path": "lab3/Makefile",
+        "gitBlob": "3915fb5d671e7bdd5efc1a045f14860a7a41891e",
+        "sha256": "e14781892d616e64c0a69819a8058c187c638bc80ccd0c61ecfb65392dfbd8cc",
+        "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/a3e991c364aa5e3f1840eddfa2de35c8020eb048/lab3/Makefile"
+      },
+      {
+        "path": "lab3/main.c",
+        "gitBlob": "32c22ed71a0d0136021bf3b616a825698769e30f",
+        "sha256": "7be9b477928fba3fde0e7516cfa39604af1a813ba7c806c3bd2948039e6af0f7",
+        "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/a3e991c364aa5e3f1840eddfa2de35c8020eb048/lab3/main.c"
+      }
+    ],
+    "commit": "a3e991c364aa5e3f1840eddfa2de35c8020eb048"
+  },
+  {
+    "repository": "lrg1/Embedded_System",
+    "branch": "master",
+    "files": [
+      {
+        "path": "LAB/src/series1/lab3/main.c",
+        "gitBlob": "707e39eff60da6094e62c723db414684853bb86f",
+        "sha256": "10170e96a0cb3acc037671924e5276bbb8f0233115676df70a66cadb8279a085",
+        "url": "https://github.com/lrg1/Embedded_System/blob/1d6e7f202d6a4f69ee59b27522304763482079ec/LAB/src/series1/lab3/main.c"
+      },
+      {
+        "path": "LAB/src/series2/lab3/main.c",
+        "gitBlob": "707e39eff60da6094e62c723db414684853bb86f",
+        "sha256": "10170e96a0cb3acc037671924e5276bbb8f0233115676df70a66cadb8279a085",
+        "url": "https://github.com/lrg1/Embedded_System/blob/1d6e7f202d6a4f69ee59b27522304763482079ec/LAB/src/series2/lab3/main.c"
+      }
+    ],
+    "commit": "1d6e7f202d6a4f69ee59b27522304763482079ec"
+  },
+  {
+    "repository": "LX-676655103/-HUST-CS-2018-",
+    "branch": "master",
+    "files": [],
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "SukunaShinmyoumaru-hust/Hust-opensource-Xuejie",
+    "branch": "main",
+    "files": [],
+    "error": "IncompleteRead(1638400 bytes read)"
+  }
+]

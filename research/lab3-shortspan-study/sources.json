@@ -1,0 +1,18 @@
+[
+  {
+    "url": "https://1037.wiki/",
+    "read": "首页搜索入口；本次未读到嵌入式课程正文，不作为实现或成绩证据"
+  },
+  {
+    "url": "https://github.com/nivag8899/HUST-Embedded-System",
+    "read": "README实际正文；performance/O3建议已有，未发现可直接证明20ms的新实现"
+  },
+  {
+    "url": "https://chromium.googlesource.com/libyuv/libyuv/+/refs/heads/main/source/row_neon64.cc",
+    "read": "ARGBBlendRow_NEON实际源码；采用预乘源色与/256语义，不直接替换本课程/255逐层精确混合"
+  },
+  {
+    "url": "https://arm-software.github.io/acle/neon_intrinsics/advsimd.html",
+    "read": "vrsraq_n_u16 -> URSRA；vrshrn_n_u16 -> RSHRN。仅证明指令映射，未作ARM实测"
+  }
+]

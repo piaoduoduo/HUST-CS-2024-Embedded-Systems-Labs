@@ -1,0 +1,329 @@
+--- a/common/fast_pixels_v9.h
++++ b/common/fast_pixels_v9.h
+@@ -61,24 +61,51 @@
+     t=vaddq_u32(t,vdupq_n_u32(128));
+     return vshrq_n_u32(vaddq_u32(t,vshrq_n_u32(t,8)),8);
+ }
++/* Each packed half remains <= 65407 after correction: no lane carry.
++   Keep the same /255 rounding; this is not premultiplied /256 blending. */
++static inline uint32x4_t fb_round4_rb_candidate(uint32x4_t t)
++{
++    uint32x4_t mask=vdupq_n_u32(0x00ff00ffu);
++    t=vaddq_u32(t,vdupq_n_u32(0x00800080u));
++    return vandq_u32(vshrq_n_u32(vaddq_u32(t,vandq_u32(vshrq_n_u32(t,8),mask)),8),mask);
++}
+ static inline void fb_blend4(uint32_t *dst,uint32x4_t s,uint32x4_t a,int partial)
+ {
+     uint32x4_t d=vld1q_u32(dst),mask=vdupq_n_u32(255);
++    #ifndef FB_DISABLE_PACKED_FOUR
++    uint32x4_t rbmask=vdupq_n_u32(0x00ff00ffu);
++    uint32x4_t rb=fb_round4_rb_candidate(vmlaq_u32(vmulq_u32(vandq_u32(s,rbmask),a),
++        vandq_u32(d,rbmask),vsubq_u32(vdupq_n_u32(255),a)));
++    uint32x4_t g=fb_mix4_channel(vandq_u32(vshrq_n_u32(s,8),mask),vandq_u32(vshrq_n_u32(d,8),mask),a);
++    uint32x4_t out=vorrq_u32(vdupq_n_u32(0xff000000u),vorrq_u32(rb,vshlq_n_u32(g,8)));
++    #else
+     uint32x4_t b=fb_mix4_channel(vandq_u32(s,mask),vandq_u32(d,mask),a);
+     uint32x4_t g=fb_mix4_channel(vandq_u32(vshrq_n_u32(s,8),mask),vandq_u32(vshrq_n_u32(d,8),mask),a);
+     uint32x4_t r=fb_mix4_channel(vandq_u32(vshrq_n_u32(s,16),mask),vandq_u32(vshrq_n_u32(d,16),mask),a);
+     uint32x4_t out=vorrq_u32(vdupq_n_u32(0xff000000u),vorrq_u32(b,vorrq_u32(vshlq_n_u32(g,8),vshlq_n_u32(r,16))));
++    #endif
+     if(!partial)out=vbslq_u32(vceqq_u32(a,vdupq_n_u32(0)),d,out);
+     vst1q_u32(dst,out);
+ }
+ #endif
++/* For 0<=t<=65025:
++   ((t + round(t/256)) + 128)>>8 == (t+128+((t+128)>>8))>>8.
++   Rounded shift-accumulate plus rounded narrow preserves exact /255 rounding. */
++static inline uint8x8_t fb_round8_candidate(uint16x8_t t)
++{
++    #ifndef FB_DISABLE_SHORT_ROUND
++    return vrshrn_n_u16(vrsraq_n_u16(t,t,8),8);
++    #else
++    t=vaddq_u16(t,vdupq_n_u16(128));
++    t=vaddq_u16(t,vshrq_n_u16(t,8));
++    return vshrn_n_u16(t,8);
++    #endif
++}
+ static inline uint8x8_t fb_mix8(uint8x8_t s, uint8x8_t d, uint8x8_t a)
+ {
+     uint16x8_t t=vmull_u8(s,a);
+     t=vmlal_u8(t,d,vsub_u8(vdup_n_u8(255),a));
+-    t=vaddq_u16(t,vdupq_n_u16(128));
+-    t=vaddq_u16(t,vshrq_n_u16(t,8));
+-    return vshrn_n_u16(t,8);
++    return fb_round8_candidate(t);
+ }
+ static inline void fb_blend8(unsigned char *dst, uint8x8x4_t s, uint8x8_t a)
+ {
+--- /dev/null
++++ b/common/opaque_adaptive_candidate.h
+@@ -0,0 +1,59 @@
++#ifndef FB_OPAQUE_SWITCH_INTERVALS
++#define FB_OPAQUE_SWITCH_INTERVALS 8
++#endif
++static inline struct fb_row_stats fb_batch_row_adaptive(const fb_opaque_batch *batch,int y)
++{
++    /* At most ceil(width/2) non-adjacent nonempty integer intervals exist. */
++    struct fb_covered_span covered[(SCREEN_WIDTH+1)/2+1];
++    int count=0;
++    struct fb_row_stats result={0};
++    for(unsigned command=batch->count;command>0;--command) {
++        const struct fb_batch_command *c=&batch->commands[command-1];
++        FB_COUNT(result.checks++);
++        if(y<c->top || y>=c->bottom)continue;
++        int cursor=c->left;
++        const unsigned char *row=c->source+(size_t)(y-c->top)*c->stride;
++        for(int i=0;i<count && covered[i].left<c->right;++i) {
++            FB_COUNT(result.comparisons++);
++            if(covered[i].right<=cursor)continue;
++            if(covered[i].left>cursor) {
++                int end=covered[i].left<c->right?covered[i].left:c->right;
++                memcpy(DRAW_BUF+y*SCREEN_WIDTH+cursor,row+(size_t)(cursor-c->left)*4,(size_t)(end-cursor)*4);
++                FB_COUNT(result.writes+=(unsigned)(end-cursor));FB_COUNT(result.spans++);
++            }
++            if(cursor<covered[i].right)cursor=covered[i].right;
++            if(cursor>=c->right)break;
++        }
++        if(cursor<c->right) {
++            memcpy(DRAW_BUF+y*SCREEN_WIDTH+cursor,row+(size_t)(cursor-c->left)*4,(size_t)(c->right-cursor)*4);
++            FB_COUNT(result.writes+=(unsigned)(c->right-cursor));FB_COUNT(result.spans++);
++        }
++        /* Union this rectangle's row with existing sorted, disjoint coverage. */
++        int first=0,left=c->left,right=c->right;
++        while(first<count && covered[first].right<left){first++;FB_COUNT(result.comparisons++);}
++        int last=first;
++        while(last<count && covered[last].left<=right) {
++            if(left>covered[last].left)left=covered[last].left;
++            if(right<covered[last].right)right=covered[last].right;
++            last++;FB_COUNT(result.comparisons++);
++        }
++        memmove(covered+first+1,covered+last,(size_t)(count-last)*sizeof(*covered));
++        count=count-(last-first)+1;covered[first]=(struct fb_covered_span){left,right};
++        if(count>=FB_OPAQUE_SWITCH_INTERVALS && command>1) {
++            uint64_t bits[FB_OPAQUE_WORDS]={0};unsigned full=0;
++            if(SCREEN_WIDTH%64)bits[FB_OPAQUE_WORDS-1]=UINT64_MAX<<(SCREEN_WIDTH%64);
++            for(int i=0;i<count;i++)for(int w=covered[i].left/64;w<=(covered[i].right-1)/64;w++) {
++                int base=w*64,l=covered[i].left>base?covered[i].left-base:0,r=covered[i].right-base;
++                if(r>64)r=64;
++                uint64_t old=bits[w];bits[w]|=fb_opaque_mask(l,r);
++                if(old!=UINT64_MAX && bits[w]==UINT64_MAX)full++;
++            }
++            struct fb_row_stats tail=fb_batch_row_bitset_from(batch,y,command-1,bits,full);
++            result.writes+=tail.writes;result.spans+=tail.spans;
++            result.checks+=tail.checks;result.comparisons+=tail.comparisons;
++            return result;
++        }
++        if(count==1 && left==0 && right==SCREEN_WIDTH)break;
++    }
++    return result;
++}
+--- a/common/opaque_batch_v5.h
++++ b/common/opaque_batch_v5.h
+@@ -19,7 +19,8 @@
+ };
+ struct fb_covered_span {int left,right;};
+ struct fb_row_stats {uint64_t writes,spans,checks,comparisons;};
+-static struct fb_row_stats fb_batch_row(const fb_opaque_batch *batch,int y)
++#include "opaque_bitset_candidate.h"
++static inline struct fb_row_stats fb_batch_row(const fb_opaque_batch *batch,int y)
+ {
+     /* At most ceil(width/2) non-adjacent nonempty integer intervals exist. */
+     struct fb_covered_span covered[(SCREEN_WIDTH+1)/2+1];
+@@ -61,6 +62,8 @@
+     }
+     return result;
+ }
++#include "opaque_adaptive_candidate.h"
++#include "opaque_fast_candidate.h"
+ static void fb_batch_flush(fb_opaque_batch *batch)
+ {
+     if(!batch->count)return;
+@@ -78,7 +81,16 @@
+     #pragma omp parallel for schedule(static) reduction(+:writes,spans,checks,comparisons) if(batch->count>8 && bottom-top>64)
+     #endif
+     for(int y=top;y<bottom;y++) {
+-        struct fb_row_stats row=fb_batch_row(batch,y);
++        struct fb_row_stats row;
++        #if defined(FB_OPAQUE_FAST)
++        row=fb_batch_row_fast(batch,y);
++        #elif defined(FB_OPAQUE_ADAPTIVE)
++        row=fb_batch_row_adaptive(batch,y);
++        #elif defined(FB_OPAQUE_BITSET)
++        row=fb_batch_row_bitset(batch,y);
++        #else
++        row=fb_batch_row(batch,y);
++        #endif
+         writes+=row.writes;spans+=row.spans;checks+=row.checks;comparisons+=row.comparisons;
+     }
+     batch->stats.copied_pixels+=writes;batch->stats.copied_spans+=spans;
+--- /dev/null
++++ b/common/opaque_bitset_candidate.h
+@@ -0,0 +1,56 @@
++/* Private experimental row renderer. Valid clipped opaque commands only.
++ * Reverse order keeps the final writer, copying each exposed pixel once.
++ * Per row: O(B*ceil(W/64) + R + U), R copy runs, U copied pixels.
++ * Scratch: O(ceil(W/64)); no sorted interval insertion or memmove. */
++#define FB_OPAQUE_WORDS ((SCREEN_WIDTH+63)/64)
++static uint64_t fb_opaque_mask(int l,int r)
++{
++    return (UINT64_MAX<<l)&(r==64?UINT64_MAX:((UINT64_C(1)<<r)-1));
++}
++static void fb_opaque_copy_run(const struct fb_batch_command *c,int y,int l,int r,struct fb_row_stats *stats)
++{
++    const unsigned char *source=c->source+(size_t)(y-c->top)*c->stride;
++    memcpy(DRAW_BUF+(size_t)y*SCREEN_WIDTH+l,source+(size_t)(l-c->left)*4,(size_t)(r-l)*4);
++    FB_COUNT(stats->writes+=(unsigned)(r-l));FB_COUNT(stats->spans++);
++    (void)stats;
++}
++static inline struct fb_row_stats fb_batch_row_bitset_from(const fb_opaque_batch *batch,int y,unsigned start,uint64_t *covered,unsigned full)
++{
++    struct fb_row_stats result={0};
++    for(unsigned command=start;command>0;--command) {
++        const struct fb_batch_command *c=&batch->commands[command-1];
++        FB_COUNT(result.checks++);
++        if(y<c->top || y>=c->bottom)continue;
++        int run_l=-1,run_r=0;
++        for(int word=c->left/64;word<=(c->right-1)/64;word++) {
++            int base=word*64,l=c->left>base?c->left-base:0,r=c->right-base;
++            if(r>64)r=64;
++            uint64_t mask=fb_opaque_mask(l,r),old=covered[word],todo=mask&~old;
++            covered[word]=old|mask;
++            if(old!=UINT64_MAX && covered[word]==UINT64_MAX)full++;
++            /* Existing comparison counter now records coverage-word visits. */
++            FB_COUNT(result.comparisons++);
++            while(todo) {
++                int a=__builtin_ctzll(todo);uint64_t shifted=todo>>a;
++                int length=~shifted?__builtin_ctzll(~shifted):64-a;
++                int end=a+length;
++                if(run_l>=0 && run_r==base+a)run_r=base+end;
++                else {
++                    if(run_l>=0)fb_opaque_copy_run(c,y,run_l,run_r,&result);
++                    run_l=base+a;run_r=base+end;
++                }
++                todo&=~fb_opaque_mask(a,end);
++            }
++        }
++        if(run_l>=0)fb_opaque_copy_run(c,y,run_l,run_r,&result);
++        if(full==FB_OPAQUE_WORDS)break;
++    }
++    return result;
++}
++
++static inline struct fb_row_stats fb_batch_row_bitset(const fb_opaque_batch *batch,int y)
++{
++    uint64_t covered[FB_OPAQUE_WORDS]={0};
++    if(SCREEN_WIDTH%64)covered[FB_OPAQUE_WORDS-1]=UINT64_MAX<<(SCREEN_WIDTH%64);
++    return fb_batch_row_bitset_from(batch,y,batch->count,covered,0);
++}
+--- /dev/null
++++ b/common/opaque_fast_candidate.h
+@@ -0,0 +1,74 @@
++static inline struct fb_row_stats fb_batch_row_fast(const fb_opaque_batch *batch,int y)
++{
++    /* At most ceil(width/2) non-adjacent nonempty integer intervals exist. */
++    struct fb_covered_span covered[(SCREEN_WIDTH+1)/2+1];
++    int count=0;
++    struct fb_row_stats result={0};
++    for(unsigned command=batch->count;command>0;--command) {
++        const struct fb_batch_command *c=&batch->commands[command-1];
++        FB_COUNT(result.checks++);
++        if(y<c->top || y>=c->bottom)continue;
++        int cursor=c->left;
++        const unsigned char *row=c->source+(size_t)(y-c->top)*c->stride;
++        /* The single connected-interval case avoids the generic interval
++           search/insertion/memmove. No course-specific dimensions or assets. */
++        if(count==1 && c->left<=covered[0].right && c->right>=covered[0].left) {
++            FB_COUNT(result.comparisons++);
++            int old_left=covered[0].left,old_right=covered[0].right;
++            if(c->left<old_left) {
++                memcpy(DRAW_BUF+(size_t)y*SCREEN_WIDTH+c->left,row,(size_t)(old_left-c->left)*4);
++                FB_COUNT(result.writes+=(unsigned)(old_left-c->left));FB_COUNT(result.spans++);
++                covered[0].left=c->left;
++            }
++            if(c->right>old_right) {
++                memcpy(DRAW_BUF+(size_t)y*SCREEN_WIDTH+old_right,row+(size_t)(old_right-c->left)*4,(size_t)(c->right-old_right)*4);
++                FB_COUNT(result.writes+=(unsigned)(c->right-old_right));FB_COUNT(result.spans++);
++                covered[0].right=c->right;
++            }
++            if(covered[0].left==0 && covered[0].right==SCREEN_WIDTH)break;
++            continue;
++        }
++        for(int i=0;i<count && covered[i].left<c->right;++i) {
++            FB_COUNT(result.comparisons++);
++            if(covered[i].right<=cursor)continue;
++            if(covered[i].left>cursor) {
++                int end=covered[i].left<c->right?covered[i].left:c->right;
++                memcpy(DRAW_BUF+y*SCREEN_WIDTH+cursor,row+(size_t)(cursor-c->left)*4,(size_t)(end-cursor)*4);
++                FB_COUNT(result.writes+=(unsigned)(end-cursor));FB_COUNT(result.spans++);
++            }
++            if(cursor<covered[i].right)cursor=covered[i].right;
++            if(cursor>=c->right)break;
++        }
++        if(cursor<c->right) {
++            memcpy(DRAW_BUF+y*SCREEN_WIDTH+cursor,row+(size_t)(cursor-c->left)*4,(size_t)(c->right-cursor)*4);
++            FB_COUNT(result.writes+=(unsigned)(c->right-cursor));FB_COUNT(result.spans++);
++        }
++        /* Union this rectangle's row with existing sorted, disjoint coverage. */
++        int first=0,left=c->left,right=c->right;
++        while(first<count && covered[first].right<left){first++;FB_COUNT(result.comparisons++);}
++        int last=first;
++        while(last<count && covered[last].left<=right) {
++            if(left>covered[last].left)left=covered[last].left;
++            if(right<covered[last].right)right=covered[last].right;
++            last++;FB_COUNT(result.comparisons++);
++        }
++        memmove(covered+first+1,covered+last,(size_t)(count-last)*sizeof(*covered));
++        count=count-(last-first)+1;covered[first]=(struct fb_covered_span){left,right};
++        if(count>=FB_OPAQUE_SWITCH_INTERVALS && command>1) {
++            uint64_t bits[FB_OPAQUE_WORDS]={0};unsigned full=0;
++            if(SCREEN_WIDTH%64)bits[FB_OPAQUE_WORDS-1]=UINT64_MAX<<(SCREEN_WIDTH%64);
++            for(int i=0;i<count;i++)for(int w=covered[i].left/64;w<=(covered[i].right-1)/64;w++) {
++                int base=w*64,l=covered[i].left>base?covered[i].left-base:0,r=covered[i].right-base;
++                if(r>64)r=64;
++                uint64_t old=bits[w];bits[w]|=fb_opaque_mask(l,r);
++                if(old!=UINT64_MAX && bits[w]==UINT64_MAX)full++;
++            }
++            struct fb_row_stats tail=fb_batch_row_bitset_from(batch,y,command-1,bits,full);
++            result.writes+=tail.writes;result.spans+=tail.spans;
++            result.checks+=tail.checks;result.comparisons+=tail.comparisons;
++            return result;
++        }
++        if(count==1 && left==0 && right==SCREEN_WIDTH)break;
++    }
++    return result;
++}
+--- a/common/prepared_image_v9.h
++++ b/common/prepared_image_v9.h
+@@ -115,14 +115,22 @@
+         const uint16_t *channels[3]={b+x,g+x,r+x};
+         for(int channel=0;channel<3;channel++) {
+             uint16x8_t t=vmlal_u8(vld1q_u16(channels[channel]),d.val[channel],inv);
+-            t=vaddq_u16(t,vdupq_n_u16(128));t=vaddq_u16(t,vshrq_n_u16(t,8));
+-            d.val[channel]=vshrn_n_u16(t,8);
++            d.val[channel]=fb_round8_candidate(t);
+         }
+         d.val[3]=vdup_n_u8(255);vst4_u8((unsigned char *)(dst+x),d);
+     }
+     #ifndef FB_DISABLE_FOUR_LANE
+     if(x+4<=w) {
+         uint32x4_t inv=fb_load4_alpha(inverse+x),d=vld1q_u32(dst+x),mask=vdupq_n_u32(255);
++        #ifndef FB_DISABLE_PACKED_FOUR
++        uint32x4_t rbmask=vdupq_n_u32(0x00ff00ffu);
++        uint32x4_t products=vorrq_u32(vmovl_u16(vld1_u16(b+x)),vshlq_n_u32(vmovl_u16(vld1_u16(r+x)),16));
++        uint32x4_t rb=fb_round4_rb_candidate(vmlaq_u32(products,vandq_u32(d,rbmask),inv));
++        uint32x4_t green=vmlaq_u32(vmovl_u16(vld1_u16(g+x)),vandq_u32(vshrq_n_u32(d,8),mask),inv);
++        green=vaddq_u32(green,vdupq_n_u32(128));
++        green=vshrq_n_u32(vaddq_u32(green,vshrq_n_u32(green,8)),8);
++        vst1q_u32(dst+x,vorrq_u32(vdupq_n_u32(0xff000000u),vorrq_u32(rb,vshlq_n_u32(green,8))));x+=4;
++        #else
+         uint32x4_t dest[3]={vandq_u32(d,mask),vandq_u32(vshrq_n_u32(d,8),mask),vandq_u32(vshrq_n_u32(d,16),mask)};
+         const uint16_t *channels[3]={b+x,g+x,r+x};
+         for(int channel=0;channel<3;channel++) {
+@@ -130,6 +138,7 @@
+             t=vaddq_u32(t,vdupq_n_u32(128));dest[channel]=vshrq_n_u32(vaddq_u32(t,vshrq_n_u32(t,8)),8);
+         }
+         vst1q_u32(dst+x,vorrq_u32(vdupq_n_u32(0xff000000u),vorrq_u32(dest[0],vorrq_u32(vshlq_n_u32(dest[1],8),vshlq_n_u32(dest[2],16)))));x+=4;
++        #endif
+     }
+     #endif
+ #endif

@@ -1,0 +1,266 @@
+[
+  {
+    "repository": "nivag8899/HUST-Embedded-System",
+    "path": "README.md",
+    "url": "https://raw.githubusercontent.com/nivag8899/HUST-Embedded-System/40ecd41708cf53d1de46f2ce553ad17e537a46d4/README.md",
+    "sha256": "6398e1fcb8b33bbc07993513451b61ed5c7657be2121aa8bd7e8104b2cdc7549"
+  },
+  {
+    "repository": "nivag8899/HUST-Embedded-System",
+    "path": "common/graphic.c",
+    "url": "https://raw.githubusercontent.com/nivag8899/HUST-Embedded-System/40ecd41708cf53d1de46f2ce553ad17e537a46d4/common/graphic.c",
+    "sha256": "c9bb827e643afa3105d1498624145b5baace1ac7107ebb28c9533ec4744e908d"
+  },
+  {
+    "repository": "nivag8899/HUST-Embedded-System",
+    "path": "common/image.c",
+    "url": "https://raw.githubusercontent.com/nivag8899/HUST-Embedded-System/40ecd41708cf53d1de46f2ce553ad17e537a46d4/common/image.c",
+    "sha256": "a0bb7ea75d6e32e738830a3cf6f3dcc528815ac657cc2917de45d1a5e26d13b7"
+  },
+  {
+    "repository": "nivag8899/HUST-Embedded-System",
+    "path": "common/rules.mk",
+    "url": "https://raw.githubusercontent.com/nivag8899/HUST-Embedded-System/40ecd41708cf53d1de46f2ce553ad17e537a46d4/common/rules.mk",
+    "sha256": "5d2e0747f2772345813a34c7035b401962b8a3f3380f6959a112f12d81a06e1b"
+  },
+  {
+    "repository": "nivag8899/HUST-Embedded-System",
+    "path": "lab3/main.c",
+    "url": "https://raw.githubusercontent.com/nivag8899/HUST-Embedded-System/40ecd41708cf53d1de46f2ce553ad17e537a46d4/lab3/main.c",
+    "sha256": "86e9f6ffc39abd521f78a9b4d9ec47fffc895d452a9ac278ddf081f2689d5316"
+  },
+  {
+    "repository": "nivag8899/HUST-Embedded-System",
+    "path": "test/main.c",
+    "url": "https://raw.githubusercontent.com/nivag8899/HUST-Embedded-System/40ecd41708cf53d1de46f2ce553ad17e537a46d4/test/main.c",
+    "sha256": "d4c7fff0d940ca394dbd6f76423b6930e0c8963c9638384e61ecabe3cd52e8d4"
+  },
+  {
+    "repository": "vaaandark/hust-embedded-labs",
+    "path": "README.md",
+    "url": "https://raw.githubusercontent.com/vaaandark/hust-embedded-labs/master/README.md",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "vaaandark/hust-embedded-labs",
+    "path": "common/graphic.c",
+    "url": "https://raw.githubusercontent.com/vaaandark/hust-embedded-labs/master/common/graphic.c",
+    "sha256": "00ec6a99b8666cbaa40a9ec4d1a825c70d72e6820a567ec8da2e7ac427c4c29a"
+  },
+  {
+    "repository": "vaaandark/hust-embedded-labs",
+    "path": "common/image.c",
+    "url": "https://raw.githubusercontent.com/vaaandark/hust-embedded-labs/master/common/image.c",
+    "sha256": "a0bb7ea75d6e32e738830a3cf6f3dcc528815ac657cc2917de45d1a5e26d13b7"
+  },
+  {
+    "repository": "vaaandark/hust-embedded-labs",
+    "path": "common/rules.mk",
+    "url": "https://raw.githubusercontent.com/vaaandark/hust-embedded-labs/master/common/rules.mk",
+    "sha256": "c1e849e0d766df8e587c883311f3a4156541757783d4eb0c51c68fed79f4acf4"
+  },
+  {
+    "repository": "vaaandark/hust-embedded-labs",
+    "path": "test/main.c",
+    "url": "https://raw.githubusercontent.com/vaaandark/hust-embedded-labs/master/test/main.c",
+    "sha256": "d4c7fff0d940ca394dbd6f76423b6930e0c8963c9638384e61ecabe3cd52e8d4"
+  },
+  {
+    "repository": "13eholder/HUST_Embedded_System",
+    "path": "README.md",
+    "url": "https://raw.githubusercontent.com/13eholder/HUST_Embedded_System/df9f5b79a8d54529c56f108f428424df0e59efa4/README.md",
+    "sha256": "cead1be1764a728b12b0d88a45184baaece61a72181af9ae59100b1ccd714e85"
+  },
+  {
+    "repository": "13eholder/HUST_Embedded_System",
+    "path": "lab-2022-st/common/graphic.c",
+    "url": "https://raw.githubusercontent.com/13eholder/HUST_Embedded_System/df9f5b79a8d54529c56f108f428424df0e59efa4/lab-2022-st/common/graphic.c",
+    "sha256": "08b121e2613da7510176cb8463969deff45bc6e2405c8e34eb5ccf2b9881b383"
+  },
+  {
+    "repository": "13eholder/HUST_Embedded_System",
+    "path": "lab-2022-st/common/image.c",
+    "url": "https://raw.githubusercontent.com/13eholder/HUST_Embedded_System/df9f5b79a8d54529c56f108f428424df0e59efa4/lab-2022-st/common/image.c",
+    "sha256": "a19f39b2005b41f8a23e1f46ccd9c5b53a95c8f629c89b8416f3b17c3c1b9aac"
+  },
+  {
+    "repository": "13eholder/HUST_Embedded_System",
+    "path": "lab-2022-st/common/rules.mk",
+    "url": "https://raw.githubusercontent.com/13eholder/HUST_Embedded_System/df9f5b79a8d54529c56f108f428424df0e59efa4/lab-2022-st/common/rules.mk",
+    "sha256": "4f53a88429ad9c8acf3168d9ede78482b9b68e081d95c3887bb4d928f4f33207"
+  },
+  {
+    "repository": "13eholder/HUST_Embedded_System",
+    "path": "lab-2022-st/lab3/main.c",
+    "url": "https://raw.githubusercontent.com/13eholder/HUST_Embedded_System/df9f5b79a8d54529c56f108f428424df0e59efa4/lab-2022-st/lab3/main.c",
+    "sha256": "1e99ad74c6fe49665f5b5b53225b00889e897f260d00c4998db809aa7ad4d87b"
+  },
+  {
+    "repository": "13eholder/HUST_Embedded_System",
+    "path": "lab-2022-st/test/main.c",
+    "url": "https://raw.githubusercontent.com/13eholder/HUST_Embedded_System/df9f5b79a8d54529c56f108f428424df0e59efa4/lab-2022-st/test/main.c",
+    "sha256": "d4c7fff0d940ca394dbd6f76423b6930e0c8963c9638384e61ecabe3cd52e8d4"
+  },
+  {
+    "repository": "KiritoKing/HUST-Embedding-2022",
+    "path": "README.MD",
+    "url": "https://raw.githubusercontent.com/KiritoKing/HUST-Embedding-2022/817ff72cc91ecd83c4c5d0caffd27b3c07e34224/README.MD",
+    "sha256": "87f226c777fccbb6f9bf18d839d0d2f7d94b58ac00246af8f52dd4b7148e1e47"
+  },
+  {
+    "repository": "KiritoKing/HUST-Embedding-2022",
+    "path": "common/image.c",
+    "url": "https://raw.githubusercontent.com/KiritoKing/HUST-Embedding-2022/817ff72cc91ecd83c4c5d0caffd27b3c07e34224/common/image.c",
+    "sha256": "a0bb7ea75d6e32e738830a3cf6f3dcc528815ac657cc2917de45d1a5e26d13b7"
+  },
+  {
+    "repository": "KiritoKing/HUST-Embedding-2022",
+    "path": "common/rules.mk",
+    "url": "https://raw.githubusercontent.com/KiritoKing/HUST-Embedding-2022/817ff72cc91ecd83c4c5d0caffd27b3c07e34224/common/rules.mk",
+    "sha256": "a2730da1393d35188a5cdd7b7e9f871c9a7304eb5a48b708897d750d6d11d839"
+  },
+  {
+    "repository": "KiritoKing/HUST-Embedding-2022",
+    "path": "lab3/main.c",
+    "url": "https://raw.githubusercontent.com/KiritoKing/HUST-Embedding-2022/817ff72cc91ecd83c4c5d0caffd27b3c07e34224/lab3/main.c",
+    "sha256": "abd1f209500c98306ebc81f22692fbe1494f7d67359e399199246ef43b0bc383"
+  },
+  {
+    "repository": "KiritoKing/HUST-Embedding-2022",
+    "path": "lab6/README.MD",
+    "url": "https://raw.githubusercontent.com/KiritoKing/HUST-Embedding-2022/817ff72cc91ecd83c4c5d0caffd27b3c07e34224/lab6/README.MD",
+    "sha256": "f14e8036df8d0244bbcc8916045aa0cd5c1846bad043eb1181526e2f49a95bb4"
+  },
+  {
+    "repository": "KiritoKing/HUST-Embedding-2022",
+    "path": "test/main.c",
+    "url": "https://raw.githubusercontent.com/KiritoKing/HUST-Embedding-2022/817ff72cc91ecd83c4c5d0caffd27b3c07e34224/test/main.c",
+    "sha256": "d4c7fff0d940ca394dbd6f76423b6930e0c8963c9638384e61ecabe3cd52e8d4"
+  },
+  {
+    "repository": "dylan751/hust-embedded-system",
+    "path": "README.md",
+    "url": "https://raw.githubusercontent.com/dylan751/hust-embedded-system/7daaf403714c5f8b8498ae8e220cdc8c3d5b544a/README.md",
+    "sha256": "fb06ea7adfe2b6b5f22d6dc2c2156e675a98ba4f75d0b905613c012e86a33e4d"
+  },
+  {
+    "repository": "Sylver-W/hust_embsys",
+    "path": "README.md",
+    "url": "https://raw.githubusercontent.com/Sylver-W/hust_embsys/main/README.md",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "Sylver-W/hust_embsys",
+    "path": "common/graphic.c",
+    "url": "https://raw.githubusercontent.com/Sylver-W/hust_embsys/main/common/graphic.c",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "Sylver-W/hust_embsys",
+    "path": "common/image.c",
+    "url": "https://raw.githubusercontent.com/Sylver-W/hust_embsys/main/common/image.c",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "Sylver-W/hust_embsys",
+    "path": "common/rules.mk",
+    "url": "https://raw.githubusercontent.com/Sylver-W/hust_embsys/main/common/rules.mk",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "Sylver-W/hust_embsys",
+    "path": "test/main.c",
+    "url": "https://raw.githubusercontent.com/Sylver-W/hust_embsys/main/test/main.c",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "Leslie20031207/HUST-Embedded-System",
+    "path": "README.md",
+    "url": "https://raw.githubusercontent.com/Leslie20031207/HUST-Embedded-System/main/README.md",
+    "sha256": "fb4d103d87369e6d11127c96dd653ffb625ebd9a1a423d5e47af6b5bc546a36c"
+  },
+  {
+    "repository": "Leslie20031207/HUST-Embedded-System",
+    "path": "common/graphic.c",
+    "url": "https://raw.githubusercontent.com/Leslie20031207/HUST-Embedded-System/main/common/graphic.c",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "Leslie20031207/HUST-Embedded-System",
+    "path": "common/image.c",
+    "url": "https://raw.githubusercontent.com/Leslie20031207/HUST-Embedded-System/main/common/image.c",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "Leslie20031207/HUST-Embedded-System",
+    "path": "common/rules.mk",
+    "url": "https://raw.githubusercontent.com/Leslie20031207/HUST-Embedded-System/main/common/rules.mk",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "Leslie20031207/HUST-Embedded-System",
+    "path": "test/main.c",
+    "url": "https://raw.githubusercontent.com/Leslie20031207/HUST-Embedded-System/main/test/main.c",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "5uperbu9/HUST-Embedded-System",
+    "path": "README.md",
+    "url": "https://raw.githubusercontent.com/5uperbu9/HUST-Embedded-System/main/README.md",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "5uperbu9/HUST-Embedded-System",
+    "path": "common/graphic.c",
+    "url": "https://raw.githubusercontent.com/5uperbu9/HUST-Embedded-System/main/common/graphic.c",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "5uperbu9/HUST-Embedded-System",
+    "path": "common/image.c",
+    "url": "https://raw.githubusercontent.com/5uperbu9/HUST-Embedded-System/main/common/image.c",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "5uperbu9/HUST-Embedded-System",
+    "path": "common/rules.mk",
+    "url": "https://raw.githubusercontent.com/5uperbu9/HUST-Embedded-System/main/common/rules.mk",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "5uperbu9/HUST-Embedded-System",
+    "path": "test/main.c",
+    "url": "https://raw.githubusercontent.com/5uperbu9/HUST-Embedded-System/main/test/main.c",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "FlashLizard/OrangePiLab",
+    "path": "README.md",
+    "url": "https://raw.githubusercontent.com/FlashLizard/OrangePiLab/master/README.md",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "repository": "FlashLizard/OrangePiLab",
+    "path": "common/graphic.c",
+    "url": "https://raw.githubusercontent.com/FlashLizard/OrangePiLab/master/common/graphic.c",
+    "sha256": "c734febf420efe8c2edf4ba999f334219e3b12e1066cf59d8597ae53ed6e9273"
+  },
+  {
+    "repository": "FlashLizard/OrangePiLab",
+    "path": "common/image.c",
+    "url": "https://raw.githubusercontent.com/FlashLizard/OrangePiLab/master/common/image.c",
+    "sha256": "a0bb7ea75d6e32e738830a3cf6f3dcc528815ac657cc2917de45d1a5e26d13b7"
+  },
+  {
+    "repository": "FlashLizard/OrangePiLab",
+    "path": "common/rules.mk",
+    "url": "https://raw.githubusercontent.com/FlashLizard/OrangePiLab/master/common/rules.mk",
+    "sha256": "d0c6d2a8c4acf964ee5f03872e9457d532e523f836ac170704614ca0dba9dfab"
+  },
+  {
+    "repository": "FlashLizard/OrangePiLab",
+    "path": "test/main.c",
+    "url": "https://raw.githubusercontent.com/FlashLizard/OrangePiLab/master/test/main.c",
+    "sha256": "d4c7fff0d940ca394dbd6f76423b6930e0c8963c9638384e61ecabe3cd52e8d4"
+  }
+]

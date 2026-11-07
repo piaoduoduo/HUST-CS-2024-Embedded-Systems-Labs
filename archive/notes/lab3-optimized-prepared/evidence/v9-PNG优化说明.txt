@@ -1,0 +1,54 @@
+v9 PNG 与四像素尾部优化（2026-10-18）
+
+实现文件：common/fast_pixels_v9.h、common/prepared_image_v9.h。
+v8 两个原始头文件不修改。公开 prepared API 继续采用 prepared_api_v6.h。
+
+1. 四像素尾部
+8像素主体完成后，如果剩余至少4像素，采用uint32x4 NEON。
+普通RGBA、普通alpha字模、prepared partial RGBA/alpha、prepared source-product路径均覆盖。
+RGBA读取16字节，alpha读取4字节，source-product每通道读取4个uint16。
+保持alpha0目标全部32位不变；alpha>0输出alpha255。
+混合保留课程整数舍入：先+128，再高字节修正，最后右移8。
+FB_DISABLE_FOUR_LANE仅关闭新4像素路径，8像素及标量路径仍在。
+这是常数因子优化，渐近复杂度不变。32位向量算术可能受到指令数影响，速度需板上比较。
+
+2. 仅被后续alpha255覆盖的像素消除
+每个目标行使用现有CSR找到实际覆盖该行的命令。
+反序只将不透明span加入位图，记录每条命令之后的不透明覆盖。
+再正序执行未被遮挡区间；所有半透明层仍按原序逐层舍入。
+原命令的裁剪脏区仍全部计入，与v8一致。
+RGBA与alpha字模均适用，字模每次draw的颜色保持独立。
+每个worker默认固定128×16×8=16384字节后缀掩码（1024宽）加128字节覆盖位图；无逐行malloc。
+FB_CULL_MAX_COMMANDS默认128；每行超过此上限、没有CSR或没有alpha255时回退v8行遍历。
+FB_DISABLE_OPAQUE_CULL关闭该优化。索引分配失败正确回退，命令数组分配失败回退逐个绘制。
+最终增加O(C)不重叠筛选：按顺序各命令left都不小于此前最右right时直接走原绘制，
+不初始化后缀位图。课程字体的30px字宽/40px步长受益；逆序坐标只会保守进入cull，不会误删。
+FB_CULL_TEST_STATS仅测试构建使用，生产不启用：统计行数、跳过partial、跳过opaque、回退行数。
+
+课程PNG精确工作量：partial从555909降至427251（少128658，23.14%）；opaque少101158。
+这是工作量而非毫秒。额外位图复制、扫描和切段可能抵消收益，应单独消融比较。
+
+3. 复杂度边界
+设某目标行有C条命令、W个目标像素、S个prepared span、P个覆盖像素、V个保留像素。
+额外分析约O(C*ceil(W/64)+S+P/64)，加保留绘制O(V)。
+它减少被遮挡的实际绘制量，并不把所有输入的最坏复杂度变成线性。
+全半透明图像没有可安全删除的后续不透明遮挡，直接使用原路径。
+
+4. 验证
+host_tests_v9_png.py：11配置，scalar、NEON模拟、OMP2/4、关闭四像素、关闭cull、
+cull容量1、CSR容量1、关闭CSR、关闭products、关闭packed。
+最终每配置32完整帧独立除255 oracle（含不重叠时cull不进入断言），104 prepared lifetime/裁剪/dirty回归。
+NEON四像素配置各16777920项舍入与保护页检查；关闭SIMD/4像素时704边界用例。
+源alpha0/255/partial、随机目标alpha、宽0..63、INT_MIN/MAX坐标、129命令行回退与4097总命令回退覆盖。
+Windows VirtualProtect / Linux mprotect 用不可读页捕捉末尾读取越界。
+test_v9_alloc_host.py另外针对真实malloc失败测试scalar、NEON、OMP2/4。
+文字代理已将fast_pixels_v9.h与文字批处理组合，在10配置下通过全部580完整帧用例。
+所有NEON都是主机模拟算术，尚未实际ARM编译/运行，未测板上耗时。
+完整算术/保护页报告保存为v9-png-before-nonoverlap-results.json；不重叠筛选没有改动算术。
+最终v9-png-offline-results.json复跑全部11配置cull/prepared/malloc，记录最终源hash。
+
+最终审查：RGBA源采用vld1q_u8(byte*)再位重解释，避免任意行首转成要求对齐的uint32_t*。
+核对Arm官方ACLE intrinsic参数与A64支持；vmlaq_u32、vcreate_u8、vld1_u16及加载/扩展签名合法。
+来源：https://arm-software.github.io/acle/neon_intrinsics/advsimd.html
+所有位图移位严格在0..63，右边界64单独处理；ctz仅在非零位图上调用。
+坐标与剪裁使用int64，转回int之前限制在屏幕内，framebuffer索引最大不超过614399。

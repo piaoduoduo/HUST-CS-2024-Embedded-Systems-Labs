@@ -1,0 +1,34 @@
+实验三 v7：目标行命令索引（2026-10-17）
+
+原版与v6保留
+原始lab3-ready.tgz不变。v6整包已另存resources/lab3-optimized-v6-ready.tgz，SHA256为04c9413f1b57c2e12a1ca105caf15ed8dacd527d8731a5e0c37e13486ac58f30。
+v6源文件及API保留，新v7仅增加私有prepared_image_v7.h和graphic-v7-batch.c，沿用v6正式测试与公开接口。
+
+优化点
+v6整批透明绘制每行扫描全部命令，用上下界判断是否覆盖该行。
+v7在裁剪后建立按目标行组织的紧凑索引；命令按原先顺序写入每行列表，透明重叠的先后顺序保持一致。
+设H为目标行数、N为可见命令数、K为实际行/命令交集数：筛选与索引部分从v6的O(H*N)变成O(H+N+K)，实际可见像素混合仍需完成。
+构建索引有两次K项访问与H项前缀和、分配/释放开销，全纳入原PNG/字模计时，不能把筛选量下降当作总耗时同比下降。
+课程PNG：63000次逐行命令检查变为12600个有效绘制引用；索引构建另访问25200项，占50400字节。
+Pillow模拟30号“嵌”字30×29：249600次检查变为11310个引用；构建另访问22620项，占45240字节。真实FreeType尺寸仍需板上确认。
+索引上限262144项（1MiB），超过或malloc失败回退v6逐行扫描；--disable row-index可单独关闭。整个many接口关闭仍用--disable many。
+继承v6的JPG覆盖消除、PNG/字模预处理、NEON、布局缓存与精确几何，不改课程素材、循环次数或透明混合规则。
+
+离线检查
+标量、NEON模拟、OpenMP 2/4线程、关闭many、关闭row-index、强制索引上限1项回退及其余全量关闭配置执行图像、预处理与批量回归；未改动的几何、文字和SIMD穷举记录继承v6。
+每个启用预处理配置104项完整缓冲及脏区比较，含颜色交替、半透明重叠、裁剪及整数极限。
+完整课程9阶段画面及关闭行索引的9阶段画面与原始记录一致。
+测试使用主机NEON算术模拟及Pillow素材/字体适配器，不是ARM原生验证，不产生可用性能成绩。
+详见evidence/v7-offline-results.json、v7-replay-results.json、v7-replay-row-index.json与v7-row-workload.json。
+
+上板流程
+解压新lab3-optimized-ready.tgz到独立目录，进入lab3-optimized-prepared：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --build-only
+先做与测速配置相同编译参数的原生检查，build-only不改变调频或CPU绑定。
+确认开发板桌面和其他画屏程序停止、1024×600/32位RGB后：
+python3 run-sprint.py --project /root/course-project/lab-st-2026 --runs 3
+入口现在同条件比较baseline、v6-sprint、v7-sprint；保留LTO、本机CPU、2线程、4096阈值等v6配置与恢复机制。
+row-index消融：使用board_compare.py --variants v7-sprint --disable row-index，并保持其余参数与全开一致。
+既有强制终止恢复说明见v5记录；runtime-controls.json保存原调频策略，可用restore-controls.py恢复。
+最终按逐项中位数选择v6或v7，索引可能在小批次增加开销，不预先认定总耗时一定更低。
+显式批量/预处理接口实验须独立标注。40ms是目标，尚未板上测速，不提高无依据的达标概率。

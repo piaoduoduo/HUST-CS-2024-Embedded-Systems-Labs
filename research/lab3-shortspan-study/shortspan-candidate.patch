@@ -1,0 +1,92 @@
+--- a/common/fast_pixels_v9.h
++++ b/common/fast_pixels_v9.h
+@@ -61,24 +61,51 @@
+     t=vaddq_u32(t,vdupq_n_u32(128));
+     return vshrq_n_u32(vaddq_u32(t,vshrq_n_u32(t,8)),8);
+ }
++/* Each packed half remains <= 65407 after correction: no lane carry.
++   Keep the same /255 rounding; this is not premultiplied /256 blending. */
++static inline uint32x4_t fb_round4_rb_candidate(uint32x4_t t)
++{
++    uint32x4_t mask=vdupq_n_u32(0x00ff00ffu);
++    t=vaddq_u32(t,vdupq_n_u32(0x00800080u));
++    return vandq_u32(vshrq_n_u32(vaddq_u32(t,vandq_u32(vshrq_n_u32(t,8),mask)),8),mask);
++}
+ static inline void fb_blend4(uint32_t *dst,uint32x4_t s,uint32x4_t a,int partial)
+ {
+     uint32x4_t d=vld1q_u32(dst),mask=vdupq_n_u32(255);
++    #ifndef FB_DISABLE_PACKED_FOUR
++    uint32x4_t rbmask=vdupq_n_u32(0x00ff00ffu);
++    uint32x4_t rb=fb_round4_rb_candidate(vmlaq_u32(vmulq_u32(vandq_u32(s,rbmask),a),
++        vandq_u32(d,rbmask),vsubq_u32(vdupq_n_u32(255),a)));
++    uint32x4_t g=fb_mix4_channel(vandq_u32(vshrq_n_u32(s,8),mask),vandq_u32(vshrq_n_u32(d,8),mask),a);
++    uint32x4_t out=vorrq_u32(vdupq_n_u32(0xff000000u),vorrq_u32(rb,vshlq_n_u32(g,8)));
++    #else
+     uint32x4_t b=fb_mix4_channel(vandq_u32(s,mask),vandq_u32(d,mask),a);
+     uint32x4_t g=fb_mix4_channel(vandq_u32(vshrq_n_u32(s,8),mask),vandq_u32(vshrq_n_u32(d,8),mask),a);
+     uint32x4_t r=fb_mix4_channel(vandq_u32(vshrq_n_u32(s,16),mask),vandq_u32(vshrq_n_u32(d,16),mask),a);
+     uint32x4_t out=vorrq_u32(vdupq_n_u32(0xff000000u),vorrq_u32(b,vorrq_u32(vshlq_n_u32(g,8),vshlq_n_u32(r,16))));
++    #endif
+     if(!partial)out=vbslq_u32(vceqq_u32(a,vdupq_n_u32(0)),d,out);
+     vst1q_u32(dst,out);
+ }
+ #endif
++/* For 0<=t<=65025:
++   ((t + round(t/256)) + 128)>>8 == (t+128+((t+128)>>8))>>8.
++   Rounded shift-accumulate plus rounded narrow preserves exact /255 rounding. */
++static inline uint8x8_t fb_round8_candidate(uint16x8_t t)
++{
++    #ifndef FB_DISABLE_SHORT_ROUND
++    return vrshrn_n_u16(vrsraq_n_u16(t,t,8),8);
++    #else
++    t=vaddq_u16(t,vdupq_n_u16(128));
++    t=vaddq_u16(t,vshrq_n_u16(t,8));
++    return vshrn_n_u16(t,8);
++    #endif
++}
+ static inline uint8x8_t fb_mix8(uint8x8_t s, uint8x8_t d, uint8x8_t a)
+ {
+     uint16x8_t t=vmull_u8(s,a);
+     t=vmlal_u8(t,d,vsub_u8(vdup_n_u8(255),a));
+-    t=vaddq_u16(t,vdupq_n_u16(128));
+-    t=vaddq_u16(t,vshrq_n_u16(t,8));
+-    return vshrn_n_u16(t,8);
++    return fb_round8_candidate(t);
+ }
+ static inline void fb_blend8(unsigned char *dst, uint8x8x4_t s, uint8x8_t a)
+ {
+--- a/common/prepared_image_v9.h
++++ b/common/prepared_image_v9.h
+@@ -115,14 +115,22 @@
+         const uint16_t *channels[3]={b+x,g+x,r+x};
+         for(int channel=0;channel<3;channel++) {
+             uint16x8_t t=vmlal_u8(vld1q_u16(channels[channel]),d.val[channel],inv);
+-            t=vaddq_u16(t,vdupq_n_u16(128));t=vaddq_u16(t,vshrq_n_u16(t,8));
+-            d.val[channel]=vshrn_n_u16(t,8);
++            d.val[channel]=fb_round8_candidate(t);
+         }
+         d.val[3]=vdup_n_u8(255);vst4_u8((unsigned char *)(dst+x),d);
+     }
+     #ifndef FB_DISABLE_FOUR_LANE
+     if(x+4<=w) {
+         uint32x4_t inv=fb_load4_alpha(inverse+x),d=vld1q_u32(dst+x),mask=vdupq_n_u32(255);
++        #ifndef FB_DISABLE_PACKED_FOUR
++        uint32x4_t rbmask=vdupq_n_u32(0x00ff00ffu);
++        uint32x4_t products=vorrq_u32(vmovl_u16(vld1_u16(b+x)),vshlq_n_u32(vmovl_u16(vld1_u16(r+x)),16));
++        uint32x4_t rb=fb_round4_rb_candidate(vmlaq_u32(products,vandq_u32(d,rbmask),inv));
++        uint32x4_t green=vmlaq_u32(vmovl_u16(vld1_u16(g+x)),vandq_u32(vshrq_n_u32(d,8),mask),inv);
++        green=vaddq_u32(green,vdupq_n_u32(128));
++        green=vshrq_n_u32(vaddq_u32(green,vshrq_n_u32(green,8)),8);
++        vst1q_u32(dst+x,vorrq_u32(vdupq_n_u32(0xff000000u),vorrq_u32(rb,vshlq_n_u32(green,8))));x+=4;
++        #else
+         uint32x4_t dest[3]={vandq_u32(d,mask),vandq_u32(vshrq_n_u32(d,8),mask),vandq_u32(vshrq_n_u32(d,16),mask)};
+         const uint16_t *channels[3]={b+x,g+x,r+x};
+         for(int channel=0;channel<3;channel++) {
+@@ -130,6 +138,7 @@
+             t=vaddq_u32(t,vdupq_n_u32(128));dest[channel]=vshrq_n_u32(vaddq_u32(t,vshrq_n_u32(t,8)),8);
+         }
+         vst1q_u32(dst+x,vorrq_u32(vdupq_n_u32(0xff000000u),vorrq_u32(dest[0],vorrq_u32(vshlq_n_u32(dest[1],8),vshlq_n_u32(dest[2],16)))));x+=4;
++        #endif
+     }
+     #endif
+ #endif

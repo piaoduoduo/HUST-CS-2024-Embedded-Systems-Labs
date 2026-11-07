@@ -1,0 +1,9 @@
+{
+  "mode": "Windows mock evdev syscall reproduction, not a Linux/board test",
+  "originalArchiveSHA256": "f46d0213eb140713bb17f38cd105e9e2248da92a20ce195f8216df4634692214",
+  "v2SourceSHA256": "281c414caf8c121be0cfcaae4579871c749d57a8a75411cc700586477fe892fa",
+  "v2FailedAsExpected": true,
+  "v2Output": "touch device: mock, x=[0,4096], y=[0,4096], slots=6\nv2 first event: type=1 finger=0 x=0 y=0; expected finger=2 x=299 y=321\n",
+  "v3FixedReplay": "test-results/touch-start.log",
+  "hardwareValidated": false
+}

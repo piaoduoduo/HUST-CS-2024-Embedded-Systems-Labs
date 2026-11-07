@@ -1,0 +1,33 @@
+实验二离线准备包
+
+依据：本课程 PPT 第44–52页、lab-st-2026.tgz。
+主要改动：common/graphic.c 内的 fb_draw_rect()、fb_draw_line()。
+画点、双缓冲、脏区域刷新、图像和字体的课程模板保持原样。
+矩形：用64位中间值裁剪边界，再逐行填色。
+画线：沿较长轴采用整数误差累积，支持各方向、端点反转、单点和越界；
+只遍历屏幕内的主轴坐标，不会沿巨大屏幕外坐标逐个空转。
+common/rules.mk 的本地准备副本已设 CC := gcc。
+lab2/main.c 和 lab2/Makefile 保留当期原始测试程序。
+
+tests 下的离线验证在电脑内存中模拟 framebuffer，使用实际绘图函数。
+preview/lab2-simulated.png 是电脑上的模拟结果，不是开发板实测照片。
+模拟日志中的耗时来自电脑，不作为开发板性能测试记录。
+开发板 ARM 编译、真实 /dev/fb0 显示与助教验收尚待后续完成。
+
+等电脑电量充足、显示屏恢复供电后：
+1. 确认开发板地址并通过 SSH 登录。
+2. 按 PPT 第37–38页在开发板上禁用桌面并重启。
+3. 将 lab2-ready.tgz 上传至开发板，新建目录后解压。
+4. 在准备包目录运行：
+   bash install-lab2.sh /root/course-project/lab-st-2026
+   脚本会核对课程文件、备份原始 graphic.c、安装新版本并用本地 GCC 编译。
+   若已有其他代码修改，脚本停止以便合并，不会覆盖它们。
+5. 显示屏已通电、HDMI 接好且桌面已停止时运行：
+   bash run-lab2.sh /root/course-project/lab-st-2026
+6. 检查黄色点阵、彩色矩形与中央交叉线，保存屏幕照片和终端耗时日志。
+   不能仅凭退出状态0认定显示正确，必须看实际屏幕。
+
+往届参考源码（已读取、只用于理解）：
+https://github.com/Oliver-242/HUST-Embedded-System/blob/main/common/graphic.c
+https://github.com/Oliver-242/HUST-Embedded-System/blob/main/lab2/main.c
+1037.wiki 本次未能读取。实施与验收以当期材料为准。

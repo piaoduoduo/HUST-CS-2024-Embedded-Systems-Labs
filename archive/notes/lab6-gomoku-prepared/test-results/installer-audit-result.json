@@ -1,0 +1,20 @@
+{
+  "dryRunAndInstallPassed": true,
+  "unknownEditProtectionPassed": true,
+  "pathBoundsPassed": true,
+  "sourceHashVerificationPassed": true,
+  "courseVoiceExampleAndUserSavePreserved": true,
+  "knownVersionUpgrades": [
+    {
+      "version": "v1",
+      "archiveSHA256": "b5be6417c259cbf0e8c49f730f46fc5bd74c434b5a6f0dd67942771360be4f71",
+      "passed": true
+    },
+    {
+      "version": "v2",
+      "archiveSHA256": "f46d0213eb140713bb17f38cd105e9e2248da92a20ce195f8216df4634692214",
+      "passed": true
+    }
+  ],
+  "hardwareValidated": false
+}

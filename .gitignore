@@ -13,3 +13,6 @@ __pycache__/
 .env
 *.pem
 *.key
+
+# Generated benchmark and runner fixtures
+**/build-*/

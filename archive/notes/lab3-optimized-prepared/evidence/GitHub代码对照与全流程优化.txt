@@ -1,0 +1,111 @@
+GitHub华科嵌入式实验代码检索与优化储备
+日期：2026-10-16
+
+结论
+已检索GitHub仓库搜索与网页搜索，取得并对照7份同系列绘图实现的关键函数，另读旧版实验入口及资料目录。
+有可以借鉴的具体代码，最有价值的新线索是vaaandark的OpenMP按行并行及编译选项。
+目前找到作者自述105ms和200ms左右的参考，未找到具有完整代码、素材、条件和日志支持的20～40ms可复现记录。
+20～40ms应作为全流程目标。成绩数字本身不能证明复杂度下降，也不能证明测试被简化；常数优化、向量化、多核和CPU状态都可能影响结果。
+
+实际读取的原始实现（均已保存references/20261016，不能把作者成绩写成我们的实测）
+
+1. vaaandark/hust-embedded-labs
+   https://github.com/vaaandark/hust-embedded-labs/blob/master/common/graphic.c
+   https://github.com/vaaandark/hust-embedded-labs/blob/master/common/rules.mk
+   https://github.com/vaaandark/hust-embedded-labs/blob/master/test/main.c
+   读到：JPG行memcpy、PNG和字模行循环、直线均使用OpenMP parallel for simd；文字先收集字模再并行绘制。
+   编译：-Ofast -fopenmp -fopt-info-vec-optimized；本机编译额外-march=native -flto。
+   借鉴：在单次图片调用内部按目标行分工，保持调用间顺序；主线程登记脏区；大任务并行、小任务串行。
+   不能照搬：BGRA源PNG代码用src_[0]作alpha，实际alpha应为src_[3]；该仓库image.c使用PNG_TRANSFORM_BGR并复制4通道数据，已核对。
+   直线在并行循环中赋值外部共享yy/xx，存在数据竞争；并行文字调用fb_draw_image修改共同update_area也有竞争。
+   字符重叠时并行绘制还可能改变叠加顺序。没有据此宣称其结果正确或耗时20～40ms。
+
+2. 13eholder/HUST_Embedded_System（21级）
+   https://github.com/13eholder/HUST_Embedded_System/blob/df9f5b79a8d54529c56f108f428424df0e59efa4/README.md
+   https://github.com/13eholder/HUST_Embedded_System/blob/df9f5b79a8d54529c56f108f428424df0e59efa4/lab-2022-st/common/graphic.c
+   README作者自述test稳定105ms左右，尚未取得对应逐项原始日志或独立复现。
+   JPG按行memcpy，透明像素跳过，不透明直接赋值，部分透明用>>8近似；我们已有前三种结构。
+   JPG裁剪后的源首地址未包含ix/iy，PNG循环上界、字模行宽/裁剪亦不能直接沿用。
+   test主绘制循环与当前课程是同系列，未读到用改变次数达到20～40ms的证据。
+
+3. nivag8899/HUST-Embedded-System
+   https://github.com/nivag8899/HUST-Embedded-System/blob/40ecd41708cf53d1de46f2ce553ad17e537a46d4/README.md
+   https://github.com/nivag8899/HUST-Embedded-System/blob/40ecd41708cf53d1de46f2ce553ad17e537a46d4/common/rules.mk
+   README提出cpufreq-set -g performance；规则包含-O3 -march=native -funroll-loops -finline-functions。
+   CPU调频策略与原生架构编译值得控制变量测试，不是算法复杂度下降。
+   其JPG逐像素重组与当前行memcpy相比没有明确优势；线段端点越界会整条拒绝，不能代替裁剪。
+   频率设置是作者建议，未执行到我们的板上；不能无条件归因成绩差距。
+
+4. FlashLizard/OrangePiLab
+   https://github.com/FlashLizard/OrangePiLab/blob/master/common/graphic.c
+   https://github.com/FlashLizard/OrangePiLab/blob/master/common/rules.mk
+   整数误差递推画线、行偏移递增、JPG行memcpy、32位颜色读取；-O3。
+   可借鉴减少重复寻址和每点除法；现有线段已使用整数递推。
+   其JPG等分支iy裁剪未应用、源步长固定image->pixel_w，不能直接替代我们支持line_byte的实现。
+   部分混合是>>8且涉及unsigned减法，必须用逐像素参考检查后才能采用。
+
+5. uniqueFranky/Embedded-System
+   https://github.com/uniqueFranky/Embedded-System/blob/a706a84909fa652f99416aa090afba101e4801b4/common/graphic.c
+   矩形注释明确提出Cache局部性，改成先行后列；JPG按行memcpy；alpha分支；-O2。
+   我们已采用先行后列、行复制、alpha特例。
+   y<<10和按位或仅适用固定1024宽、有效坐标，编译器对常量乘法通常可自行处理，不能当复杂度优化。
+   其裁剪后源首地址仍从content开始；不直接复制。
+
+6. Oliver-242/HUST-Embedded-System（2020级）
+   https://github.com/Oliver-242/HUST-Embedded-System/blob/a3e991c364aa5e3f1840eddfa2de35c8020eb048/README.md
+   https://github.com/Oliver-242/HUST-Embedded-System/blob/a3e991c364aa5e3f1840eddfa2de35c8020eb048/common/graphic.c
+   README作者自述平均200ms左右、在其当年足够满分，不代表本学期评分标准。
+   JPG使用memcpy、alpha特例；线段每点有除法，当前整数递推更适合作为继续优化基线。
+   JPG在裁剪后按w*4移动源行，且不应用源起点，不能采用该裁剪逻辑。
+
+7. KiritoKing/HUST-Embedding-2022
+   https://github.com/KiritoKing/HUST-Embedding-2022/blob/817ff72cc91ecd83c4c5d0caffd27b3c07e34224/common/graphic.c
+   https://github.com/KiritoKing/HUST-Embedding-2022/blob/master/README.MD
+   README明确区分lab3显示演示和test性能程序；已读graphic.c、test/main.c及README相关说明。
+   主要仍为行复制、alpha分支、逐点除法线段，未见NEON、字模缓存或覆盖消除。
+
+其他检索边界
+lrg1/Embedded_System读到series1/series2的lab3/main.c，使用旧Android路径/dev/graphics/fb0，不能直接套到当前Linux板。
+LX-676655103/-HUST-CS-2018-确认默认分支main，嵌入式目录含报告pdf/docx与lab_src_st.zip；本次只读目录，未读报告正文或zip源码。
+Sukuna资料合集取得课程目录，但巨型树下载不完整；未取得课程报告正文。
+Leslie20031207读到README确认2022级联机五子棋，未取得绘图源码。
+dylan751虽名称含HUST，但README联系人/项目链接指向越南课程项目，已排除为华科课程依据。
+Sylver-W、5uperbu9等部分目录受API限流、预期原始路径404影响，未声称读过其实现。
+1037.wiki仅能读到动态首页搜索框，未取得本优化对应条目。
+GitHub API先成功返回目录和源码，后出现403限流；后续改公开raw地址取得上述原始文件。无登录或私人数据访问。
+文件来源清单含仓库commit或分支、路径与SHA256：references/20261016/sources.json、more-sources.json、raw-sources.json。
+
+全流程优化路线（不只JPG，不假定必须降低每个函数的复杂度）
+A. 环境与构建：记录温度、每核频率/策略、后台负载；在同条件下比较-O3、原生CPU选项、LTO。
+   调频performance作为单独实验，保留原策略以便恢复。全部重新编译，防止旧目标文件混用。
+   -Ofast涉及更激进语义，先用-O3，不因往届使用就直接启用；LTO需编译和链接匹配。
+B. 像素/矩形/直线：消除重复脏区更新、屏内安全快速路径、连续行填充、避免每点除法。
+   大量小矩形不能逐次建线程任务；颜色/覆盖有顺序，不能把所有绘图调用简单并行。
+C. JPG：连续行memcpy、按行并行或SIMD；记录实际复制量及耗时。
+   O(A)已是单次任意图像输出的同阶下界，但常数仍有空间；并行改变墙钟耗时，不改变总工作量阶数。
+D. PNG/字模：格式专用循环、精确混合向量化、非透明区间预处理；按规模选择串行/并行。
+   缓存把每次扫描A像素变为处理K个有效像素与S个区间，计入一次预处理和额外存储，最坏仍O(A)。
+E. 文本：现有字模缓存继续保留；可研究字符串布局缓存、减少每字分配/复制，以及正确处理背景的整串掩码。
+   不透明矩形整块贴回会破坏背景；重叠字形必须维持原叠加/舍入语义。
+F. 批量覆盖：先分析依赖和可见区，只跳过确定被后层不透明内容覆盖的部分。
+   这属于真正减少总工作量的方向；不能对透明叠加或可观察中间结果乱删操作。
+   若在fb_update兑现批次，完整阶段计时必须包含兑现时间，不将移出原计时区的工作当作加速。
+
+可用的独立候选（已经离线验证，未上板）
+common/graphic.c：屏内直线一次登记脏区、精确透明混合整数改写。
+common/graphic-openmp.c：在上述基础上单次图片按行OpenMP分工，主线程先裁剪/登记脏区，末尾隐式等待。
+候选基于我们的源码改写，只借鉴公开实现的按行分工思路，不移植其alpha/裁剪/共享变量代码。
+默认并行阈值65536像素，低于阈值串行；此值是保守初值，尚未针对ARM调优。
+原PNG总尺寸16384像素，默认阈值下仍串行；上板应对4096/16384/65536阈值分别测量，不能声称PNG已获得并行加速。
+编译链接均需-fopenmp；上板确认libgomp可用，未使用-march=native编译电脑产物冒充ARM产物。
+离线用阈值1强制小图进入并行路径；1/2/4线程各通过404绘图回归和103图像检查。
+原版/串行候选同样通过这些检查；65026个混合中间值校验一致。详见offline-results.json。
+没有测性能，不将Windows测试耗时换算为开发板耗时；原安装包未修改。
+
+上板验证矩阵
+先原版5次；候选每组合3～5次，报告逐项与中位数，保留冷启动/预热差异。
+顺序：仅直线改动→仅精确混合→行并行(1/2/4/可用核数)→阈值→NEON→LTO/CPU状态。
+每一步通过裁剪、alpha、端点和图像完整像素比较再记成绩，最后做组合版。
+在线程调度/同步超过收益时退回串行；图像调用之间保留顺序，避免重叠写竞争。
+保留课程原口径，并额外记录含fb_update的完整阶段；不改循环数、图片尺寸或跳过显示功能。
+目标20～40ms保留，不保证一定达到；若没有对方源码与条件，不预先断定其采用了哪条路线。

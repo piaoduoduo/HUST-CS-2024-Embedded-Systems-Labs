@@ -1,0 +1,99 @@
+
+ROUND=1 actual_date=2026-11-05
+FLUSH_US=1962
+FLUSH_US=1245
+FLUSH_US=1217
+FLUSH_US=802
+FLUSH_US=1219
+FLUSH_US=1167
+FLUSH_US=3646
+FLUSH_US=972
+FLUSH_US=913
+framebuffer info: bits_per_pixel=32,size=(1024,600),virtual_pos_size=(0,0)(1280,720),line_length=5120,smem_len=3686400
+
+========== Start Test ===========
+
+Lab2 test:
+draw pixel: 0 ms
+draw rect: 4 ms
+draw line: 4 ms
+
+Lab3 test:
+    **jpeg:	1
+BATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=0 row_checks=0 interval_comparisons=0 flushes=1
+    **png:	7
+    **font:	1
+draw image: 9 ms
+draw text: 41 ms
+
+Total time: 58 ms
+
+=================================
+Saved actual framebuffer: 1024x600, stride=5120, /root/course-project/lab-st-2026/out/best-runs/20261019-142859-071267/screen.ppm
+Saved fresh result: /root/course-project/lab-st-2026/out/best-runs/20261019-142859-071267
+
+ROUND=2 actual_date=2026-11-05
+FLUSH_US=2234
+FLUSH_US=1337
+FLUSH_US=1268
+FLUSH_US=801
+FLUSH_US=1223
+FLUSH_US=1218
+FLUSH_US=3676
+FLUSH_US=1014
+FLUSH_US=1053
+framebuffer info: bits_per_pixel=32,size=(1024,600),virtual_pos_size=(0,0)(1280,720),line_length=5120,smem_len=3686400
+
+========== Start Test ===========
+
+Lab2 test:
+draw pixel: 1 ms
+draw rect: 4 ms
+draw line: 4 ms
+
+Lab3 test:
+    **jpeg:	1
+BATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=0 row_checks=0 interval_comparisons=0 flushes=1
+    **png:	7
+    **font:	1
+draw image: 9 ms
+draw text: 1 ms
+
+Total time: 19 ms
+
+=================================
+Saved actual framebuffer: 1024x600, stride=5120, /root/course-project/lab-st-2026/out/best-runs/20261019-142910-408683/screen.ppm
+Saved fresh result: /root/course-project/lab-st-2026/out/best-runs/20261019-142910-408683
+
+ROUND=3 actual_date=2026-11-05
+FLUSH_US=1903
+FLUSH_US=1225
+FLUSH_US=1232
+FLUSH_US=786
+FLUSH_US=1207
+FLUSH_US=1206
+FLUSH_US=3643
+FLUSH_US=1000
+FLUSH_US=1058
+framebuffer info: bits_per_pixel=32,size=(1024,600),virtual_pos_size=(0,0)(1280,720),line_length=5120,smem_len=3686400
+
+========== Start Test ===========
+
+Lab2 test:
+draw pixel: 1 ms
+draw rect: 5 ms
+draw line: 4 ms
+
+Lab3 test:
+    **jpeg:	1
+BATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=0 row_checks=0 interval_comparisons=0 flushes=1
+    **png:	7
+    **font:	1
+draw image: 9 ms
+draw text: 1 ms
+
+Total time: 20 ms
+
+=================================
+Saved actual framebuffer: 1024x600, stride=5120, /root/course-project/lab-st-2026/out/best-runs/20261019-142918-954174/screen.ppm
+Saved fresh result: /root/course-project/lab-st-2026/out/best-runs/20261019-142918-954174

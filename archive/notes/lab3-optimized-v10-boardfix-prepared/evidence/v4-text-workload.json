@@ -1,0 +1,11 @@
+{
+  "mode": "Pillow host glyph-mask workload projection, not ARM FreeType or time measurement",
+  "glyphDrawCalls": 363,
+  "visibleMaskPixelsBefore": 131200,
+  "visibleMaskPixelsAfterRowTrim": 69740,
+  "visibleNonzeroPixels": 44410,
+  "visibleRows": 5260,
+  "completelyEmptyVisibleRows": 40,
+  "reductionFraction": 0.46844512195121957,
+  "performanceMeasured": false
+}

@@ -1,0 +1,181 @@
+{
+  "date": "2026-11-07",
+  "profiles": [
+    {
+      "profile": "lab2",
+      "files": 10,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3",
+      "files": 10,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab4",
+      "files": 14,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "v9",
+      "files": 77,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab5",
+      "files": 24,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab6",
+      "files": 32,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "v10",
+      "files": 87,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3-history-v1",
+      "files": 12,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3-history-v2",
+      "files": 22,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3-history-v3",
+      "files": 29,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3-history-v4",
+      "files": 34,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3-history-v5",
+      "files": 48,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3-history-v6",
+      "files": 53,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3-history-v7",
+      "files": 55,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3-history-v8",
+      "files": 61,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "lab3-history-v9",
+      "files": 79,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "gomoku-history-v1",
+      "files": 30,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "gomoku-history-v2",
+      "files": 37,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab2",
+      "files": 13,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab3-optimized",
+      "files": 79,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab3-optimized-v10-boardfix",
+      "files": 87,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab3-optimized-v10-directrect",
+      "files": 87,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab3-optimized-v10",
+      "files": 87,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab3-pixel",
+      "files": 83,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab3",
+      "files": 15,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab4",
+      "files": 15,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab5-boardfix",
+      "files": 42,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab5",
+      "files": 42,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "arcade-v1",
+      "files": 42,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "arcade-v2",
+      "files": 48,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab6-gomoku-boardfix",
+      "files": 39,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-lab6-gomoku",
+      "files": 39,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "snapshot-labs3-5",
+      "files": 59,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "study-lab3-coverage-study",
+      "files": 46,
+      "allHashesMatch": true
+    },
+    {
+      "profile": "study-lab3-shortspan-study",
+      "files": 44,
+      "allHashesMatch": true
+    }
+  ],
+  "boardTest": false
+}

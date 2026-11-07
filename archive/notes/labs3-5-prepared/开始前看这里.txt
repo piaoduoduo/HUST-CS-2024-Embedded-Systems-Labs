@@ -1,0 +1,124 @@
+实验三至五离线准备包（2026-10-09）
+
+目前进度
+实验一：用户已反馈助教验收通过，原来的截图和运行记录保存在 evidence/lab1。
+实验二：之前准备的矩形/线段函数已合并进本包，尚未完成开发板真实显示验收。
+实验三至五：本包是准备好的源码、资源和操作工具；本机检查结果见 test-results/offline-result.json。
+本机模拟图不是开发板截图。本机检查不代表 ARM 编译、真实触摸或蓝牙无线通信已经通过。
+本次没有连接开发板，没有关闭开发板桌面，没有修改蓝牙配置或进行配对。
+
+依据与范围
+当期教案：/example/user/Downloads/4.实验-Orangepi-20250815-V25.pptx。
+实验三：53～63页；综合性能测试参考：64页。
+实验四：65～72页，选择72页第一种方案：五指不同颜色、连续粗轨迹、清屏按钮。
+实验五：73～87页，使用 BlueZ + RFCOMM 蓝牙串口。
+2026代码中的 lab5_bt 对应这份 PPT。lab5_sle 是另一套星闪示例，没有把它当作本次实验五。
+往届源码来源、实际读取文件及限制见 references.json。当前 PPT 与2026课程包优先。
+
+准备内容
+common/graphic.c：保留实验二实现；补齐 JPG、透明 PNG、字模三种图像绘制。
+  RGB8880 行拷贝；RGBA8888 逐通道混合；ALPHA8 使用参数 color 着色。
+  使用每行 line_byte，支持负坐标与四边裁剪，使用 /255 并四舍五入确保透明度端点准确。
+common/image.c：沿用课程解码库和字体代码，修正子图片把高度误写成宽度的检查及分配大小计算。
+lab3/main.c：保留课程示例构图，检查图片/字模加载失败；首行基线改为70，防止64像素文字超出上边界。
+common/touch.c、touch_protocol.c/h：读取协议B多点触摸，以 SYN_REPORT 汇总事件，查询真实坐标范围，最多处理五指。
+  可自动查找支持 SLOT、MT_POSITION_X/Y 的设备，也可指定 --touch。事件队列须由回调循环读完。
+  若驱动报告 SYN_DROPPED，会提示重新启动实验以恢复同步；不会继续使用丢失后的旧触点。
+lab4：五指五色、直径9像素圆形笔刷、插值连续轨迹、顶部清屏按钮。
+  清屏时仍按住的手指需抬起后才能重新画，避免清屏后立刻被旧轨迹覆盖。
+lab5_bt：原始模式串口，非阻塞收发，send按钮发送 hello\n，收到的文本显示于屏幕并输出到终端。
+  UTF-8可跨多次read接收；支持CRLF、没有换行的短消息、长文本分段显示和发送短写重试。
+  不完整UTF-8会等待后续字节；错误字节替换为问号。断开后重新连接RFCOMM并重新运行程序。
+test：保留课程综合性能测试，扩大计时数字缓冲区，避免超过4位数时溢出。
+out：完整课程 test.jpg、test.png、font.ttc。
+
+下次上板的顺序
+1. 开发板/显示屏供电、HDMI和触摸USB线接好，电脑与开发板通过网线连接。
+2. 重新确认开发板IP。上次地址是192.168.137.115，不能假定重启后仍相同。
+3. 登录SSH，确认是 root@orangepi4-lts 提示符。以下Linux命令均在开发板执行。
+4. 先确认板上日期。此前镜像的时间停留在2022年；校正时间后再编译，避免make时间警告。
+5. 按PPT37～38页停止“开发板的Ubuntu桌面”。Windows桌面、电脑上的Codex和向助手提问不受此设置影响。
+   PPT流程为 orangepi-config -> System -> Desktop -> Stop -> reboot。
+   重启后需要重新确认IP并登录。完成上述过程前，本包不会替你自动禁用桌面。
+6. 上传并在Linux解压 labs3-5-ready.tgz，不要把Windows解压出来的原课程目录替代板上的完整课程包。
+   原课程 external/lib 中有符号链接，应保留实验一在Linux解压得到的目录。
+
+板上参考命令（确认实际目录后执行）
+tar -xzf /root/labs3-5-ready.tgz -C /root
+project_dir=/root/course-project/lab-st-2026
+prepared_dir=/root/labs3-5-prepared
+
+# 默认只检查，识别课程版本并检查是否有未识别的个人修改
+python3 "$prepared_dir/install.py" --project "$project_dir"
+# 备份原文件再安装；备份保存在课程目录的 .codex-backups 下
+python3 "$prepared_dir/install.py" --project "$project_dir" --apply
+# 本机原生gcc编译；只编译，不运行程序、不修改系统服务
+bash "$prepared_dir/build-on-board.sh" "$project_dir"
+
+本包已经包含实验二函数。安装后直接编译/运行实验二即可，不要再用旧实验二安装脚本覆盖完整 graphic.c。
+安装器遇到不认识的现有修改会中止。请保留修改并交给助手合并，不要直接强行覆盖。
+
+实验三
+python3 "$prepared_dir/preflight.py" --project "$project_dir" --lab lab3
+bash "$prepared_dir/run-lab.sh" "$project_dir" lab3
+应看到：羊驼JPG背景、透明的绿色PNG、红色“嵌”字、紫色中文诗句。
+对照PPT63页看透明区域应露出底图，文字边缘应平滑。拍摄显示屏实物照片，并保留运行日志。
+性能测试（实际时间必须来自开发板）
+bash "$prepared_dir/run-lab.sh" "$project_dir" test
+记录真实各项计时和屏幕表格，不把Windows模拟计时用作报告结果。
+
+实验四
+python3 "$prepared_dir/preflight.py" --project "$project_dir" --lab lab4
+bash "$prepared_dir/run-lab.sh" "$project_dir" lab4
+若有多个触摸设备，显式选择 preflight 输出的正确 eventN：
+bash "$prepared_dir/run-lab.sh" "$project_dir" lab4 --touch /dev/input/eventN
+逐项验收：一指快速划线不间断；两指到五指同时画线颜色不同；轨迹有明显宽度；抬起再落下不跨区域连线；
+点击右上“清屏”清除整个画布；按住的旧手指不会立即重画；边缘触摸正常；屏幕无明显闪烁。
+Ctrl+C结束交互程序，保留终端日志和演示视频/照片。
+
+实验五（先配置和连接，再运行应用）
+1. 查看实际状态和工具：
+   systemctl cat bluetooth
+   systemctl status bluetooth --no-pager
+   hciconfig
+   bluetoothctl show
+   command -v rfcomm sdptool bluetoothctl hciconfig
+2. 按PPT80页检查bluetoothd是否带-C兼容标志，以及是否注册SP串口服务。
+   本包 bluetooth-rfcomm.conf.example 仅为待核对的配置样例；先确认实际二进制路径和原有启动参数。
+   若需要修改，使用systemd drop-in，备份原有配置；不要盲目覆盖整份系统unit文件。
+   应用修改需要 systemctl daemon-reload 和重启 bluetooth 服务；这些操作目前都尚未执行。
+3. 进入 bluetoothctl，按PPT81页配对。可使用下列命令：
+   power on
+   agent on
+   default-agent
+   system-alias HUST-LAB-你的标识
+   pairable on
+   discoverable on
+   scan on
+   scan off
+   pair 对端MAC
+   trust 对端MAC
+   配对提示需要在实际手机或电脑上确认。不要把示例MAC当作真实设备。
+4. 保持两个SSH终端：
+   终端A运行 rfcomm -r watch 0 1，保持该窗口运行。
+   安卓手机蓝牙串口SPP程序或Windows串口客户端连接开发板的串口服务（PPT85页）。
+   iPhone路线按PPT说明优先改用Windows蓝牙串口客户端。具体客户端稍后按实际设备选择。
+   配对本身还未建立/dev/rfcomm0，必须由客户端实际连接RFCOMM服务后再继续。
+5. 终端B执行：
+   python3 "$prepared_dir/preflight.py" --project "$project_dir" --lab lab5_bt
+   bash "$prepared_dir/run-lab.sh" "$project_dir" lab5_bt
+   必要时加 --touch /dev/input/eventN。
+6. 双向验收：
+   对端发送英文、中文或数字，开发板屏幕和终端均能看到。
+   点击开发板屏幕右上send，对端收到hello。
+   多发几次、发送多行/较长文本，确认不会乱码、卡死或覆盖按钮。
+   只有配对成功不算收发验收通过，必须保留实际双向通信记录。
+7. 如仅排查软件串口路径，可在Linux执行预备的伪终端集成测试：
+   python3 "$prepared_dir/tests/board-serial-test.py" --binary "$project_dir/out/lab5_bt"
+   该测试不需要蓝牙连接，也不验证无线链路，不能替代正式实验五验收。
+8. 结束后Ctrl+C退出程序和rfcomm监听，并在bluetoothctl中执行 discoverable off、pairable off。
+
+验收资料与报告
+验收清单见 验收清单.txt。报告只使用你的实测照片、日志、时间和助教反馈。
+本包没有编写虚构实验结果、成绩或蓝牙连接记录。
+收工时开发板正常关机后再断电：在开发板Linux终端执行 shutdown -h now，等待关机完成。

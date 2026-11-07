@@ -1,66 +1,88 @@
 # 华中科技大学计算机学院24届嵌入式系统实验
 
-华中科技大学嵌入式系统实验的实现、复现步骤与排障记录。硬件为 Orange Pi 4 LTS，内容包括 Linux 图形、图片与文字、多点触摸、蓝牙串口和触屏五子棋候选。
+Orange Pi 4 LTS 上的六个嵌入式实验：系统烧录、基础绘图、图片文字显示、多点触摸、蓝牙串口，以及五子棋、2048、三关打砖块组成的游戏工坊。
 
-**状态快照：2026-10-19。** 实验一、二已获用户确认验收；实验三、四、五、六已有实测，尚未记录正式验收。实验报告待写完后补充。
+**2026-11-07 更新：报告正文 20 页，封面和目录另计；补齐游戏工坊 v2、历史优化代码、实验材料和复现说明。** 公开报告已去掉姓名、学号、班级、电话和邮箱。课程镜像、字体、SDK、外部库和往届报告不打包分发。
 
-## 先看这些
+## 先找需要的内容
 
+- [实验报告 PDF](reports/embedded-systems-report.pdf) · [可编辑 DOCX](reports/embedded-systems-report.docx)
+- [报告配图、图注、CSV 表格](reports/README.md)
 - [快速开始与依赖](docs/quick-start.md)
-- [电脑连接开发板、SSH 与排障](docs/connection-troubleshooting.md)
-- [实验三优化过程与测量口径](docs/lab3-optimization.md)
-- [各实验状态与验收后更新步骤](docs/status-and-updates.md)
-- [来源、引用和公开范围](THIRD_PARTY_NOTICES.md)
+- [连接开发板、SSH 与排障](docs/connection-troubleshooting.md)
+- [实验三优化与复杂度分析](docs/lab3-optimization.md) · [历史版本索引](archive/README.md)
+- [最新游戏工坊 v2](labs/arcade-v2/README.md) · [直接浏览游戏源码](projects/game-workshop-v2/README.md)
+- [测试记录和状态](docs/status-and-updates.md) · [来源说明](THIRD_PARTY_NOTICES.md)
 
-## 实验导航
+## 六个实验
 
-| 实验 | 实现与说明 | 实际状态 |
+| 实验 | 代码入口 | 实际记录 |
 | --- | --- | --- |
-| 一 | [烧录、启动和 Hello](labs/lab1/README.md) | 用户反馈已验收 |
-| 二 | [矩形和直线](labs/lab2/README.md) | 用户反馈已验收 |
-| 三 | [图片、字模、文字与测试](labs/lab3/README.md) | 基线已板测，验收待反馈 |
-| 四 | [五指画板](labs/lab4/README.md) | 功能已板测，验收待反馈 |
-| 三 v9 | [PNG、文字与几何优化候选](experiments/lab3-v9/README.md) | 原始候选保留，详见状态记录 |
-| 五 | [经典蓝牙 SPP](labs/lab5/README.md) | 实测双向收发与重连通过，待验收 |
-| 六 | [触屏五子棋](labs/lab6/README.md) | 实测对局、悔棋与存档恢复通过，待验收 |
+| 一 系统烧录 | [Hello](labs/lab1/README.md) | 烧录、SSH、程序运行完成，助教已验收 |
+| 二 基础绘图 | [矩形、直线](labs/lab2/README.md) | 点、矩形、线测试通过，助教已验收 |
+| 三 图片文字 | [基础版](labs/lab3/README.md) / [v10 直接矩形版](labs/v10/README.md) | 最快 17 ms；三轮 22 / 21 / 17 ms |
+| 四 多点触摸 | [五指画板](labs/lab4/README.md) | 五指五色连续粗线与清屏实测正常 |
+| 五 蓝牙通信 | [SPP 双向收发](labs/lab5/README.md) | 中文接收、hello 发送、断开重连实测正常 |
+| 六 综合实验 | [原五子棋](labs/lab6/README.md) / [游戏工坊 v2](labs/arcade-v2/README.md) | 五子棋对局、悔棋实测正常；v2 已 ARM 编译、运行及抓图 |
 
-已实现、离线测试、真实板测、助教验收分别记录。完整状态见 [STATUS.json](STATUS.json)。
+实验三至六的运行记录已整理；正式验收状态以 [STATUS.json](STATUS.json) 为准，未把程序运行自动记为助教验收。
 
-## 代码组织
+## 取得可构建源码
 
-实验一提供独立源码；实验二至六、v9 与 [v10板测版](labs/v10/README.md) 以可读的 `changes.patch` 和带哈希校验的 `profile.json` 记录修改。你需要从课程渠道取得匹配的原始工程，工具会重建到新的独立目录，不修改原工程或已有输出目录。
+实验一可独立编译。其余实验基于课程框架，采用 `changes.patch` 与带 SHA256 的 `profile.json` 保存修改，重建时需要匹配的课程原工程。目录中不附课程字体与二进制库。
 
 ```sh
-python3 tools/materialize.py --profile lab3 --course /path/to/original-course --output .work/lab3 --include-assets
-make -B -C .work/lab3/lab3 CC=gcc CFLAGS='-Wall -O3'
-make -B -C .work/lab3/test CC=gcc CFLAGS='-Wall -O3'
+# 在已安装 Python 3 的电脑或开发板执行，输出目录必须尚不存在。
+python3 tools/materialize.py --profile arcade-v2 --course /path/to/lab-st-2026 --output .work/arcade-v2 --include-assets
+
+# 在开发板上编译运行游戏工坊。输入节点按实际设备修改。
+bash .work/arcade-v2/build-on-board.sh /path/to/lab-st-2026
+bash .work/arcade-v2/run-on-board.sh --touch /dev/input/event2
 ```
 
-这些构建命令在开发板执行；显示程序运行前按快速开始检查屏幕和桌面状态。需要匹配的课程工程与随课外部库，不能只复制 `.c` 文件就假定可运行。
+基础实验可选 `lab2`、`lab3`、`lab4`、`lab5`、`lab6`；优化版选 `v10`。`python3 tools/materialize.py --help` 列出全部 35 个源码快照。新输出目录与课程原工程相互独立。
 
-## 实测结果
+## 实验三的实测结果
 
-实验三字模缓存配合 `-O3` 的三次真实板测为 **160 / 155 / 173 ms，中位数 160 ms**。155 ms 有完整日志，没有该轮独立截图；下图对应 173 ms。
+| 版本或测试时间 | 三轮总成绩 / ms | 中位数 / ms |
+| --- | --- | --- |
+| 早期字模缓存与 O3 | 160 / 155 / 173 | 160 |
+| 同轮原接口基线 | 47 / 46 / 47 | 47 |
+| v9 字模修正版 | 27 / 27 / 25 | 27 |
+| v10 字模修正版 | 28 / 25 / 28 | 28 |
+| v10 直接矩形组合 | 22 / 21 / 17 | 21 |
+| 2026-11-05 同部署版本复测 | 58 / 19 / 20 | 20 |
 
-![真实开发板 framebuffer 中的 173ms 结果表](results/board/lab3-173ms.png)
+![17 ms 开发板原始成绩截图](results/board/lab3-17ms.png)
 
-最新[v10直接矩形版](labs/v10/README.md)三轮 **22 / 21 / 17 ms，中位数21ms**。同配置原接口基线47 / 46 / 47ms。旧155ms的CPU和编译配置不同，不能把全部提升归因于算法。优化版使用显式批量接口；公开原始口径和真实分项，不采用估计值。
+17 ms 是课程七个绘制阶段整数毫秒耗时之和，未包含图片解码、程序启动和屏幕刷新。优化版使用显式批量接口，历史 155 ms 测试的 CPU 和编译配置也不同；完整比较见优化说明与原始日志。首轮 58 ms 保留在复测表中。
 
-![17ms真实成绩](results/board/lab3-17ms.png)
+![游戏工坊 v2 的真实开发板打砖块画面](results/board/board-20261105/lab6-breakout-board.png)
 
-## 验证本仓库
+## 仓库结构
+
+| 目录 | 内容 |
+| --- | --- |
+| `labs/` | 各实验与当前推荐版本的补丁、重建配置和说明 |
+| `projects/` | 游戏工坊 v1、v2 的新增源码，便于在线阅读 |
+| `archive/` | v1–v10 等历史源码快照、阶段笔记和历史辅助脚本 |
+| `research/` | PNG、文字、画点、覆盖消除、短区间等优化研究与测试 |
+| `reports/` | 公开报告、插图、图注和表格 |
+| `results/` | 板测日志、截图与主机测试记录 |
+| `tools/`、`tests/` | 当前维护的重建工具与仓库验证 |
+
+历史笔记可能含当时的“待板测”状态；最新情况看本 README 与状态文件。历史脚本保留研究过程，运行前需调整机器路径和依赖；它们不是快速开始入口。文件来源和公开副本哈希见 [PUBLICATION_MANIFEST.json](PUBLICATION_MANIFEST.json)。
+
+## 验证
 
 ```sh
 python3 -m unittest discover -s tests -v
 python3 tools/check-repository.py
+python3 tools/test-game-core.py --cc gcc
 make -C labs/lab1
 ./labs/lab1/out/lab1
 ```
 
-这里的自动检查只验证仓库结构、重建工具和普通主机可执行的 Hello，不等于 ARM、触摸或蓝牙验收。历史绘图测试摘要单独存放于 [results/host](results/host/README.md)。GitHub Actions 配置已准备，尚未在远端执行。
+仓库检查、主机规则测试与真实触摸/蓝牙是不同验证。板测证据分别保存，不用电脑模拟成绩代替板端测速。
 
-## 使用与贡献
-
-请先理解实现，再对照当期任务书完成实验。不同年份镜像和硬件可能不同；报告性能时附版本、flags、计时范围及多轮分项数据。参考他人资料时保留来源，不把他人的测试与验收当成本项目结果。
-
-本地原始材料、历史版本和归档另外完整保留。PPT、系统镜像、字体文件、SDK、模型和他人报告未打包进仓库；公开范围与许可证状态见来源说明。开发中使用过 AI 辅助，可靠性以明确列出的测试为依据。
+请结合当期任务书理解代码与测试方法，再完成自己的实验。开发和整理使用了 AI 辅助；引用与授权范围见来源说明。

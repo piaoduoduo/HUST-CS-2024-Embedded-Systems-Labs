@@ -1,0 +1,32 @@
+{
+  "performanceMeasured": false,
+  "glyphDimensionsArePillowSimulation": true,
+  "stages": {
+    "png": {
+      "materialSize": [
+        128,
+        128
+      ],
+      "visibleCommands": 105,
+      "v6RowCommandChecks": 63000,
+      "v7IndexedDrawReferences": 12600,
+      "v7IndexBuildRowVisits": 25200,
+      "indexBytes": 50400,
+      "drawReferenceReductionPercent": 80.0,
+      "note": "Index construction, allocation and prefix work are also timed; not a speedup ratio."
+    },
+    "font": {
+      "materialSize": [
+        30,
+        29
+      ],
+      "visibleCommands": 416,
+      "v6RowCommandChecks": 249600,
+      "v7IndexedDrawReferences": 11310,
+      "v7IndexBuildRowVisits": 22620,
+      "indexBytes": 45240,
+      "drawReferenceReductionPercent": 95.47,
+      "note": "Index construction, allocation and prefix work are also timed; not a speedup ratio."
+    }
+  }
+}

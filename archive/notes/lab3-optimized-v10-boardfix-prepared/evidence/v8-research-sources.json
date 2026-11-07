@@ -1,0 +1,107 @@
+[
+  {
+    "title": "HUST资料入口",
+    "url": "https://1037.wiki/",
+    "readScope": "本次只能读取动态站点入口，未获得可核实的对应课程正文。"
+  },
+  {
+    "title": "nivag8899 HUST 实验",
+    "url": "https://github.com/nivag8899/HUST-Embedded-System",
+    "readScope": "本次仓库页面可读；细节复核references/20261016已保存README/源码与提交定位。原始链接本次部分Internal Error。"
+  },
+  {
+    "title": "uniqueFranky HUST 实验",
+    "url": "https://github.com/uniqueFranky/Embedded-System",
+    "readScope": "本次仓库页面可读，复核已缓存common/graphic.c。"
+  },
+  {
+    "title": "13eholder HUST 实验",
+    "url": "https://github.com/13eholder/HUST_Embedded_System/tree/df9f5b79a8d54529c56f108f428424df0e59efa4",
+    "readScope": "本次页面/原始链接失败，使用前次缓存的实际README和源码；105ms为作者自述。"
+  },
+  {
+    "title": "vaaandark 编译与并行参考",
+    "url": "https://github.com/vaaandark/hust-embedded-labs/blob/master/common/rules.mk",
+    "readScope": "本次部分页面失败，复核前次缓存源码。Ofast/OpenMP/native/LTO大部分已有。"
+  },
+  {
+    "title": "Qt 官方标量像素运算",
+    "url": "https://raw.githubusercontent.com/qt/qtbase/dev/src/gui/painting/qdrawhelper_p.h",
+    "readScope": "实际读取INTERPOLATE_PIXEL_255和BYTE_MUL原代码，约537-585行。"
+  },
+  {
+    "title": "Qt 官方 NEON 绘图",
+    "url": "https://raw.githubusercontent.com/qt/qtbase/dev/src/gui/painting/qdrawhelper_neon.cpp",
+    "readScope": "实际读取填色、插值、预乘source-over及尾部/小块路径。不能直接代替课程非预乘混合。"
+  },
+  {
+    "title": "Arm 官方内存复制",
+    "url": "https://github.com/ARM-software/optimized-routines/blob/master/string/aarch64/memcpy.S",
+    "readScope": "实际读取按尺寸分派、对齐及软件流水实现。"
+  },
+  {
+    "title": "Arm 官方 SIMD 复制",
+    "url": "https://github.com/ARM-software/optimized-routines/blob/master/string/aarch64/memcpy-advsimd.S",
+    "readScope": "实际打开代码；新CPU专属SVE/MOPS不适用于本板。"
+  },
+  {
+    "title": "Arm 重排与数据布局",
+    "url": "https://developer.arm.com/community/arm-community-blogs/b/architectures-and-processors-blog/posts/coding-for-neon---part-5-rearranging-vectors",
+    "readScope": "实际读取；关注少重排及数据局部性，旧文章不提供A72通用周期保证。"
+  },
+  {
+    "title": "Arm 尾部处理",
+    "url": "https://developer.arm.com/community/arm-community-blogs/b/architectures-and-processors-blog/posts/coding-for-neon---part-2-dealing-with-leftovers",
+    "readScope": "实际读取；算法思路可参考，文章涉及较旧内核，不能直接套用性能数字。"
+  },
+  {
+    "title": "Arm NEON 优化",
+    "url": "https://developer.arm.com/community/arm-community-blogs/b/operating-systems-blog/posts/arm-Neon-optimization",
+    "readScope": "实际读取依赖链、分支和预取讨论；预取可能降低性能。"
+  },
+  {
+    "title": "GCC 9.4 优化选项",
+    "url": "https://gcc.gnu.org/onlinedocs/gcc-9.4.0/gcc/Optimize-Options.html",
+    "readScope": "实际读取PGO、循环展开、预取与编译配置说明。"
+  },
+  {
+    "title": "GCC 9.4 插桩选项",
+    "url": "https://gcc.gnu.org/onlinedocs/gcc-9.4.0/gcc/Instrumentation-Options.html",
+    "readScope": "实际读取profile-generate/update；多线程训练需处理计数更新。"
+  },
+  {
+    "title": "GCC 9.4 AArch64",
+    "url": "https://gcc.gnu.org/onlinedocs/gcc-9.4.0/gcc/AArch64-Options.html",
+    "readScope": "实际读取CPU/调度选项，供A72专项编译比较。"
+  },
+  {
+    "title": "OpenMP 线程绑定",
+    "url": "https://gcc.gnu.org/onlinedocs/libgomp/OMP_005fPROC_005fBIND.html",
+    "readScope": "实际读取；与进程允许核心集合不同，可进一步固定各worker。"
+  },
+  {
+    "title": "OpenMP 核心位置",
+    "url": "https://gcc.gnu.org/onlinedocs/libgomp/OMP_005fPLACES.html",
+    "readScope": "实际读取；配合PROC_BIND测试。"
+  },
+  {
+    "title": "OpenMP 自旋",
+    "url": "https://gcc.gnu.org/onlinedocs/libgomp/GOMP_005fSPINCOUNT.html",
+    "readScope": "实际读取；v7只有WAIT_POLICY，仍可比较自旋参数。"
+  },
+  {
+    "title": "Rockchip 官方 RGA FAQ",
+    "url": "https://github.com/airockchip/librga/blob/main/docs/Rockchip_FAQ_RGA_CN.md",
+    "readScope": "实际读取虚拟地址、DMA、驱动版本适配与异步开销。"
+  },
+  {
+    "title": "Rockchip 官方 RGA 指南",
+    "url": "https://github.com/airockchip/librga/blob/main/docs/Rockchip_Developer_Guide_RGA_CN.md",
+    "readScope": "实际读取imcheck、imsync、array/task与同步接口。"
+  },
+  {
+    "title": "Linux perf API",
+    "url": "https://man7.org/linux/man-pages/man2/perf_event_open.2.html",
+    "readScope": "实际打开作者维护的Linux手册，硬件事件依平台支持。"
+  }
+]

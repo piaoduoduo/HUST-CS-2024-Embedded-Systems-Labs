@@ -1,0 +1,4899 @@
+--- /dev/null
++++ b/build-on-board.sh
+@@ -0,0 +1,23 @@
++#!/usr/bin/env bash
++set -euo pipefail
++if [ "$#" -ne 1 ]; then echo "Usage: bash build-on-board.sh /absolute/path/lab-st-2026" >&2; exit 2; fi
++project_dir=$(realpath -- "$1")
++test -f "$project_dir/common/touch_protocol.c"
++test -f "$project_dir/lab5_bt/serial_queue.c"
++command -v gcc >/dev/null
++if [ ! -e "$project_dir/common/external/lib/libjpeg.so" ]; then
++    echo 'Missing course-library symlinks. Extract the original .tgz on Linux before installing this overlay.' >&2
++    exit 1
++fi
++build_log=$(mktemp -d "$project_dir/build-record-XXXXXX")
++exec > >(tee "$build_log/build.log") 2>&1
++date -Is
++uname -a
++gcc --version
++for lab in lab2 lab3 lab4 lab5_bt test; do
++    echo "Building $lab"
++    make -B -C "$project_dir/$lab" CC=gcc
++    file "$project_dir/out/$lab"
++done
++echo "Build completed. Log: $build_log/build.log"
++echo 'Programs have not been run. Use preflight and the physical acceptance checklist.'
+--- a/common/graphic.c
++++ b/common/graphic.c
+@@ -146,77 +146,150 @@
+ 
+ void fb_draw_rect(int x, int y, int w, int h, int color)
+ {
+-	if(x < 0) { w += x; x = 0;}
+-	if(x+w > SCREEN_WIDTH) { w = SCREEN_WIDTH-x;}
+-	if(y < 0) { h += y; y = 0;}
+-	if(y+h >SCREEN_HEIGHT) { h = SCREEN_HEIGHT-y;}
+-	if(w<=0 || h<=0) return;
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_rect()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    if(w <= 0 || h <= 0) return;
++
++    /* Clip before indexing. Widen the sums to avoid signed-int overflow. */
++    int64_t left = x;
++    int64_t top = y;
++    int64_t right = (int64_t)x + w;
++    int64_t bottom = (int64_t)y + h;
++
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++
++    x = (int)left;
++    y = (int)top;
++    w = (int)(right - left);
++    h = (int)(bottom - top);
++    int *buf = _begin_draw(x, y, w, h);
++
++    for(int row = y; row < y + h; ++row) {
++        int *pixel = buf + row * SCREEN_WIDTH + x;
++        for(int column = 0; column < w; ++column) {
++            pixel[column] = color;
++        }
++    }
++    return;
+ }
+ 
+ void fb_draw_line(int x1, int y1, int x2, int y2, int color)
+ {
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_line()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++
++    /* Use the longer axis, ordered consistently for reversed endpoints. */
++    int64_t major1 = steep ? y1 : x1;
++    int64_t major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1;
++    int64_t minor2 = steep ? x2 : y2;
++    if(major1 > major2) {
++        int64_t temporary = major1;
++        major1 = major2;
++        major2 = temporary;
++        temporary = minor1;
++        minor1 = minor2;
++        minor2 = temporary;
++    }
++
++    uint64_t length = (uint64_t)(major2 - major1);
++    if(length == 0) {
++        fb_draw_pixel(x1, y1, color);
++        return;
++    }
++
++    int direction = minor2 < minor1 ? -1 : 1;
++    uint64_t minor_distance = (uint64_t)llabs(minor2 - minor1);
++    int64_t limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int64_t first = major1 < 0 ? 0 : major1;
++    int64_t last = major2 >= limit ? limit - 1 : major2;
++    if(first > last) return;
++
++    /*
++     * Integer error accumulation, rounded to the nearest pixel.
++     * Preserve the error phase when skipping off-screen major coordinates.
++     * For 32-bit int endpoints, this product and sum fit in uint64_t.
++     * The loop visits at most SCREEN_WIDTH or SCREEN_HEIGHT coordinates.
++     */
++    uint64_t numerator = minor_distance * (uint64_t)(first - major1)
++                       + length / 2;
++    int64_t minor = minor1 + direction * (int64_t)(numerator / length);
++    uint64_t remainder = numerator % length;
++
++    for(int64_t major = first; major <= last; ++major) {
++        if(steep) {
++            fb_draw_pixel((int)minor, (int)major, color);
++        } else {
++            fb_draw_pixel((int)major, (int)minor, color);
++        }
++        remainder += minor_distance;
++        if(remainder >= length) {
++            remainder -= length;
++            minor += direction;
++        }
++    }
++    return;
++}
++
++/* Blend one channel over an opaque framebuffer, with exact 0/255 endpoints. */
++static unsigned blend_channel(unsigned src, unsigned dst, unsigned alpha)
++{
++    return (src * alpha + dst * (255-alpha) + 127) / 255;
+ }
+ 
+ void fb_draw_image(int x, int y, fb_image *image, int color)
+ {
+-	if(image == NULL) return;
+-
+-	int ix = 0; //image x
+-	int iy = 0; //image y
+-	int w = image->pixel_w; //draw width
+-	int h = image->pixel_h; //draw height
+-
+-	if(x<0) {w+=x; ix-=x; x=0;}
+-	if(y<0) {h+=y; iy-=y; y=0;}
+-	
+-	if(x+w > SCREEN_WIDTH) {
+-		w = SCREEN_WIDTH - x;
+-	}
+-	if(y+h > SCREEN_HEIGHT) {
+-		h = SCREEN_HEIGHT - y;
+-	}
+-	if((w <= 0)||(h <= 0)) return;
+-
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------------------*/
+-	char *dst = (char *)(buf + y*SCREEN_WIDTH + x);
+-	char *src; //不同的图像颜色格式定位不同
+-/*---------------------------------------------------------------*/
+-
+-	int alpha;
+-	int ww;
+-
+-	if(image->color_type == FB_COLOR_RGB_8880) /*lab3: jpg*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_RGB_8880\n"); exit(0);
+-
+-		return;
+-	}
+-	else if(image->color_type == FB_COLOR_RGBA_8888) /*lab3: png*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_RGBA_8888\n"); exit(0);
+-
+-		return;
+-	}
+-	else if(image->color_type == FB_COLOR_ALPHA_8) /*lab3: font*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_ALPHA_8\n"); exit(0);
+-
+-		return;
+-	}
+-/*---------------------------------------------------------------*/
+-	return;
++    if(!image || !image->content || image->pixel_w <= 0 || image->pixel_h <= 0) return;
++    int bytes = image->color_type == FB_COLOR_ALPHA_8 ? 1 : 4;
++    if(image->color_type != FB_COLOR_RGB_8880 &&
++       image->color_type != FB_COLOR_RGBA_8888 &&
++       image->color_type != FB_COLOR_ALPHA_8) return;
++    if(image->line_byte <= 0 || (int64_t)image->pixel_w * bytes > image->line_byte) return;
++
++    int64_t left = x, top = y;
++    int64_t right = (int64_t)x + image->pixel_w;
++    int64_t bottom = (int64_t)y + image->pixel_h;
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++    int ix = (int)(left-x), iy = (int)(top-y);
++    int w = (int)(right-left), h = (int)(bottom-top);
++    int *buf = _begin_draw((int)left, (int)top, w, h);
++    const unsigned char *source = (const unsigned char *)image->content
++        + (size_t)iy * image->line_byte + (size_t)ix * bytes;
++    uint32_t foreground = (uint32_t)color;
++
++    for(int row = 0; row < h; ++row) {
++        uint32_t *dst = (uint32_t *)(buf + ((int)top+row)*SCREEN_WIDTH + (int)left);
++        const unsigned char *src = source + (size_t)row * image->line_byte;
++        if(image->color_type == FB_COLOR_RGB_8880) {
++            memcpy(dst, src, (size_t)w * 4);
++            continue;
++        }
++        for(int column = 0; column < w; ++column) {
++            unsigned alpha, b, g, r;
++            if(bytes == 1) {
++                alpha = src[column];
++                b = foreground & 255; g = (foreground >> 8) & 255; r = (foreground >> 16) & 255;
++            } else {
++                const unsigned char *p = src + column*4;
++                b = p[0]; g = p[1]; r = p[2]; alpha = p[3];
++            }
++            if(alpha == 0) continue;
++            if(alpha != 255) {
++                uint32_t old = dst[column];
++                b = blend_channel(b, old & 255, alpha);
++                g = blend_channel(g, (old >> 8) & 255, alpha);
++                r = blend_channel(r, (old >> 16) & 255, alpha);
++            }
++            dst[column] = UINT32_C(0xff000000) | (r << 16) | (g << 8) | b;
++        }
++    }
+ }
+ 
+ void fb_draw_border(int x, int y, int w, int h, int color)
+--- a/common/image.c
++++ b/common/image.c
+@@ -5,13 +5,14 @@
+ #include <linux/fb.h>
+ 
+ #include "common.h"
++#include <limits.h>
+ 
+ /*w, h maybe == 0*/
+ fb_image * fb_new_image(int color_type, int w, int h, int line_byte)
+ {
+ 	fb_image *image;
+ 
+-	if((w<0)||(h<0)) return NULL;
++	if((w<0)||(h<0) || w > INT_MAX/4) return NULL;
+ 	switch(color_type)
+ 	{
+ 	case FB_COLOR_RGB_8880:
+@@ -25,7 +26,8 @@
+ 		return NULL;
+ 	}
+ 
+-	image = (fb_image *)malloc(sizeof(fb_image) + line_byte*h);
++	if(line_byte < 0 || (h > 0 && (size_t)line_byte > (SIZE_MAX-sizeof(fb_image))/(size_t)h)) return NULL;
++	image = (fb_image *)malloc(sizeof(fb_image) + (size_t)line_byte*h);
+ 	if(image == NULL) return NULL;
+ 
+ 	image->color_type = color_type;
+@@ -42,8 +44,8 @@
+ 	if(img == NULL) return NULL;
+ 	if((x<0)||(y<0)||
+ 		(w<0)||(h<0)||
+-		(x+w > img->pixel_w)||
+-		(y+h > img->pixel_w))
++		((int64_t)x+w > img->pixel_w)||
++		((int64_t)y+h > img->pixel_h))
+ 		return NULL;
+ 
+ 	ret = (fb_image *)malloc(sizeof(fb_image));
+@@ -53,7 +55,7 @@
+ 		ret->pixel_w = w;
+ 		ret->pixel_h = h;
+ 		if(img->color_type != FB_COLOR_ALPHA_8) x*=4;
+-		ret->content = img->content + y*img->line_byte + x;
++		ret->content = img->content + (size_t)y*img->line_byte + x;
+ 	}
+ 	return ret;
+ }
+@@ -335,7 +337,8 @@
+ 		printf("fb_new_image(\"%s\", %d,%d,%d) failed\n", text, slot->bitmap.width, slot->bitmap.rows, slot->bitmap.pitch);
+ 		return NULL;
+ 	}
+-	memcpy(image->content, slot->bitmap.buffer, slot->bitmap.rows * slot->bitmap.pitch);
++	if(slot->bitmap.rows && slot->bitmap.pitch > 0)
++		memcpy(image->content, slot->bitmap.buffer, (size_t)slot->bitmap.rows * slot->bitmap.pitch);
+ 
+ 	sinfo.advance_x = slot->advance.x >> 6;
+ 	sinfo.left = slot->bitmap_left;
+--- a/common/rules.mk
++++ b/common/rules.mk
+@@ -1,7 +1,7 @@
+ 
+ CROSS_COMPILE := /work/HUST/OrangePi4/gcc-aarch64/bin/aarch64-none-linux-gnu-
+ 
+-CC := $(CROSS_COMPILE)gcc
++CC := gcc
+ 
+ CFLAGS := -Wall -O2
+ LDFLAGS := -Wall
+@@ -9,7 +9,7 @@
+ INCLUDE += -I../common/external/include
+ LIB += -L../common/external/lib -ljpeg -lfreetype -lpng -lasound -lz -lpthread -lc -lm
+ 
+-EXESRCS += ../common/graphic.c ../common/touch.c ../common/image.c ../common/task.c
++EXESRCS += ../common/graphic.c ../common/touch.c ../common/touch_protocol.c ../common/image.c ../common/task.c
+ 
+ EXEOBJS := $(patsubst %.c, %.o, $(EXESRCS))
+ 
+--- a/common/touch.c
++++ b/common/touch.c
+@@ -1,114 +1,98 @@
+ #include "common.h"
++#include "touch_protocol.h"
++#include <linux/input.h>
++#include <sys/ioctl.h>
++#include <dirent.h>
+ 
+-#include <stdio.h>
+-//#include <linux/input.h>
+-#include "input.h"
+-#include <sys/types.h>
+-#include <sys/stat.h>
+-#include <fcntl.h>
+-#include <unistd.h>
++static touch_state state;
++static struct input_absinfo x_axis, y_axis;
++static int dropped;
+ 
+-static struct finger_info{
+-	int x;
+-	int y;
+-	int event;
+-} infos[FINGER_NUM_MAX];
+-static int cur_slot = 0;
++static int open_touch(const char *path)
++{
++    int fd = open(path, O_RDONLY | O_NONBLOCK);
++    struct input_absinfo slot;
++    if(fd < 0) return -1;
++    if(ioctl(fd, EVIOCGABS(ABS_MT_SLOT), &slot) < 0 || slot.minimum != 0 ||
++       ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &x_axis) < 0 ||
++       ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &y_axis) < 0 ||
++       x_axis.maximum <= x_axis.minimum || y_axis.maximum <= y_axis.minimum) {
++        close(fd);
++        errno = ENODEV;
++        return -1;
++    }
++    printf("touch device: %s, x=[%d,%d], y=[%d,%d], slots=%d\n", path,
++           x_axis.minimum, x_axis.maximum, y_axis.minimum, y_axis.maximum,
++           slot.maximum + 1);
++    touch_state_init(&state);
++    dropped = 0;
++    return fd;
++}
+ 
+ int touch_init(char *dev)
+ {
+-	int fd = open(dev, O_RDONLY);
+-	if(fd < 0){
+-		printf("touch_init open %s error!errno = %d\n", dev, errno);
+-		return -1;
+-	}
+-	return fd;
++    if(dev && *dev) {
++        int fd = open_touch(dev);
++        if(fd < 0) fprintf(stderr, "touch_init %s: %s\n", dev, strerror(errno));
++        return fd;
++    }
++    DIR *dir = opendir("/dev/input");
++    if(!dir) { perror("/dev/input"); return -1; }
++    struct dirent *entry;
++    int fd = -1;
++    while((entry = readdir(dir)) != NULL) {
++        if(strncmp(entry->d_name, "event", 5) != 0) continue;
++        char path[512];
++        snprintf(path, sizeof(path), "/dev/input/%s", entry->d_name);
++        fd = open_touch(path);
++        if(fd >= 0) break;
++    }
++    closedir(dir);
++    if(fd < 0) fprintf(stderr, "No protocol-B touchscreen found; use --touch /dev/input/eventN.\n");
++    return fd;
+ }
+ 
+-/*return:
+-	TOUCH_NO_EVENT
+-	TOUCH_PRESS
+-	TOUCH_MOVE
+-	TOUCH_RELEASE
+-	TOUCH_ERROR
+-	x: [0 ~ SCREEN_WIDTH)
+-	y: [0 ~ SCREEN_HEIGHT)
+-	finger: 0,1,2,3,4
+-*/
+-
+-//驱动上传的xy坐标范围是[0,4096)
+-#define ADJUST_X(n) ((n*SCREEN_WIDTH)>>12)  /* (n*screen_width/4096) */
+-#define ADJUST_Y(n) ((n*SCREEN_HEIGHT)>>12)  /* (n*screen_height/4096) */
+-
+-int touch_read(int touch_fd, int *x, int *y, int *finger)
++int touch_read(int fd, int *x, int *y, int *finger)
+ {
+-	struct input_event data;
+-	int n, ret;
+-	if((n = read(touch_fd, &data, sizeof(data))) != sizeof(data)){
+-		printf("touch_read error %d, errno=%d\n", n, errno);
+-		return TOUCH_ERROR;
+-	}
+-//	printf("event read: type-code-value = %d-%d-%d\n", data.type, data.code, data.value);
+-	switch(data.type)
+-	{
+-	case EV_ABS:
+-		switch(data.code)
+-		{
+-		case ABS_MT_SLOT:
+-			if(data.value >= 0 && data.value < FINGER_NUM_MAX) {
+-				int old = cur_slot;
+-				cur_slot = data.value;
+-				if(infos[old].event != TOUCH_NO_EVENT) {
+-					*x = infos[old].x;
+-					*y = infos[old].y;
+-					*finger = old;
+-					ret = infos[old].event;
+-					infos[old].event = TOUCH_NO_EVENT;
+-					return ret;
+-				}
+-			}
+-			break;
+-		case ABS_MT_TRACKING_ID:
+-			if(data.value == -1){
+-				*x = infos[cur_slot].x;
+-				*y = infos[cur_slot].y;
+-				*finger = cur_slot;
+-				infos[cur_slot].event = TOUCH_NO_EVENT;
+-				return TOUCH_RELEASE;
+-			}
+-			else{
+-				infos[cur_slot].event = TOUCH_PRESS;
+-			}
+-			break;
+-		case ABS_MT_POSITION_X:
+-			infos[cur_slot].x = ADJUST_X(data.value);
+-			if(infos[cur_slot].event != TOUCH_PRESS) {
+-				infos[cur_slot].event = TOUCH_MOVE;
+-			}
+-			break;
+-		case ABS_MT_POSITION_Y:
+-			infos[cur_slot].y = ADJUST_Y(data.value);
+-			if(infos[cur_slot].event != TOUCH_PRESS) {
+-				infos[cur_slot].event = TOUCH_MOVE;
+-			}
+-			break;
+-		}
+-		break;
+-	case EV_SYN:
+-		switch(data.code)
+-		{
+-		case SYN_REPORT:
+-			if(infos[cur_slot].event != TOUCH_NO_EVENT){
+-				*x = infos[cur_slot].x;
+-				*y = infos[cur_slot].y;
+-				*finger = cur_slot;
+-				ret = infos[cur_slot].event;
+-				infos[cur_slot].event = TOUCH_NO_EVENT;
+-				return ret;
+-			}
+-			break;
+-		}
+-		break;
+-	}
+-	return TOUCH_NO_EVENT;
++    touch_sample sample;
++    for(;;) {
++        if(touch_state_pop(&state, &sample)) {
++            *x = sample.x; *y = sample.y; *finger = sample.finger;
++            return sample.type;
++        }
++        struct input_event event;
++        ssize_t n = read(fd, &event, sizeof(event));
++        if(n < 0 && errno == EINTR) continue;
++        if(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return TOUCH_NO_EVENT;
++        if(n != (ssize_t)sizeof(event)) {
++            fprintf(stderr, "touch read stopped: %s\n", n == 0 ? "device closed" : strerror(errno));
++            return TOUCH_ERROR;
++        }
++        if(event.type == EV_SYN && event.code == SYN_DROPPED) {
++            dropped = 1;
++            touch_state_init(&state);
++            continue;
++        }
++        if(dropped) {
++            if(event.type == EV_SYN && event.code == SYN_REPORT) {
++                fprintf(stderr, "Touch events overflowed; restart the experiment to resynchronize.\n");
++                return TOUCH_ERROR;
++            }
++            continue;
++        }
++        if(event.type == EV_ABS) {
++            switch(event.code) {
++            case ABS_MT_SLOT: touch_state_slot(&state, event.value); break;
++            case ABS_MT_TRACKING_ID: touch_state_tracking(&state, event.value); break;
++            case ABS_MT_POSITION_X:
++                touch_state_position(&state, 0, touch_scale_axis(event.value,
++                    x_axis.minimum, x_axis.maximum, SCREEN_WIDTH)); break;
++            case ABS_MT_POSITION_Y:
++                touch_state_position(&state, 1, touch_scale_axis(event.value,
++                    y_axis.minimum, y_axis.maximum, SCREEN_HEIGHT)); break;
++            }
++        } else if(event.type == EV_SYN && event.code == SYN_REPORT) {
++            touch_state_sync(&state);
++        }
++    }
+ }
+--- /dev/null
++++ b/common/touch_protocol.c
+@@ -0,0 +1,71 @@
++#include "touch_protocol.h"
++
++void touch_state_init(touch_state *s)
++{
++    memset(s, 0, sizeof(*s));
++    for(int i = 0; i < FINGER_NUM_MAX; ++i)
++        s->slots[i].tracking = s->slots[i].old_tracking = -1;
++}
++
++void touch_state_slot(touch_state *s, int slot)
++{
++    /* Ignore every update for an unsupported slot, rather than corrupt slot 0. */
++    s->slot = slot >= 0 && slot < FINGER_NUM_MAX ? slot : -1;
++}
++
++void touch_state_tracking(touch_state *s, int tracking)
++{
++    if(s->slot < 0) return;
++    touch_slot *p = &s->slots[s->slot];
++    p->tracking = tracking >= 0 ? tracking : -1;
++    p->changed = 1;
++}
++
++void touch_state_position(touch_state *s, int is_y, int value)
++{
++    if(s->slot < 0) return;
++    touch_slot *p = &s->slots[s->slot];
++    if(is_y) p->y = value; else p->x = value;
++    p->changed = 1;
++}
++
++static void append(touch_state *s, int type, int x, int y, int finger)
++{
++    s->ready[s->count++] = (touch_sample){type, x, y, finger};
++}
++
++void touch_state_sync(touch_state *s)
++{
++    /* Caller drains ready samples before feeding another complete frame. */
++    s->count = s->next = 0;
++    for(int i = 0; i < FINGER_NUM_MAX; ++i) {
++        touch_slot *p = &s->slots[i];
++        if(p->old_tracking >= 0 && p->tracking != p->old_tracking)
++            append(s, TOUCH_RELEASE, p->old_x, p->old_y, i);
++        if(p->tracking >= 0) {
++            if(p->tracking != p->old_tracking)
++                append(s, TOUCH_PRESS, p->x, p->y, i);
++            else if(p->changed && (p->x != p->old_x || p->y != p->old_y))
++                append(s, TOUCH_MOVE, p->x, p->y, i);
++        }
++        p->old_tracking = p->tracking;
++        p->old_x = p->x;
++        p->old_y = p->y;
++        p->changed = 0;
++    }
++}
++
++int touch_state_pop(touch_state *s, touch_sample *out)
++{
++    if(s->next == s->count) return 0;
++    *out = s->ready[s->next++];
++    return 1;
++}
++
++int touch_scale_axis(int value, int minimum, int maximum, int pixels)
++{
++    if(pixels <= 1 || maximum <= minimum || value <= minimum) return 0;
++    if(value >= maximum) return pixels - 1;
++    return (int)(((int64_t)value - minimum) * (pixels - 1) /
++                 ((int64_t)maximum - minimum));
++}
+--- /dev/null
++++ b/common/touch_protocol.h
+@@ -0,0 +1,22 @@
++#ifndef TOUCH_PROTOCOL_H
++#define TOUCH_PROTOCOL_H
++#include "common.h"
++
++/* Protocol B state, independent of Linux read/ioctl for offline replay. */
++typedef struct { int type, x, y, finger; } touch_sample;
++typedef struct {
++    int x, y, tracking, old_tracking, old_x, old_y, changed;
++} touch_slot;
++typedef struct {
++    touch_slot slots[FINGER_NUM_MAX];
++    touch_sample ready[FINGER_NUM_MAX * 2];
++    int slot, count, next;
++} touch_state;
++void touch_state_init(touch_state *s);
++void touch_state_slot(touch_state *s, int slot);
++void touch_state_tracking(touch_state *s, int tracking);
++void touch_state_position(touch_state *s, int is_y, int value);
++void touch_state_sync(touch_state *s);
++int touch_state_pop(touch_state *s, touch_sample *out);
++int touch_scale_axis(int value, int minimum, int maximum, int pixels);
++#endif
+--- /dev/null
++++ b/install.py
+@@ -0,0 +1,69 @@
++"""Safe source overlay installer. Default: inspect only. No network or service changes."""
++from pathlib import Path
++import argparse, datetime, hashlib, json, os, shutil, sys
++
++ROOT=Path(__file__).resolve().parent
++def digest(path):return hashlib.sha256(path.read_bytes()).hexdigest()
++def inside(base,relative):
++    path=(base/relative).resolve()
++    try:path.relative_to(base)
++    except ValueError:raise ValueError(f"Path leaves project: {relative}")
++    if path==base:raise ValueError(f"Path leaves project: {relative}")
++    return path
++
++def install(project,apply=False):
++    project=Path(project).resolve(strict=True)
++    manifest=json.loads((ROOT/"manifest.json").read_text(encoding="utf-8"))
++    sentinel=project/"common/common.h"
++    if not sentinel.is_file() or digest(sentinel)!=manifest["courseHeaderSHA256"]:
++        raise ValueError("This is not the matching 2026 course project (common/common.h differs).")
++    changes=[]
++    for item in manifest["files"]:
++        source=inside(ROOT,item["path"]);target=inside(project,item["path"])
++        if digest(source)!=item["sha256"]:raise ValueError(f"Prepared source changed: {item['path']}")
++        if target.with_name(target.name+".codex-new").exists():
++            raise ValueError(f"Temporary path already exists beside: {target}")
++        if target.exists():
++            if not target.is_file():raise ValueError(f"Target is not a regular file: {target}")
++            current=digest(target)
++            if current==item["sha256"]:continue
++            if current not in item["allowedPreviousSHA256"]:
++                raise ValueError(f"Existing edits would be overwritten: {item['path']}. Save/review those edits first.")
++        changes.append((item,source,target))
++    print(f"Project: {project}\nFiles needing installation: {len(changes)}")
++    if not apply:
++        print("Inspection only. Add --apply to back up and install these files.")
++        return None
++    if not changes:
++        print("Already installed; no files changed.");return None
++    backup_parent=inside(project,".codex-backups")
++    backup_parent.mkdir(exist_ok=True)
++    stamp=datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
++    backup=backup_parent/("labs3-5-"+stamp);backup.mkdir()
++    records=[]
++    for item,source,target in changes:
++        existed=target.exists()
++        if existed:
++            saved=backup/item["path"];saved.parent.mkdir(parents=True,exist_ok=True)
++            shutil.copy2(target,saved)
++        records.append({"path":item["path"],"existed":existed,
++                        "oldSHA256":digest(target) if existed else None,"installedSHA256":item["sha256"]})
++    (backup/"backup.json").write_text(json.dumps({"project":str(project),"files":records},ensure_ascii=False,indent=2),encoding="utf-8")
++    for item,source,target in changes:
++        target.parent.mkdir(parents=True,exist_ok=True)
++        temporary=target.with_name(target.name+".codex-new")
++        if temporary.exists():raise ValueError(f"Temporary path already exists: {temporary}")
++        try:
++            shutil.copy2(source,temporary);os.replace(temporary,target)
++        finally:
++            if temporary.exists():temporary.unlink()
++    print(f"Installed. Backup of previous files: {backup}\nNo binaries were run and no system services were changed.")
++    return backup
++
++if __name__=="__main__":
++    parser=argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--project",required=True,help="Existing extracted lab-st-2026 directory")
++    parser.add_argument("--apply",action="store_true")
++    args=parser.parse_args()
++    try:install(args.project,args.apply)
++    except (OSError,ValueError) as error:print(f"STOP: {error}",file=sys.stderr);sys.exit(1)
+--- a/lab3/main.c
++++ b/lab3/main.c
+@@ -21,22 +21,25 @@
+ 
+ 	fb_image *img;
+ 	img = fb_read_jpeg_image("./test.jpg");
++	if(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\n"); return EXIT_FAILURE; }
+ 	fb_draw_image(0,0,img,0);
+ 	fb_update();
+ 	fb_free_image(img);
+ 
+ 	img = fb_read_png_image("./test.png");
++	if(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\n"); return EXIT_FAILURE; }
+ 	fb_draw_image(100,300,img,0);
+ 	fb_update();
+ 	fb_free_image(img);
+ 
+ 	img = fb_read_font_image("嵌",30,NULL);
++	if(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\n"); return EXIT_FAILURE; }
+ 	fb_draw_image(400,350,img,RED);
+ 	fb_update();
+ 	fb_free_image(img);
+ 
+-	fb_draw_text(50,50,"床前明月光，疑是地上霜。",64,PURPLE);
+-	fb_draw_text(50,120,"举头望明月，低头思故乡。",64,PURPLE);
++	fb_draw_text(50,70,"床前明月光，疑是地上霜。",64,PURPLE);
++	fb_draw_text(50,140,"举头望明月，低头思故乡。",64,PURPLE);
+ 	fb_update();
+ 	return 0;
+ }
+--- a/lab4/Makefile
++++ b/lab4/Makefile
+@@ -1,4 +1,3 @@
+ EXENAME := lab4
+-EXESRCS := main.c
+-
++EXESRCS := main.c drawing.c
+ include ../common/rules.mk
+--- /dev/null
++++ b/lab4/drawing.c
+@@ -0,0 +1,84 @@
++#include "../common/common.h"
++#include "drawing.h"
++
++#define TOOLBAR_H 64
++#define CLEAR_X (SCREEN_WIDTH - 140)
++#define RADIUS 4
++#define BACKGROUND FB_COLOR(255,255,255)
++static const int colors[FINGER_NUM_MAX] = {
++    FB_COLOR(230,40,40), FB_COLOR(20,110,230), FB_COLOR(20,155,65),
++    FB_COLOR(170,60,200), FB_COLOR(245,145,10)
++};
++static struct { int down, active, suppressed, x, y; } pens[FINGER_NUM_MAX];
++
++static void clear_canvas(void)
++{
++    fb_draw_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, BACKGROUND);
++    fb_draw_rect(0, 0, SCREEN_WIDTH, TOOLBAR_H, FB_COLOR(235,240,245));
++    fb_draw_text(16, 40, "五指画板", 28, FB_COLOR(25,35,50));
++    for(int i = 0; i < FINGER_NUM_MAX; ++i)
++        fb_draw_rect(220 + i * 40, 22, 24, 24, colors[i]);
++    fb_draw_rect(CLEAR_X, 0, 140, TOOLBAR_H, FB_COLOR(215,225,235));
++    fb_draw_border(CLEAR_X, 0, 140, TOOLBAR_H, FB_COLOR(60,70,80));
++    fb_draw_text(CLEAR_X + 22, 41, "清屏", 28, FB_COLOR(25,35,50));
++}
++
++static void stamp(int x, int y, int color)
++{
++    for(int dy = -RADIUS; dy <= RADIUS; ++dy)
++        for(int dx = -RADIUS; dx <= RADIUS; ++dx)
++            if(dx*dx + dy*dy <= RADIUS*RADIUS && y+dy >= TOOLBAR_H)
++                fb_draw_pixel(x+dx, y+dy, color);
++}
++
++static void stroke(int x0, int y0, int x1, int y1, int color)
++{
++    /* Stamp along every Bresenham point; fast motion remains connected. */
++    int dx = abs(x1-x0), sx = x0 < x1 ? 1 : -1;
++    int dy = -abs(y1-y0), sy = y0 < y1 ? 1 : -1;
++    int error = dx+dy;
++    for(;;) {
++        stamp(x0, y0, color);
++        if(x0 == x1 && y0 == y1) break;
++        int twice = 2*error;
++        if(twice >= dy) { error += dy; x0 += sx; }
++        if(twice <= dx) { error += dx; y0 += sy; }
++    }
++}
++
++void lab4_canvas_init(void)
++{
++    memset(pens, 0, sizeof(pens));
++    clear_canvas();
++}
++
++void lab4_canvas_event(int type, int x, int y, int finger)
++{
++    if(finger < 0 || finger >= FINGER_NUM_MAX ||
++       x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) return;
++    if(type == TOUCH_PRESS) {
++        pens[finger].down = 1;
++        pens[finger].active = pens[finger].suppressed = 0;
++        if(x >= CLEAR_X && y < TOOLBAR_H) {
++            for(int i = 0; i < FINGER_NUM_MAX; ++i) {
++                pens[i].suppressed = pens[i].down;
++                pens[i].active = 0;
++            }
++            clear_canvas();
++            return;
++        }
++    }
++    if((type == TOUCH_PRESS || type == TOUCH_MOVE || type == TOUCH_RELEASE) &&
++       pens[finger].down && !pens[finger].suppressed) {
++        if(y >= TOOLBAR_H) {
++            if(pens[finger].active)
++                stroke(pens[finger].x, pens[finger].y, x, y, colors[finger]);
++            else stamp(x, y, colors[finger]);
++            pens[finger].x = x; pens[finger].y = y;
++            pens[finger].active = 1;
++        } else pens[finger].active = 0;
++    }
++    if(type == TOUCH_RELEASE) {
++        pens[finger].down = pens[finger].active = pens[finger].suppressed = 0;
++    }
++}
+--- /dev/null
++++ b/lab4/drawing.h
+@@ -0,0 +1,5 @@
++#ifndef LAB4_DRAWING_H
++#define LAB4_DRAWING_H
++void lab4_canvas_init(void);
++void lab4_canvas_event(int type, int x, int y, int finger);
++#endif
+--- a/lab4/main.c
++++ b/lab4/main.c
+@@ -1,46 +1,37 @@
+-#include <stdio.h>
+ #include "../common/common.h"
++#include "drawing.h"
+ 
+-#define COLOR_BACKGROUND	FB_COLOR(0xff,0xff,0xff)
+-
+-static int touch_fd;
+ static void touch_event_cb(int fd)
+ {
+-	int type,x,y,finger;
+-	type = touch_read(fd, &x,&y,&finger);
+-	switch(type){
+-	case TOUCH_PRESS:
+-		printf("TOUCH_PRESS：x=%d,y=%d,finger=%d\n",x,y,finger);
+-		break;
+-	case TOUCH_MOVE:
+-		printf("TOUCH_MOVE：x=%d,y=%d,finger=%d\n",x,y,finger);
+-		break;
+-	case TOUCH_RELEASE:
+-		printf("TOUCH_RELEASE：x=%d,y=%d,finger=%d\n",x,y,finger);
+-		break;
+-	case TOUCH_ERROR:
+-		printf("close touch fd\n");
+-		close(fd);
+-		task_delete_file(fd);
+-		break;
+-	default:
+-		return;
+-	}
+-	fb_update();
+-	return;
++    int type, x, y, finger;
++    while((type = touch_read(fd, &x, &y, &finger)) != TOUCH_NO_EVENT) {
++        if(type == TOUCH_ERROR) {
++            task_delete_file(fd);
++            close(fd);
++            exit(EXIT_FAILURE);
++        }
++        printf("touch type=%d x=%d y=%d finger=%d\n", type, x, y, finger);
++        lab4_canvas_event(type, x, y, finger);
++    }
++    /* One refresh after draining a complete report, avoiding intermediate frames. */
++    fb_update();
+ }
+ 
+-int main(int argc, char *argv[])
++int main(int argc, char **argv)
+ {
+-	fb_init("/dev/fb0");
+-	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,COLOR_BACKGROUND);
+-	fb_update();
+-
+-	//打开多点触摸设备文件, 返回文件fd
+-	touch_fd = touch_init("/dev/input/event2");
+-	//添加任务, 当touch_fd文件可读时, 会自动调用touch_event_cb函数
+-	task_add_file(touch_fd, touch_event_cb);
+-	
+-	task_loop(); //进入任务循环
+-	return 0;
++    char *touch_dev = NULL;
++    if(argc == 3 && strcmp(argv[1], "--touch") == 0) touch_dev = argv[2];
++    else if(argc != 1) {
++        fprintf(stderr, "Usage: %s [--touch /dev/input/eventN]\n", argv[0]);
++        return EXIT_FAILURE;
++    }
++    int fd = touch_init(touch_dev);
++    if(fd < 0) return EXIT_FAILURE;
++    fb_init("/dev/fb0");
++    font_init("./font.ttc");
++    lab4_canvas_init();
++    fb_update();
++    task_add_file(fd, touch_event_cb);
++    task_loop();
++    return 0;
+ }
+--- a/lab5_bt/Makefile
++++ b/lab5_bt/Makefile
+@@ -1,5 +1,3 @@
+-
+-EXENAME:=lab5_bt
+-EXESRCS:=main.c
+-
++EXENAME := lab5_bt
++EXESRCS := main.c text_stream.c serial_queue.c
+ include ../common/rules.mk
+--- a/lab5_bt/main.c
++++ b/lab5_bt/main.c
+@@ -1,107 +1,169 @@
+-#include <stdio.h>
+ #include "../common/common.h"
++#include "text_stream.h"
++#include "serial_queue.h"
++#include <termios.h>
++#include <signal.h>
+ 
+-#define COLOR_BACKGROUND	FB_COLOR(0xff,0xff,0xff)
+-#define COLOR_TEXT			FB_COLOR(0x0,0x0,0x0)
++#define BACKGROUND FB_COLOR(255,255,255)
++#define INK FB_COLOR(20,25,35)
++#define SEND_X (SCREEN_WIDTH-100)
++#define RX_TOP 90
++static int serial_fd = -1, headless, pen_y = RX_TOP;
++static volatile sig_atomic_t stopped;
++static bt_text_stream receiver;
++static bt_tx_queue outgoing;
++static myTime last_receive;
+ 
+-static int touch_fd;
+-static int bluetooth_fd;
++static void on_signal(int sig) { (void)sig; stopped = 1; }
+ 
+-#define TIME_X	(SCREEN_WIDTH-160)
+-#define TIME_Y	0
+-#define TIME_W	100
+-#define TIME_H	30
++static int write_serial(const char *data, size_t length, void *context)
++{
++    (void)context;
++    ssize_t n = write(serial_fd, data, length);
++    if(n > 0) return (int)n;
++    if(n < 0 && errno == EINTR) return BT_IO_RETRY;
++    if(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return BT_IO_WAIT;
++    return BT_IO_ERROR;
++}
+ 
+-#define SEND_X	(SCREEN_WIDTH-60)
+-#define SEND_Y	0
+-#define SEND_W	60
+-#define SEND_H	60
++static void transmit_pending(void)
++{
++    if(bt_tx_flush(&outgoing, write_serial, NULL) < 0) {
++        perror("Bluetooth write"); exit(EXIT_FAILURE);
++    }
++}
++
++static void send_hello(void)
++{
++    const char message[] = "hello\n";
++    if(bt_tx_enqueue(&outgoing, message, sizeof(message)-1) < 0) {
++        fprintf(stderr, "Send queue full; wait and tap again.\n");
++        return;
++    }
++    printf("Bluetooth TX queued: hello\n");
++    transmit_pending();
++}
++
++static void receive_line(const char *line, void *context)
++{
++    (void)context;
++    printf("Bluetooth RX: %s\n", line);
++    if(headless) return;
++    int x = 10;
++    size_t i = 0, length = strlen(line);
++    while(i < length) {
++        fb_font_info info;
++        fb_image *glyph = fb_read_font_image(line+i, 24, &info);
++        if(!glyph || info.bytes <= 0) { fb_free_image(glyph); break; }
++        if(x + info.advance_x > SCREEN_WIDTH-10) { x = 10; pen_y += 30; }
++        if(pen_y > SCREEN_HEIGHT-10) {
++            fb_draw_rect(0, 64, SCREEN_WIDTH, SCREEN_HEIGHT-64, BACKGROUND);
++            pen_y = RX_TOP;
++        }
++        fb_draw_image(x+info.left, pen_y-info.top, glyph, INK);
++        x += info.advance_x; i += (size_t)info.bytes;
++        fb_free_image(glyph);
++    }
++    pen_y += 30;
++    fb_update();
++}
++
++static void serial_event_cb(int fd)
++{
++    uint8_t data[256];
++    for(;;) {
++        ssize_t n = read(fd, data, sizeof(data));
++        if(n > 0) {
++            last_receive = task_get_time();
++            bt_text_feed(&receiver, data, (size_t)n);
++            continue;
++        }
++        if(n < 0 && errno == EINTR) continue;
++        if(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
++        bt_text_flush(&receiver, 1);
++        fprintf(stderr, "Bluetooth connection ended; reconnect RFCOMM and restart lab5_bt.\n");
++        exit(n == 0 ? EXIT_SUCCESS : EXIT_FAILURE);
++    }
++}
+ 
+ static void touch_event_cb(int fd)
+ {
+-	int type,x,y,finger;
+-	type = touch_read(fd, &x,&y,&finger);
+-	switch(type){
+-	case TOUCH_PRESS:
+-		//printf("type=%d,x=%d,y=%d,finger=%d\n",type,x,y,finger);
+-		if((x>=SEND_X)&&(x<SEND_X+SEND_W)&&(y>=SEND_Y)&&(y<SEND_Y+SEND_H)) {
+-			printf("bluetooth tty send hello\n");
+-			myWrite_nonblock(bluetooth_fd, "hello\n", 6);
+-		}
+-		break;
+-	case TOUCH_ERROR:
+-		printf("close touch fd\n");
+-		task_delete_file(fd);
+-		close(fd);
+-		break;
+-	default:
+-		return;
+-	}
+-	fb_update();
+-	return;
++    int type, x, y, finger;
++    while((type = touch_read(fd, &x, &y, &finger)) != TOUCH_NO_EVENT) {
++        if(type == TOUCH_ERROR) {
++            task_delete_file(fd); close(fd);
++            fprintf(stderr, "Touch device unavailable; Bluetooth reception remains active.\n");
++            return;
++        }
++        if(type == TOUCH_PRESS && x >= SEND_X && y < 64) send_hello();
++    }
+ }
+ 
+-static int pen_y=30;
+-static void bluetooth_tty_event_cb(int fd)
++static void timer_cb(int period)
+ {
+-	char buf[128];
+-	int n;
+-
+-	n = myRead_nonblock(fd, buf, sizeof(buf)-1);
+-	if(n <= 0) {
+-		printf("close bluetooth tty fd\n");
+-		//task_delete_file(fd);
+-		//close(fd);
+-		exit(0);
+-		return;
+-	}
+-
+-	buf[n] = '\0';
+-	printf("bluetooth tty receive \"%s\"\n", buf);
+-	fb_draw_text(2, pen_y, buf, 24, COLOR_TEXT); fb_update();
+-	pen_y += 30;
+-	return;
++    static unsigned counter;
++    (void)period;
++    if(stopped) { bt_text_flush(&receiver, 1); exit(EXIT_SUCCESS); }
++    transmit_pending();
++    if(MYTIME_DIFF(task_get_time(), last_receive) >= 500)
++        bt_text_flush(&receiver, 0); /* Apps without newline still display their text. */
++    if(!headless) {
++        char text[40];
++        snprintf(text, sizeof(text), "ticks %u", counter++);
++        fb_draw_rect(SEND_X-180, 0, 180, 64, BACKGROUND);
++        fb_draw_text(SEND_X-170, 40, text, 24, INK);
++        fb_update();
++    }
+ }
+ 
+-static int bluetooth_tty_init(const char *dev)
++static void close_serial(void)
+ {
+-	int fd = open(dev, O_RDWR|O_NOCTTY|O_NONBLOCK); /*非阻塞模式*/
+-	if(fd < 0){
+-		printf("bluetooth_tty_init open %s error(%d): %s\n", dev, errno, strerror(errno));
+-		return -1;
+-	}
+-	return fd;
++    if(serial_fd >= 0) close(serial_fd);
+ }
+ 
+-static int st=0;
+-static void timer_cb(int period) /*该函数0.5秒执行一次*/
++int main(int argc, char **argv)
+ {
+-	char buf[100];
+-	sprintf(buf, "%d", st++);
+-	fb_draw_rect(TIME_X, TIME_Y, TIME_W, TIME_H, COLOR_BACKGROUND);
+-	fb_draw_border(TIME_X, TIME_Y, TIME_W, TIME_H, COLOR_TEXT);
+-	fb_draw_text(TIME_X+2, TIME_Y+20, buf, 24, COLOR_TEXT);
+-	fb_update();
+-	return;
++    char *serial_dev = "/dev/rfcomm0", *touch_dev = NULL;
++    int initial_hello = 0;
++    for(int i = 1; i < argc; ++i) {
++        if(strcmp(argv[i], "--headless") == 0) headless = 1;
++        else if(strcmp(argv[i], "--send-hello") == 0) initial_hello = 1;
++        else if(strcmp(argv[i], "--serial") == 0 && i+1 < argc) serial_dev = argv[++i];
++        else if(strcmp(argv[i], "--touch") == 0 && i+1 < argc) touch_dev = argv[++i];
++        else {
++            fprintf(stderr, "Usage: %s [--serial /dev/rfcomm0] [--touch /dev/input/eventN] [--headless] [--send-hello]\n", argv[0]);
++            return EXIT_FAILURE;
++        }
++    }
++    setvbuf(stdout, NULL, _IOLBF, 0);
++    serial_fd = open(serial_dev, O_RDWR | O_NOCTTY | O_NONBLOCK);
++    if(serial_fd < 0) { perror(serial_dev); return EXIT_FAILURE; }
++    atexit(close_serial);
++    struct termios tty;
++    if(tcgetattr(serial_fd, &tty) < 0) { perror("tcgetattr"); return EXIT_FAILURE; }
++    cfmakeraw(&tty);
++    tty.c_cflag |= CLOCAL | CREAD;
++    /* O_NONBLOCK returns EAGAIN while idle; zero-byte reads indicate hangup. */
++    tty.c_cc[VMIN] = 1; tty.c_cc[VTIME] = 0;
++    if(tcsetattr(serial_fd, TCSANOW, &tty) < 0) { perror("tcsetattr"); return EXIT_FAILURE; }
++    signal(SIGINT, on_signal); signal(SIGTERM, on_signal);
++    bt_text_init(&receiver, receive_line, NULL);
++    last_receive = task_get_time();
++    if(!headless) {
++        fb_init("/dev/fb0"); font_init("./font.ttc");
++        fb_draw_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, BACKGROUND);
++        fb_draw_text(10, 40, "蓝牙串口收发", 28, INK);
++        fb_draw_border(SEND_X, 0, 100, 64, INK);
++        fb_draw_text(SEND_X+15, 40, "send", 24, INK);
++        fb_update();
++        int touch_fd = touch_init(touch_dev);
++        if(touch_fd < 0) return EXIT_FAILURE;
++        task_add_file(touch_fd, touch_event_cb);
++    }
++    printf("Bluetooth serial ready: %s\n", serial_dev);
++    task_add_file(serial_fd, serial_event_cb);
++    task_add_timer(100, timer_cb);
++    if(initial_hello) send_hello();
++    task_loop();
++    return 0;
+ }
+-
+-int main(int argc, char *argv[])
+-{
+-	fb_init("/dev/fb0");
+-	font_init("./font.ttc");
+-	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,COLOR_BACKGROUND);
+-	fb_draw_border(SEND_X, SEND_Y, SEND_W, SEND_H, COLOR_TEXT);
+-	fb_draw_text(SEND_X+2, SEND_Y+30, "send", 24, COLOR_TEXT);
+-	fb_update();
+-
+-	touch_fd = touch_init("/dev/input/event0");
+-	task_add_file(touch_fd, touch_event_cb);
+-
+-	bluetooth_fd = bluetooth_tty_init("/dev/rfcomm0");
+-	if(bluetooth_fd == -1) return 0;
+-	task_add_file(bluetooth_fd, bluetooth_tty_event_cb);
+-
+-	task_add_timer(500, timer_cb); /*增加0.5秒的定时器*/
+-	task_loop();
+-	return 0;
+-}
+--- /dev/null
++++ b/lab5_bt/serial_queue.c
+@@ -0,0 +1,23 @@
++#include "serial_queue.h"
++#include <string.h>
++int bt_tx_enqueue(bt_tx_queue *q,const char *data,size_t length)
++{
++    if(length > sizeof(q->bytes)-(q->length-q->offset)) return -1;
++    if(q->offset) memmove(q->bytes,q->bytes+q->offset,q->length-q->offset);
++    q->length-=q->offset;q->offset=0;
++    memcpy(q->bytes+q->length,data,length);q->length+=length;
++    return 0;
++}
++int bt_tx_flush(bt_tx_queue *q,bt_writer_fn writer,void *context)
++{
++    while(q->offset < q->length) {
++        size_t remaining=q->length-q->offset;
++        int n=writer(q->bytes+q->offset,remaining,context);
++        if(n==BT_IO_RETRY) continue;
++        if(n==BT_IO_WAIT) return 0;
++        if(n<=0 || (size_t)n>remaining) return -1;
++        q->offset+=(size_t)n;
++    }
++    q->length=q->offset=0;
++    return 1;
++}
+--- /dev/null
++++ b/lab5_bt/serial_queue.h
+@@ -0,0 +1,11 @@
++#ifndef LAB5_SERIAL_QUEUE_H
++#define LAB5_SERIAL_QUEUE_H
++#include <stddef.h>
++#define BT_IO_RETRY (-1)
++#define BT_IO_WAIT (-2)
++#define BT_IO_ERROR (-3)
++typedef struct { char bytes[256]; size_t length, offset; } bt_tx_queue;
++typedef int (*bt_writer_fn)(const char *data, size_t length, void *context);
++int bt_tx_enqueue(bt_tx_queue *q, const char *data, size_t length);
++int bt_tx_flush(bt_tx_queue *q, bt_writer_fn writer, void *context);
++#endif
+--- /dev/null
++++ b/lab5_bt/text_stream.c
+@@ -0,0 +1,70 @@
++#include "text_stream.h"
++#include <string.h>
++
++void bt_text_init(bt_text_stream *s, bt_line_fn emit, void *context)
++{
++    memset(s, 0, sizeof(*s));
++    s->emit = emit;
++    s->context = context;
++}
++
++static void emit_line(bt_text_stream *s)
++{
++    if(!s->used) return;
++    s->line[s->used] = '\0';
++    if(s->emit) s->emit(s->line, s->context);
++    s->used = 0;
++}
++
++static void append(bt_text_stream *s, const uint8_t *bytes, size_t length)
++{
++    /* Never split a UTF-8 codepoint at the bounded line-buffer boundary. */
++    if(s->used + length >= sizeof(s->line)) emit_line(s);
++    memcpy(s->line + s->used, bytes, length);
++    s->used += length;
++}
++
++void bt_text_feed(bt_text_stream *s, const uint8_t *data, size_t length)
++{
++    for(size_t i = 0; i < length; ++i) {
++        uint8_t c = data[i];
++        if(s->have) {
++            int valid = c >= 0x80 && c <= 0xbf;
++            if(s->have == 1) {
++                if(s->sequence[0] == 0xe0 && c < 0xa0) valid = 0;
++                if(s->sequence[0] == 0xed && c >= 0xa0) valid = 0;
++                if(s->sequence[0] == 0xf0 && c < 0x90) valid = 0;
++                if(s->sequence[0] == 0xf4 && c >= 0x90) valid = 0;
++            }
++            if(valid) {
++                s->sequence[s->have++] = c;
++                if(s->have == s->need) {
++                    append(s, s->sequence, s->need);
++                    s->have = s->need = 0;
++                }
++                continue;
++            }
++            append(s, (const uint8_t *)"?", 1);
++            s->have = s->need = 0;
++            /* Reprocess this byte as the start of a new character. */
++        }
++        if(c == '\n') { emit_line(s); continue; }
++        if(c == '\r') continue;
++        if(c < 0x20 || c == 0x7f) { append(s, (const uint8_t *)"?", 1); continue; }
++        if(c < 0x80) { append(s, &c, 1); continue; }
++        s->need = c >= 0xc2 && c <= 0xdf ? 2 :
++                  c >= 0xe0 && c <= 0xef ? 3 :
++                  c >= 0xf0 && c <= 0xf4 ? 4 : 0;
++        if(s->need) { s->sequence[0] = c; s->have = 1; }
++        else append(s, (const uint8_t *)"?", 1);
++    }
++}
++
++void bt_text_flush(bt_text_stream *s, int end_of_stream)
++{
++    if(end_of_stream && s->have) {
++        append(s, (const uint8_t *)"?", 1);
++        s->have = s->need = 0;
++    }
++    emit_line(s);
++}
+--- /dev/null
++++ b/lab5_bt/text_stream.h
+@@ -0,0 +1,18 @@
++#ifndef LAB5_TEXT_STREAM_H
++#define LAB5_TEXT_STREAM_H
++#include <stddef.h>
++#include <stdint.h>
++#define BT_LINE_CAP 192
++typedef void (*bt_line_fn)(const char *line, void *context);
++typedef struct {
++    char line[BT_LINE_CAP];
++    size_t used;
++    uint8_t sequence[4];
++    unsigned have, need;
++    bt_line_fn emit;
++    void *context;
++} bt_text_stream;
++void bt_text_init(bt_text_stream *s, bt_line_fn emit, void *context);
++void bt_text_feed(bt_text_stream *s, const uint8_t *data, size_t length);
++void bt_text_flush(bt_text_stream *s, int end_of_stream);
++#endif
+--- /dev/null
++++ b/original/common/common.h
+@@ -0,0 +1,120 @@
++#ifndef _COMMON_H_
++#define _COMMON_H_
++
++#include <stdio.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <errno.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <pthread.h>
++
++#define DEBUG_PRINT(fmt, ... ) printf("==== %s:%d ==== " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__);
++
++/*======================== task.c ============================*/
++/*所有的时间以毫秒为单位*/
++typedef int myTime;
++#define MYTIME_DIFF(a, b) ((myTime)(a) - (myTime)(b))
++
++myTime task_get_time(void); /*得到系统当前运行的时间*/
++
++void task_delay(myTime msecs);
++
++typedef void (*Task_Func)(int arg); /*用户的回调函数*/
++
++#define FILE_NUM_MAX    4	/*最多add的文件任务个数*/
++#define TIMER_NUM_MAX   4	/*最多add的定时器任务个数*/
++
++/*添加一个文件任务, 当fd可读时, 会自动调用callback函数*/
++void task_add_file(int fd, Task_Func callback);
++
++/*增加一个定时器任务, 每隔period时间, 会自动调用callback函数*/
++void task_add_timer(myTime period, Task_Func callback);
++
++void task_delete_file(int fd); /*删除文件任务*/
++void task_delete_timer(int period); /*删除定时器任务*/
++void task_loop(void); /*进入任务循环, 该函数不返回*/
++
++/*非阻塞方式读/写文件, 返回实际读/写的字节数*/
++int myRead_nonblock(int fd, void *p, int n);
++int myWrite_nonblock(int fd, void *p, int n);
++
++/*======================== image.c ============================*/
++#define FB_COLOR(r,g,b)	(0xff000000|(r<<16)|(g<<8)|b)
++
++#define FB_COLOR_RGB_8880	1
++#define FB_COLOR_RGBA_8888	2
++#define FB_COLOR_ALPHA_8	3
++
++typedef struct {
++	int color_type; /* FB_COLOR_XXXX */
++	int pixel_w, pixel_h;
++	int line_byte;
++	char *content; /*4 byte align*/
++} fb_image;
++
++fb_image * fb_new_image(int color_type, int w, int h, int line_byte);
++void fb_free_image(fb_image *image);
++
++fb_image * fb_read_jpeg_image(char *file);
++fb_image * fb_read_png_image(char *file);
++
++/*得到一个图片的子图片,子图片和原图片共享颜色内存*/
++fb_image *fb_get_sub_image(fb_image *img, int x, int y, int w, int h);
++
++typedef struct {
++	int bytes;	//UTF-8编码所占字节数
++	int advance_x; //x方向步进距离
++	int left;	//左跨距
++	int top;	//上跨距
++} fb_font_info;
++
++void font_init(char *font_file);
++fb_image * fb_read_font_image(const char *text, int pixel_size, fb_font_info *format);
++
++/*=========================== graphic.c ===============================*/
++#define SCREEN_WIDTH	1024
++#define SCREEN_HEIGHT	600
++
++void fb_init(char *dev);
++void fb_update(void);
++
++/*lab2*/
++void fb_draw_pixel(int x, int y, int color);
++void fb_draw_rect(int x, int y, int w, int h, int color);
++void fb_draw_border(int x, int y, int w, int h, int color);
++void fb_draw_line(int sx, int sy, int dx, int dy, int color);
++
++/*lab3*/
++void fb_draw_image(int x, int y, fb_image *image, int color);
++void fb_draw_text(int x, int y, char *text, int font_size, int color);
++
++/*=========================== input.c ===============================*/
++/*lab4*/
++#define TOUCH_NO_EVENT	0
++#define TOUCH_PRESS	1
++#define TOUCH_MOVE	2
++#define TOUCH_RELEASE	3
++#define TOUCH_ERROR	9
++#define FINGER_NUM_MAX	5
++
++int touch_init(char *dev); /*返回touch_fd*/
++int touch_read(int touch_fd, int *x, int *y, int *finger);
++
++/*=========================== sle_client/server.c ===============================*/
++void sle_client_init(const char *name);
++void sle_client_deinit(void);
++void sle_client_start_seek(void);
++void sle_client_stop_seek(void);
++void sle_client_send_data(uint8_t *data, int data_len);
++
++void sle_server_init(const char *name);
++void sle_server_deinit(void);
++void sle_server_start_announce(void);
++void sle_server_stop_announce(void);
++void sle_server_send_data(uint8_t *data, int data_len);
++
++#endif /* _COMMON_H_ */
+--- /dev/null
++++ b/original/common/graphic.c
+@@ -0,0 +1,252 @@
++#include "common.h"
++#include <sys/ioctl.h>
++#include <linux/fb.h>
++#include <linux/kd.h>
++#include <linux/vt.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <stdio.h>
++#include <sys/mman.h>
++#include <string.h>
++
++static int LCD_FB_FD;
++static int *LCD_FB_BUF;
++static int LCD_FB_LINELEN;
++static int DRAW_BUF[SCREEN_WIDTH*SCREEN_HEIGHT];
++
++static struct area {
++	int x1, x2, y1, y2;
++} update_area = {0,0,0,0};
++
++#define AREA_SET_EMPTY(pa) do {\
++	(pa)->x1 = SCREEN_WIDTH;\
++	(pa)->x2 = 0;\
++	(pa)->y1 = SCREEN_HEIGHT;\
++	(pa)->y2 = 0;\
++} while(0)
++
++void fb_init(char *dev)
++{
++	int fd;
++	struct fb_fix_screeninfo fb_fix;
++	struct fb_var_screeninfo fb_var;
++
++	if(LCD_FB_BUF != NULL) return; /*already done*/
++
++	//进入终端图形模式
++	fd = open("/dev/tty0",O_RDWR,0);
++	ioctl(fd, KDSETMODE, KD_GRAPHICS);
++	close(fd);
++
++	//First: Open the device
++	if((fd = open(dev, O_RDWR)) < 0){
++		printf("Unable to open framebuffer %s, errno = %d\n", dev, errno);
++		return;
++	}
++	if(ioctl(fd, FBIOGET_FSCREENINFO, &fb_fix) < 0){
++		printf("Unable to FBIOGET_FSCREENINFO %s\n", dev);
++		return;
++	}
++	if(ioctl(fd, FBIOGET_VSCREENINFO, &fb_var) < 0){
++		printf("Unable to FBIOGET_VSCREENINFO %s\n", dev);
++		return;
++	}
++
++	printf("framebuffer info: bits_per_pixel=%u,size=(%d,%d),virtual_pos_size=(%d,%d)(%d,%d),line_length=%u,smem_len=%u\n",
++		fb_var.bits_per_pixel, fb_var.xres, fb_var.yres, fb_var.xoffset, fb_var.yoffset,
++		fb_var.xres_virtual, fb_var.yres_virtual, fb_fix.line_length, fb_fix.smem_len);
++
++	//Second: mmap
++	void *addr = mmap(NULL, fb_fix.smem_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
++	if(addr == (void *)-1){
++		printf("failed to mmap memory for framebuffer.\n");
++		return;
++	}
++
++	if((fb_var.xoffset != 0)||(fb_var.yoffset != 0))
++	{
++		fb_var.xoffset = 0;
++		fb_var.yoffset = 0;
++		if(ioctl(fd, FBIOPAN_DISPLAY, &fb_var) < 0) {
++			printf("FBIOPAN_DISPLAY framebuffer failed\n");
++		}
++	}
++
++	LCD_FB_FD = fd;
++	LCD_FB_BUF = addr;
++	LCD_FB_LINELEN = fb_fix.line_length;
++
++	//set empty
++	AREA_SET_EMPTY(&update_area);
++	return;
++}
++
++static void _copy_area(int *dst, int *src, struct area *pa)
++{
++	int x, y, w, h;
++	x = pa->x1; w = pa->x2-x;
++	y = pa->y1; h = pa->y2-y;
++	char *psrc = (char *)src + y*(SCREEN_WIDTH*4) + x*4;
++	char *pdst = (char *)dst + y*LCD_FB_LINELEN + x*4;
++	while(h-- > 0){
++		memcpy(pdst, psrc, w*4);
++		psrc += SCREEN_WIDTH*4;
++		pdst += LCD_FB_LINELEN;
++	}
++}
++
++static int _check_area(struct area *pa)
++{
++	if(pa->x2 == 0) return 0; //is empty
++
++	if(pa->x1 < 0) pa->x1 = 0;
++	if(pa->x2 > SCREEN_WIDTH) pa->x2 = SCREEN_WIDTH;
++	if(pa->y1 < 0) pa->y1 = 0;
++	if(pa->y2 > SCREEN_HEIGHT) pa->y2 = SCREEN_HEIGHT;
++
++	if((pa->x2 > pa->x1) && (pa->y2 > pa->y1))
++		return 1; //no empty
++
++	//set empty
++	AREA_SET_EMPTY(pa);
++	return 0;
++}
++
++void fb_update(void)
++{
++	if(_check_area(&update_area) == 0) return; //is empty
++	_copy_area(LCD_FB_BUF, DRAW_BUF, &update_area);
++	AREA_SET_EMPTY(&update_area); //set empty
++	return;
++}
++
++/*======================================================================*/
++
++static void * _begin_draw(int x, int y, int w, int h)
++{
++	int x2 = x+w;
++	int y2 = y+h;
++	if(update_area.x1 > x) update_area.x1 = x;
++	if(update_area.y1 > y) update_area.y1 = y;
++	if(update_area.x2 < x2) update_area.x2 = x2;
++	if(update_area.y2 < y2) update_area.y2 = y2;
++	return DRAW_BUF;
++}
++
++void fb_draw_pixel(int x, int y, int color)
++{
++	if(x<0 || y<0 || x>=SCREEN_WIDTH || y>=SCREEN_HEIGHT) return;
++	int *buf = _begin_draw(x,y,1,1);
++/*---------------------------------------------------*/
++	*(buf + y*SCREEN_WIDTH + x) = color;
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_rect(int x, int y, int w, int h, int color)
++{
++	if(x < 0) { w += x; x = 0;}
++	if(x+w > SCREEN_WIDTH) { w = SCREEN_WIDTH-x;}
++	if(y < 0) { h += y; y = 0;}
++	if(y+h >SCREEN_HEIGHT) { h = SCREEN_HEIGHT-y;}
++	if(w<=0 || h<=0) return;
++	int *buf = _begin_draw(x,y,w,h);
++/*---------------------------------------------------*/
++	printf("you need implement fb_draw_rect()\n"); exit(0);
++
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_line(int x1, int y1, int x2, int y2, int color)
++{
++/*---------------------------------------------------*/
++	printf("you need implement fb_draw_line()\n"); exit(0);
++
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_image(int x, int y, fb_image *image, int color)
++{
++	if(image == NULL) return;
++
++	int ix = 0; //image x
++	int iy = 0; //image y
++	int w = image->pixel_w; //draw width
++	int h = image->pixel_h; //draw height
++
++	if(x<0) {w+=x; ix-=x; x=0;}
++	if(y<0) {h+=y; iy-=y; y=0;}
++	
++	if(x+w > SCREEN_WIDTH) {
++		w = SCREEN_WIDTH - x;
++	}
++	if(y+h > SCREEN_HEIGHT) {
++		h = SCREEN_HEIGHT - y;
++	}
++	if((w <= 0)||(h <= 0)) return;
++
++	int *buf = _begin_draw(x,y,w,h);
++/*---------------------------------------------------------------*/
++	char *dst = (char *)(buf + y*SCREEN_WIDTH + x);
++	char *src; //不同的图像颜色格式定位不同
++/*---------------------------------------------------------------*/
++
++	int alpha;
++	int ww;
++
++	if(image->color_type == FB_COLOR_RGB_8880) /*lab3: jpg*/
++	{
++		printf("you need implement fb_draw_image() FB_COLOR_RGB_8880\n"); exit(0);
++
++		return;
++	}
++	else if(image->color_type == FB_COLOR_RGBA_8888) /*lab3: png*/
++	{
++		printf("you need implement fb_draw_image() FB_COLOR_RGBA_8888\n"); exit(0);
++
++		return;
++	}
++	else if(image->color_type == FB_COLOR_ALPHA_8) /*lab3: font*/
++	{
++		printf("you need implement fb_draw_image() FB_COLOR_ALPHA_8\n"); exit(0);
++
++		return;
++	}
++/*---------------------------------------------------------------*/
++	return;
++}
++
++void fb_draw_border(int x, int y, int w, int h, int color)
++{
++	if(w<=0 || h<=0) return;
++	fb_draw_rect(x, y, w, 1, color);
++	if(h > 1) {
++		fb_draw_rect(x, y+h-1, w, 1, color);
++		fb_draw_rect(x, y+1, 1, h-2, color);
++		if(w > 1) fb_draw_rect(x+w-1, y+1, 1, h-2, color);
++	}
++}
++
++/** draw a text string **/
++void fb_draw_text(int x, int y, char *text, int font_size, int color)
++{
++	fb_image *img;
++	fb_font_info info;
++	int i=0;
++	int len = strlen(text);
++	while(i < len)
++	{
++		img = fb_read_font_image(text+i, font_size, &info);
++		if(img == NULL) break;
++		fb_draw_image(x+info.left, y-info.top, img, color);
++		fb_free_image(img);
++
++		x += info.advance_x;
++		i += info.bytes;
++	}
++	return;
++}
++
+--- /dev/null
++++ b/original/common/image.c
+@@ -0,0 +1,346 @@
++#include <fcntl.h>
++#include <stdio.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <linux/fb.h>
++
++#include "common.h"
++
++/*w, h maybe == 0*/
++fb_image * fb_new_image(int color_type, int w, int h, int line_byte)
++{
++	fb_image *image;
++
++	if((w<0)||(h<0)) return NULL;
++	switch(color_type)
++	{
++	case FB_COLOR_RGB_8880:
++	case FB_COLOR_RGBA_8888:
++		if(line_byte < w*4) line_byte = w*4;
++		break;
++	case FB_COLOR_ALPHA_8:
++		if(line_byte < w) line_byte = w;
++		break;
++	default:
++		return NULL;
++	}
++
++	image = (fb_image *)malloc(sizeof(fb_image) + line_byte*h);
++	if(image == NULL) return NULL;
++
++	image->color_type = color_type;
++	image->line_byte = line_byte;
++	image->pixel_w = w;
++	image->pixel_h = h;
++	image->content = (char *)(image+1);
++	return image;
++}
++
++fb_image *fb_get_sub_image(fb_image *img, int x, int y, int w, int h)
++{
++	fb_image *ret;
++	if(img == NULL) return NULL;
++	if((x<0)||(y<0)||
++		(w<0)||(h<0)||
++		(x+w > img->pixel_w)||
++		(y+h > img->pixel_w))
++		return NULL;
++
++	ret = (fb_image *)malloc(sizeof(fb_image));
++	if(ret != NULL) {
++		ret->color_type = img->color_type;
++		ret->line_byte = img->line_byte;
++		ret->pixel_w = w;
++		ret->pixel_h = h;
++		if(img->color_type != FB_COLOR_ALPHA_8) x*=4;
++		ret->content = img->content + y*img->line_byte + x;
++	}
++	return ret;
++}
++
++void fb_free_image(fb_image *image)
++{
++	if(image) free(image);
++}
++
++/*================== read a jpeg image ===============*/
++#include <jpeglib.h>
++fb_image *fb_read_jpeg_image(char *file)
++{
++	fb_image *image;
++	//指定错误处理器
++	struct jpeg_error_mgr errpub;
++	//申请jpeg解压对象
++	struct jpeg_decompress_struct cinfo;
++	//将错误处理结构对象绑定在JPEG对象上
++	cinfo.err = jpeg_std_error(&errpub);
++	//初始化cinfo结构
++	jpeg_create_decompress(&cinfo);
++
++	//指定解压数据源
++	FILE *infile;
++	if((infile = fopen(file, "rb")) == NULL){
++		printf("fb_read_jpeg_image: Failed to open file %s", file);
++		return NULL;
++	}
++	jpeg_stdio_src(&cinfo, infile);
++
++	//获取文件信息
++	jpeg_read_header(&cinfo, TRUE);
++	//为解压缩设定参数
++	cinfo.dct_method = JDCT_IFAST;
++	cinfo.do_fancy_upsampling = FALSE;
++	cinfo.out_color_space = JCS_EXT_BGRX; //输出图像的色彩空间
++	
++	//开始解压缩
++	jpeg_start_decompress(&cinfo);
++
++	image = (fb_image *)fb_new_image(FB_COLOR_RGB_8880, cinfo.output_width, cinfo.output_height, 0);
++	if(image == NULL){
++		jpeg_destroy_decompress(&cinfo);
++		fclose(infile);
++		return NULL;
++	}
++	//取出数据
++	char *dst_row = image->content;
++	int dst_line = image->line_byte;
++	while(cinfo.output_scanline < cinfo.output_height){
++		jpeg_read_scanlines(&cinfo, (JSAMPARRAY)&dst_row, 1);
++		dst_row += dst_line;
++	}
++
++	//解压缩完毕
++	jpeg_finish_decompress(&cinfo);
++	//释放资源
++	jpeg_destroy_decompress(&cinfo);
++	fclose(infile);
++	return image;
++}
++
++/*================== read a png image ===============*/
++#include <png.h>
++fb_image *fb_read_png_image(char *file)
++{
++	fb_image *image=NULL;
++	png_structp png_ptr;
++	png_infop info_ptr;
++	FILE *fp;
++	
++	fp = fopen(file, "rb");
++	if(fp == NULL) {
++		printf("open png file failed: error %d\n",errno);
++		return NULL;
++	}
++
++	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
++	if (png_ptr == NULL) {
++		printf("png_create_read_struct failed\n");
++		fclose(fp);
++		return NULL;
++	}
++	
++	// Allocate/initialize the memory for image information.  REQUIRED. 
++	info_ptr = png_create_info_struct(png_ptr);
++	if(info_ptr == NULL) {
++		printf("png_create_info_struct failed\n");
++		fclose(fp);
++		png_destroy_read_struct(&png_ptr, NULL, NULL);
++		return NULL;
++	}
++	
++	/* Set error handling if you are using the setjmp/longjmp method (this is
++	* the normal method of doing things with libpng).  REQUIRED unless you
++	* set up your own error handlers in the png_create_read_struct() earlier.
++	*/
++	if (setjmp(png_jmpbuf(png_ptr))) {
++		/* Free all of the memory associated with the png_ptr and info_ptr */
++		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++		/* If we get here, we had a problem reading the file */
++		/*TLogE("open png image error \n");*/
++		fclose(fp);
++		fb_free_image(image);
++		return NULL;
++	}
++	
++	//bind libpng with fp
++	png_init_io(png_ptr, fp);
++	png_set_sig_bytes(png_ptr, 0);
++	
++	png_read_png(png_ptr, info_ptr, 
++		PNG_TRANSFORM_STRIP_16|
++		PNG_TRANSFORM_PACKING|
++		PNG_TRANSFORM_EXPAND|
++		PNG_TRANSFORM_BGR, NULL);
++
++	if(png_get_bit_depth(png_ptr, info_ptr) == 16) {
++		png_set_strip_16(png_ptr);
++	}
++	/*if(png_get_valid(png_ptr,info_ptr,PNG_INFO_tRNS)) {
++		png_set_tRNS_to_alpha(png_ptr);
++	}*/
++
++	//not support color type
++	if(png_get_channels(png_ptr, info_ptr) != 4) {
++		printf("unrecognized image format.\n");
++		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++		fclose(fp);
++		return NULL; 
++	}
++	int pngheight =png_get_image_height(png_ptr, info_ptr);
++	int pngwidth = png_get_image_width(png_ptr, info_ptr);
++	image = fb_new_image(FB_COLOR_RGBA_8888,pngwidth, pngheight , 0);
++	if(image == NULL){
++		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++		fclose(fp);
++		return NULL;
++	}
++	
++	char *dst = image->content;
++	char **row_pointers;
++	char *src;
++	row_pointers = (char **)png_get_rows(png_ptr, info_ptr);
++	int i = 0;
++	while(i <pngheight )
++	{
++		src = row_pointers[i];
++		memcpy(dst, src, pngwidth * 4);
++		dst += image->line_byte;
++		++i;
++	}
++
++	png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
++	fclose(fp);
++	return image;
++}
++
++/*================== read a font image ===============*/
++
++#include <ft2build.h>
++#include FT_FREETYPE_H
++
++/* typedef struct  FT_Bitmap_
++  {
++    unsigned int    rows;
++    unsigned int    width;
++    int             pitch;
++    unsigned char*  buffer;
++    unsigned short  num_grays;
++    unsigned char   pixel_mode;
++    unsigned char   palette_mode;
++    void*           palette;
++
++  } FT_Bitmap;
++ */
++
++static FT_Library library=NULL;
++static FT_Face face;
++
++#if 0 /** Change UTF-8 to Unicode **/
++static FT_ULong Utf8ToUnicode(const char *utf8, int len)
++{
++	FT_ULong unic=0;
++	int i;
++	unsigned char flag = (len==2?0x1F:(len==3?0x0F:(len==4?0x07:0xFF)));
++	if(len == 1){
++		return (FT_ULong)(unsigned char)utf8[0];
++	}else{
++		for(i=0;i<len-1;i++){
++			unic |= (((FT_ULong)((unsigned char)utf8[len-i-1]&0x3f)) << 6*i);
++		}
++		unic |= (((FT_ULong)((unsigned char)utf8[0]&flag))<<(len-1)*6);
++	}
++	return unic;
++}
++#endif
++
++void font_init(char *font_file)
++{
++	FT_Error error;
++
++	if(library == NULL)
++	{
++		error = FT_Init_FreeType(&library);
++		if(error){
++			printf("FT_Init_FreeType: error %d\n",error);
++			library = NULL;
++			return;
++		}
++	}
++	if(face == NULL)
++	{
++		error = FT_New_Face(library, font_file, 0, &face);
++		if(error){
++			printf("FT_New_Face(\"%s\"): error %d\n", font_file, error);
++			face = NULL;
++			return;
++		}
++		error = FT_Select_Charmap(face, FT_ENCODING_UNICODE);
++		if(error){
++			printf("FT_Select_Charmap: error %d\n",error);
++			face = NULL;
++			return;
++		}
++	}
++	return;
++}
++
++/** read a font image **/ 
++fb_image* fb_read_font_image(const char *text, int pixel_size, fb_font_info *info)
++{
++	if(face == NULL) {
++		printf("call font_init(\"font_file\") first\n");
++		return NULL;
++	}
++	if((text == NULL)||(pixel_size <= 0)) {
++		printf("arg error\n");
++		return NULL;
++	}
++
++	FT_Error error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
++	if(error){
++		printf("FT_Set_Pixel_Sizes: error %d\n", error);
++		return NULL;
++	}
++
++	fb_font_info sinfo;
++	FT_ULong ucs4;
++	if((text[0]&0x80) == 0){
++		sinfo.bytes = 1;
++		ucs4 = (unsigned char)text[0];
++	}else if((text[0]&0xE0) == 0xC0){
++		sinfo.bytes = 2;
++		ucs4 = ((text[0]&0x1F)<<6)|(text[1]&0x3F);
++	}else if((text[0]&0xF0) == 0xE0){
++		sinfo.bytes = 3;
++		ucs4 = ((text[0]&0x0F)<<12)|((text[1]&0x3F)<<6)|(text[2]&0x3F);
++	}else if((text[0]&0xF8) == 0xF0){
++		sinfo.bytes = 4;
++		ucs4 = ((text[0]&0x07)<<18)|((text[1]&0x3F)<<12)|((text[2]&0x3F)<<6)|(text[3]&0x3F);
++	}else{
++		printf("code error!\n");
++		return NULL;
++	}
++
++	error = FT_Load_Char(face, ucs4, FT_LOAD_RENDER);
++	if(error){
++		printf("FT_Load_Char: error %d", error);
++		return NULL;
++	}
++	FT_GlyphSlot slot = face->glyph;
++
++	fb_image* image;
++	/*when ucs4 == 0x20 (blank), the bitmap.width/rows/pitch is 0*/
++	image = fb_new_image(FB_COLOR_ALPHA_8, slot->bitmap.width, slot->bitmap.rows, slot->bitmap.pitch);
++	if(image == NULL){
++		printf("fb_new_image(\"%s\", %d,%d,%d) failed\n", text, slot->bitmap.width, slot->bitmap.rows, slot->bitmap.pitch);
++		return NULL;
++	}
++	memcpy(image->content, slot->bitmap.buffer, slot->bitmap.rows * slot->bitmap.pitch);
++
++	sinfo.advance_x = slot->advance.x >> 6;
++	sinfo.left = slot->bitmap_left;
++	sinfo.top = slot->bitmap_top;
++	if(info) *info = sinfo;
++	return image;
++}
++
+--- /dev/null
++++ b/original/common/rules.mk
+@@ -0,0 +1,25 @@
++
++CROSS_COMPILE := /work/HUST/OrangePi4/gcc-aarch64/bin/aarch64-none-linux-gnu-
++
++CC := $(CROSS_COMPILE)gcc
++
++CFLAGS := -Wall -O2
++LDFLAGS := -Wall
++
++INCLUDE += -I../common/external/include
++LIB += -L../common/external/lib -ljpeg -lfreetype -lpng -lasound -lz -lpthread -lc -lm
++
++EXESRCS += ../common/graphic.c ../common/touch.c ../common/image.c ../common/task.c
++
++EXEOBJS := $(patsubst %.c, %.o, $(EXESRCS))
++
++$(EXENAME): $(EXEOBJS)
++	$(CC) $(LDFLAGS) -o $(EXENAME) $(EXEOBJS) $(LIB)
++	mv $(EXENAME) ../out/
++
++clean:
++	rm -f $(EXENAME) $(EXEOBJS)
++
++%.o: %.c
++	$(CC) $(CFLAGS) $(INCLUDE) -c -o $@ $<
++
+--- /dev/null
++++ b/original/common/touch.c
+@@ -0,0 +1,114 @@
++#include "common.h"
++
++#include <stdio.h>
++//#include <linux/input.h>
++#include "input.h"
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++
++static struct finger_info{
++	int x;
++	int y;
++	int event;
++} infos[FINGER_NUM_MAX];
++static int cur_slot = 0;
++
++int touch_init(char *dev)
++{
++	int fd = open(dev, O_RDONLY);
++	if(fd < 0){
++		printf("touch_init open %s error!errno = %d\n", dev, errno);
++		return -1;
++	}
++	return fd;
++}
++
++/*return:
++	TOUCH_NO_EVENT
++	TOUCH_PRESS
++	TOUCH_MOVE
++	TOUCH_RELEASE
++	TOUCH_ERROR
++	x: [0 ~ SCREEN_WIDTH)
++	y: [0 ~ SCREEN_HEIGHT)
++	finger: 0,1,2,3,4
++*/
++
++//驱动上传的xy坐标范围是[0,4096)
++#define ADJUST_X(n) ((n*SCREEN_WIDTH)>>12)  /* (n*screen_width/4096) */
++#define ADJUST_Y(n) ((n*SCREEN_HEIGHT)>>12)  /* (n*screen_height/4096) */
++
++int touch_read(int touch_fd, int *x, int *y, int *finger)
++{
++	struct input_event data;
++	int n, ret;
++	if((n = read(touch_fd, &data, sizeof(data))) != sizeof(data)){
++		printf("touch_read error %d, errno=%d\n", n, errno);
++		return TOUCH_ERROR;
++	}
++//	printf("event read: type-code-value = %d-%d-%d\n", data.type, data.code, data.value);
++	switch(data.type)
++	{
++	case EV_ABS:
++		switch(data.code)
++		{
++		case ABS_MT_SLOT:
++			if(data.value >= 0 && data.value < FINGER_NUM_MAX) {
++				int old = cur_slot;
++				cur_slot = data.value;
++				if(infos[old].event != TOUCH_NO_EVENT) {
++					*x = infos[old].x;
++					*y = infos[old].y;
++					*finger = old;
++					ret = infos[old].event;
++					infos[old].event = TOUCH_NO_EVENT;
++					return ret;
++				}
++			}
++			break;
++		case ABS_MT_TRACKING_ID:
++			if(data.value == -1){
++				*x = infos[cur_slot].x;
++				*y = infos[cur_slot].y;
++				*finger = cur_slot;
++				infos[cur_slot].event = TOUCH_NO_EVENT;
++				return TOUCH_RELEASE;
++			}
++			else{
++				infos[cur_slot].event = TOUCH_PRESS;
++			}
++			break;
++		case ABS_MT_POSITION_X:
++			infos[cur_slot].x = ADJUST_X(data.value);
++			if(infos[cur_slot].event != TOUCH_PRESS) {
++				infos[cur_slot].event = TOUCH_MOVE;
++			}
++			break;
++		case ABS_MT_POSITION_Y:
++			infos[cur_slot].y = ADJUST_Y(data.value);
++			if(infos[cur_slot].event != TOUCH_PRESS) {
++				infos[cur_slot].event = TOUCH_MOVE;
++			}
++			break;
++		}
++		break;
++	case EV_SYN:
++		switch(data.code)
++		{
++		case SYN_REPORT:
++			if(infos[cur_slot].event != TOUCH_NO_EVENT){
++				*x = infos[cur_slot].x;
++				*y = infos[cur_slot].y;
++				*finger = cur_slot;
++				ret = infos[cur_slot].event;
++				infos[cur_slot].event = TOUCH_NO_EVENT;
++				return ret;
++			}
++			break;
++		}
++		break;
++	}
++	return TOUCH_NO_EVENT;
++}
+--- /dev/null
++++ b/original/lab2-prepared-graphic.c
+@@ -0,0 +1,318 @@
++#include "common.h"
++#include <sys/ioctl.h>
++#include <linux/fb.h>
++#include <linux/kd.h>
++#include <linux/vt.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <stdio.h>
++#include <sys/mman.h>
++#include <string.h>
++
++static int LCD_FB_FD;
++static int *LCD_FB_BUF;
++static int LCD_FB_LINELEN;
++static int DRAW_BUF[SCREEN_WIDTH*SCREEN_HEIGHT];
++
++static struct area {
++	int x1, x2, y1, y2;
++} update_area = {0,0,0,0};
++
++#define AREA_SET_EMPTY(pa) do {\
++	(pa)->x1 = SCREEN_WIDTH;\
++	(pa)->x2 = 0;\
++	(pa)->y1 = SCREEN_HEIGHT;\
++	(pa)->y2 = 0;\
++} while(0)
++
++void fb_init(char *dev)
++{
++	int fd;
++	struct fb_fix_screeninfo fb_fix;
++	struct fb_var_screeninfo fb_var;
++
++	if(LCD_FB_BUF != NULL) return; /*already done*/
++
++	//进入终端图形模式
++	fd = open("/dev/tty0",O_RDWR,0);
++	ioctl(fd, KDSETMODE, KD_GRAPHICS);
++	close(fd);
++
++	//First: Open the device
++	if((fd = open(dev, O_RDWR)) < 0){
++		printf("Unable to open framebuffer %s, errno = %d\n", dev, errno);
++		return;
++	}
++	if(ioctl(fd, FBIOGET_FSCREENINFO, &fb_fix) < 0){
++		printf("Unable to FBIOGET_FSCREENINFO %s\n", dev);
++		return;
++	}
++	if(ioctl(fd, FBIOGET_VSCREENINFO, &fb_var) < 0){
++		printf("Unable to FBIOGET_VSCREENINFO %s\n", dev);
++		return;
++	}
++
++	printf("framebuffer info: bits_per_pixel=%u,size=(%d,%d),virtual_pos_size=(%d,%d)(%d,%d),line_length=%u,smem_len=%u\n",
++		fb_var.bits_per_pixel, fb_var.xres, fb_var.yres, fb_var.xoffset, fb_var.yoffset,
++		fb_var.xres_virtual, fb_var.yres_virtual, fb_fix.line_length, fb_fix.smem_len);
++
++	//Second: mmap
++	void *addr = mmap(NULL, fb_fix.smem_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
++	if(addr == (void *)-1){
++		printf("failed to mmap memory for framebuffer.\n");
++		return;
++	}
++
++	if((fb_var.xoffset != 0)||(fb_var.yoffset != 0))
++	{
++		fb_var.xoffset = 0;
++		fb_var.yoffset = 0;
++		if(ioctl(fd, FBIOPAN_DISPLAY, &fb_var) < 0) {
++			printf("FBIOPAN_DISPLAY framebuffer failed\n");
++		}
++	}
++
++	LCD_FB_FD = fd;
++	LCD_FB_BUF = addr;
++	LCD_FB_LINELEN = fb_fix.line_length;
++
++	//set empty
++	AREA_SET_EMPTY(&update_area);
++	return;
++}
++
++static void _copy_area(int *dst, int *src, struct area *pa)
++{
++	int x, y, w, h;
++	x = pa->x1; w = pa->x2-x;
++	y = pa->y1; h = pa->y2-y;
++	char *psrc = (char *)src + y*(SCREEN_WIDTH*4) + x*4;
++	char *pdst = (char *)dst + y*LCD_FB_LINELEN + x*4;
++	while(h-- > 0){
++		memcpy(pdst, psrc, w*4);
++		psrc += SCREEN_WIDTH*4;
++		pdst += LCD_FB_LINELEN;
++	}
++}
++
++static int _check_area(struct area *pa)
++{
++	if(pa->x2 == 0) return 0; //is empty
++
++	if(pa->x1 < 0) pa->x1 = 0;
++	if(pa->x2 > SCREEN_WIDTH) pa->x2 = SCREEN_WIDTH;
++	if(pa->y1 < 0) pa->y1 = 0;
++	if(pa->y2 > SCREEN_HEIGHT) pa->y2 = SCREEN_HEIGHT;
++
++	if((pa->x2 > pa->x1) && (pa->y2 > pa->y1))
++		return 1; //no empty
++
++	//set empty
++	AREA_SET_EMPTY(pa);
++	return 0;
++}
++
++void fb_update(void)
++{
++	if(_check_area(&update_area) == 0) return; //is empty
++	_copy_area(LCD_FB_BUF, DRAW_BUF, &update_area);
++	AREA_SET_EMPTY(&update_area); //set empty
++	return;
++}
++
++/*======================================================================*/
++
++static void * _begin_draw(int x, int y, int w, int h)
++{
++	int x2 = x+w;
++	int y2 = y+h;
++	if(update_area.x1 > x) update_area.x1 = x;
++	if(update_area.y1 > y) update_area.y1 = y;
++	if(update_area.x2 < x2) update_area.x2 = x2;
++	if(update_area.y2 < y2) update_area.y2 = y2;
++	return DRAW_BUF;
++}
++
++void fb_draw_pixel(int x, int y, int color)
++{
++	if(x<0 || y<0 || x>=SCREEN_WIDTH || y>=SCREEN_HEIGHT) return;
++	int *buf = _begin_draw(x,y,1,1);
++/*---------------------------------------------------*/
++	*(buf + y*SCREEN_WIDTH + x) = color;
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_rect(int x, int y, int w, int h, int color)
++{
++    if(w <= 0 || h <= 0) return;
++
++    /* Clip before indexing. Widen the sums to avoid signed-int overflow. */
++    int64_t left = x;
++    int64_t top = y;
++    int64_t right = (int64_t)x + w;
++    int64_t bottom = (int64_t)y + h;
++
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++
++    x = (int)left;
++    y = (int)top;
++    w = (int)(right - left);
++    h = (int)(bottom - top);
++    int *buf = _begin_draw(x, y, w, h);
++
++    for(int row = y; row < y + h; ++row) {
++        int *pixel = buf + row * SCREEN_WIDTH + x;
++        for(int column = 0; column < w; ++column) {
++            pixel[column] = color;
++        }
++    }
++    return;
++}
++
++void fb_draw_line(int x1, int y1, int x2, int y2, int color)
++{
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++
++    /* Use the longer axis, ordered consistently for reversed endpoints. */
++    int64_t major1 = steep ? y1 : x1;
++    int64_t major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1;
++    int64_t minor2 = steep ? x2 : y2;
++    if(major1 > major2) {
++        int64_t temporary = major1;
++        major1 = major2;
++        major2 = temporary;
++        temporary = minor1;
++        minor1 = minor2;
++        minor2 = temporary;
++    }
++
++    uint64_t length = (uint64_t)(major2 - major1);
++    if(length == 0) {
++        fb_draw_pixel(x1, y1, color);
++        return;
++    }
++
++    int direction = minor2 < minor1 ? -1 : 1;
++    uint64_t minor_distance = (uint64_t)llabs(minor2 - minor1);
++    int64_t limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int64_t first = major1 < 0 ? 0 : major1;
++    int64_t last = major2 >= limit ? limit - 1 : major2;
++    if(first > last) return;
++
++    /*
++     * Integer error accumulation, rounded to the nearest pixel.
++     * Preserve the error phase when skipping off-screen major coordinates.
++     * For 32-bit int endpoints, this product and sum fit in uint64_t.
++     * The loop visits at most SCREEN_WIDTH or SCREEN_HEIGHT coordinates.
++     */
++    uint64_t numerator = minor_distance * (uint64_t)(first - major1)
++                       + length / 2;
++    int64_t minor = minor1 + direction * (int64_t)(numerator / length);
++    uint64_t remainder = numerator % length;
++
++    for(int64_t major = first; major <= last; ++major) {
++        if(steep) {
++            fb_draw_pixel((int)minor, (int)major, color);
++        } else {
++            fb_draw_pixel((int)major, (int)minor, color);
++        }
++        remainder += minor_distance;
++        if(remainder >= length) {
++            remainder -= length;
++            minor += direction;
++        }
++    }
++    return;
++}
++
++void fb_draw_image(int x, int y, fb_image *image, int color)
++{
++	if(image == NULL) return;
++
++	int ix = 0; //image x
++	int iy = 0; //image y
++	int w = image->pixel_w; //draw width
++	int h = image->pixel_h; //draw height
++
++	if(x<0) {w+=x; ix-=x; x=0;}
++	if(y<0) {h+=y; iy-=y; y=0;}
++	
++	if(x+w > SCREEN_WIDTH) {
++		w = SCREEN_WIDTH - x;
++	}
++	if(y+h > SCREEN_HEIGHT) {
++		h = SCREEN_HEIGHT - y;
++	}
++	if((w <= 0)||(h <= 0)) return;
++
++	int *buf = _begin_draw(x,y,w,h);
++/*---------------------------------------------------------------*/
++	char *dst = (char *)(buf + y*SCREEN_WIDTH + x);
++	char *src; //不同的图像颜色格式定位不同
++/*---------------------------------------------------------------*/
++
++	int alpha;
++	int ww;
++
++	if(image->color_type == FB_COLOR_RGB_8880) /*lab3: jpg*/
++	{
++		printf("you need implement fb_draw_image() FB_COLOR_RGB_8880\n"); exit(0);
++
++		return;
++	}
++	else if(image->color_type == FB_COLOR_RGBA_8888) /*lab3: png*/
++	{
++		printf("you need implement fb_draw_image() FB_COLOR_RGBA_8888\n"); exit(0);
++
++		return;
++	}
++	else if(image->color_type == FB_COLOR_ALPHA_8) /*lab3: font*/
++	{
++		printf("you need implement fb_draw_image() FB_COLOR_ALPHA_8\n"); exit(0);
++
++		return;
++	}
++/*---------------------------------------------------------------*/
++	return;
++}
++
++void fb_draw_border(int x, int y, int w, int h, int color)
++{
++	if(w<=0 || h<=0) return;
++	fb_draw_rect(x, y, w, 1, color);
++	if(h > 1) {
++		fb_draw_rect(x, y+h-1, w, 1, color);
++		fb_draw_rect(x, y+1, 1, h-2, color);
++		if(w > 1) fb_draw_rect(x+w-1, y+1, 1, h-2, color);
++	}
++}
++
++/** draw a text string **/
++void fb_draw_text(int x, int y, char *text, int font_size, int color)
++{
++	fb_image *img;
++	fb_font_info info;
++	int i=0;
++	int len = strlen(text);
++	while(i < len)
++	{
++		img = fb_read_font_image(text+i, font_size, &info);
++		if(img == NULL) break;
++		fb_draw_image(x+info.left, y-info.top, img, color);
++		fb_free_image(img);
++
++		x += info.advance_x;
++		i += info.bytes;
++	}
++	return;
++}
++
+--- /dev/null
++++ b/original/lab3/Makefile
+@@ -0,0 +1,5 @@
++
++EXENAME := lab3
++EXESRCS := main.c
++
++include ../common/rules.mk
+--- /dev/null
++++ b/original/lab3/main.c
+@@ -0,0 +1,42 @@
++#include <stdio.h>
++#include "../common/common.h"
++
++#define RED	FB_COLOR(255,0,0)
++#define ORANGE	FB_COLOR(255,165,0)
++#define YELLOW	FB_COLOR(255,255,0)
++#define GREEN	FB_COLOR(0,255,0)
++#define CYAN	FB_COLOR(0,127,255)
++#define BLUE	FB_COLOR(0,0,255)
++#define PURPLE	FB_COLOR(139,0,255)
++#define WHITE   FB_COLOR(255,255,255)
++#define BLACK   FB_COLOR(0,0,0)
++
++int main(int argc, char *argv[])
++{
++	fb_init("/dev/fb0");
++	font_init("./font.ttc");
++
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++	fb_update();
++
++	fb_image *img;
++	img = fb_read_jpeg_image("./test.jpg");
++	fb_draw_image(0,0,img,0);
++	fb_update();
++	fb_free_image(img);
++
++	img = fb_read_png_image("./test.png");
++	fb_draw_image(100,300,img,0);
++	fb_update();
++	fb_free_image(img);
++
++	img = fb_read_font_image("嵌",30,NULL);
++	fb_draw_image(400,350,img,RED);
++	fb_update();
++	fb_free_image(img);
++
++	fb_draw_text(50,50,"床前明月光，疑是地上霜。",64,PURPLE);
++	fb_draw_text(50,120,"举头望明月，低头思故乡。",64,PURPLE);
++	fb_update();
++	return 0;
++}
+--- /dev/null
++++ b/original/lab4/Makefile
+@@ -0,0 +1,4 @@
++EXENAME := lab4
++EXESRCS := main.c
++
++include ../common/rules.mk
+--- /dev/null
++++ b/original/lab4/main.c
+@@ -0,0 +1,46 @@
++#include <stdio.h>
++#include "../common/common.h"
++
++#define COLOR_BACKGROUND	FB_COLOR(0xff,0xff,0xff)
++
++static int touch_fd;
++static void touch_event_cb(int fd)
++{
++	int type,x,y,finger;
++	type = touch_read(fd, &x,&y,&finger);
++	switch(type){
++	case TOUCH_PRESS:
++		printf("TOUCH_PRESS：x=%d,y=%d,finger=%d\n",x,y,finger);
++		break;
++	case TOUCH_MOVE:
++		printf("TOUCH_MOVE：x=%d,y=%d,finger=%d\n",x,y,finger);
++		break;
++	case TOUCH_RELEASE:
++		printf("TOUCH_RELEASE：x=%d,y=%d,finger=%d\n",x,y,finger);
++		break;
++	case TOUCH_ERROR:
++		printf("close touch fd\n");
++		close(fd);
++		task_delete_file(fd);
++		break;
++	default:
++		return;
++	}
++	fb_update();
++	return;
++}
++
++int main(int argc, char *argv[])
++{
++	fb_init("/dev/fb0");
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,COLOR_BACKGROUND);
++	fb_update();
++
++	//打开多点触摸设备文件, 返回文件fd
++	touch_fd = touch_init("/dev/input/event2");
++	//添加任务, 当touch_fd文件可读时, 会自动调用touch_event_cb函数
++	task_add_file(touch_fd, touch_event_cb);
++	
++	task_loop(); //进入任务循环
++	return 0;
++}
+--- /dev/null
++++ b/original/lab5_bt/Makefile
+@@ -0,0 +1,5 @@
++
++EXENAME:=lab5_bt
++EXESRCS:=main.c
++
++include ../common/rules.mk
+--- /dev/null
++++ b/original/lab5_bt/main.c
+@@ -0,0 +1,107 @@
++#include <stdio.h>
++#include "../common/common.h"
++
++#define COLOR_BACKGROUND	FB_COLOR(0xff,0xff,0xff)
++#define COLOR_TEXT			FB_COLOR(0x0,0x0,0x0)
++
++static int touch_fd;
++static int bluetooth_fd;
++
++#define TIME_X	(SCREEN_WIDTH-160)
++#define TIME_Y	0
++#define TIME_W	100
++#define TIME_H	30
++
++#define SEND_X	(SCREEN_WIDTH-60)
++#define SEND_Y	0
++#define SEND_W	60
++#define SEND_H	60
++
++static void touch_event_cb(int fd)
++{
++	int type,x,y,finger;
++	type = touch_read(fd, &x,&y,&finger);
++	switch(type){
++	case TOUCH_PRESS:
++		//printf("type=%d,x=%d,y=%d,finger=%d\n",type,x,y,finger);
++		if((x>=SEND_X)&&(x<SEND_X+SEND_W)&&(y>=SEND_Y)&&(y<SEND_Y+SEND_H)) {
++			printf("bluetooth tty send hello\n");
++			myWrite_nonblock(bluetooth_fd, "hello\n", 6);
++		}
++		break;
++	case TOUCH_ERROR:
++		printf("close touch fd\n");
++		task_delete_file(fd);
++		close(fd);
++		break;
++	default:
++		return;
++	}
++	fb_update();
++	return;
++}
++
++static int pen_y=30;
++static void bluetooth_tty_event_cb(int fd)
++{
++	char buf[128];
++	int n;
++
++	n = myRead_nonblock(fd, buf, sizeof(buf)-1);
++	if(n <= 0) {
++		printf("close bluetooth tty fd\n");
++		//task_delete_file(fd);
++		//close(fd);
++		exit(0);
++		return;
++	}
++
++	buf[n] = '\0';
++	printf("bluetooth tty receive \"%s\"\n", buf);
++	fb_draw_text(2, pen_y, buf, 24, COLOR_TEXT); fb_update();
++	pen_y += 30;
++	return;
++}
++
++static int bluetooth_tty_init(const char *dev)
++{
++	int fd = open(dev, O_RDWR|O_NOCTTY|O_NONBLOCK); /*非阻塞模式*/
++	if(fd < 0){
++		printf("bluetooth_tty_init open %s error(%d): %s\n", dev, errno, strerror(errno));
++		return -1;
++	}
++	return fd;
++}
++
++static int st=0;
++static void timer_cb(int period) /*该函数0.5秒执行一次*/
++{
++	char buf[100];
++	sprintf(buf, "%d", st++);
++	fb_draw_rect(TIME_X, TIME_Y, TIME_W, TIME_H, COLOR_BACKGROUND);
++	fb_draw_border(TIME_X, TIME_Y, TIME_W, TIME_H, COLOR_TEXT);
++	fb_draw_text(TIME_X+2, TIME_Y+20, buf, 24, COLOR_TEXT);
++	fb_update();
++	return;
++}
++
++int main(int argc, char *argv[])
++{
++	fb_init("/dev/fb0");
++	font_init("./font.ttc");
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,COLOR_BACKGROUND);
++	fb_draw_border(SEND_X, SEND_Y, SEND_W, SEND_H, COLOR_TEXT);
++	fb_draw_text(SEND_X+2, SEND_Y+30, "send", 24, COLOR_TEXT);
++	fb_update();
++
++	touch_fd = touch_init("/dev/input/event0");
++	task_add_file(touch_fd, touch_event_cb);
++
++	bluetooth_fd = bluetooth_tty_init("/dev/rfcomm0");
++	if(bluetooth_fd == -1) return 0;
++	task_add_file(bluetooth_fd, bluetooth_tty_event_cb);
++
++	task_add_timer(500, timer_cb); /*增加0.5秒的定时器*/
++	task_loop();
++	return 0;
++}
+--- /dev/null
++++ b/original/test/Makefile
+@@ -0,0 +1,4 @@
++EXENAME := test
++EXESRCS := main.c
++
++include ../common/rules.mk
+--- /dev/null
++++ b/original/test/main.c
+@@ -0,0 +1,192 @@
++/* Lab1 ~ Lab3测试程序 */
++
++#include <stdio.h>
++#include <time.h>
++#include <string.h>
++
++#include "../common/common.h"
++
++#define RED	FB_COLOR(255,0,0)
++#define ORANGE	FB_COLOR(255,165,0)
++#define YELLOW	FB_COLOR(255,255,0)
++#define GREEN	FB_COLOR(0,255,0)
++#define CYAN	FB_COLOR(0,127,255)
++#define BLUE	FB_COLOR(0,0,255)
++#define PURPLE	FB_COLOR(139,0,255)
++#define WHITE   FB_COLOR(255,255,255)
++#define BLACK   FB_COLOR(0,0,0)
++
++int main(int argc, char *argv[])
++{
++	int row,column,i;
++	fb_image *img1,*img2,*img3;
++
++	fb_init("/dev/fb0");
++	font_init("./font.ttc");
++
++	int32_t start ,end, time_total = 0;
++	int32_t time_pixel=0,time_rect=0,time_image=0,time_text=0,time_line=0;
++	int32_t time[5] = {0,0,0,0,0};
++	int color[9] = {RED,ORANGE,YELLOW,GREEN,CYAN,BLUE,PURPLE,WHITE,BLACK};
++
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++	fb_update();
++	printf("\n========== Start Test ===========\n");
++
++//Lab2 test
++	sleep(1);
++	printf("\nLab2 test:\n");
++	start = task_get_time();
++	for(row=-5; row<605; row+=2) {
++		for(column=-5; column<1029; column+=2) {
++			fb_draw_pixel(column,row,color[0]);
++		}
++	}
++	end = task_get_time();
++	fb_update();
++	time_pixel = end - start;
++	time[0] = time_pixel;
++	printf("draw pixel: %d ms\n",time_pixel);
++	time_total += time_pixel;
++
++	sleep(1);
++	start = task_get_time();
++	for(row=-15,i=0; row<300; row+=5){
++		for(column=-15; column<1029; column+=5){
++			fb_draw_rect(column,row,10,10,color[i]);
++			i = (i+1) % 9;
++		}
++	}
++	for(row=300,i=0; row<605; row+=5){
++		fb_draw_rect(0,row,500,10,color[i]);
++		i = (i+1) % 9;
++	}
++	for(column=500,i=0; column<1029; column+=5){
++		fb_draw_rect(column,300,10,300,color[i]);
++		i = (i+1) % 9;
++	}
++	end = task_get_time();
++	fb_update();
++	time_rect = end - start;
++	time[1] = time_rect;
++	printf("draw rect: %d ms\n",time_rect);
++	time_total += time_rect;
++
++	sleep(1);
++	start = task_get_time();
++	for(row=0;row<=400;row++){
++		fb_draw_line(500-300,300-200+row,500+300,300+200-row,color[1]);
++	}
++	for(column=0;column<=400;column++){
++		fb_draw_line(500-200+column,300-200,500+200-column,300+200,color[2]);
++	}
++	end = task_get_time();
++	fb_update();
++	time_line = end - start;
++	time[2] = time_line;
++	printf("draw line: %d ms\n", time_line);
++	time_total += time_line;
++
++//Lab3 test
++	sleep(1);
++	printf("\nLab3 test:\n");
++	img1 = fb_read_jpeg_image("./test.jpg");
++	img2 = fb_read_png_image("./test.png");
++	img3 = fb_read_font_image("嵌",30,NULL);
++	start = task_get_time();
++	for(row=-5; row<605; row+=100){
++		for(column=-5; column<1029; column+=50){
++			fb_draw_image(column,row,img1,0);
++		}
++	}
++	end = task_get_time();
++	fb_update();
++	printf("    **jpeg:\t%d\n", end-start);
++	time_image += (end - start);
++	
++	sleep(1);
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++	start = task_get_time();
++	for(row=-5; row<605; row+=128){
++		for(column=-5; column<1029; column+=50){
++			fb_draw_image(column,row,img2,0);
++		}
++	}
++	end = task_get_time();
++	fb_update();
++	printf("    **png:\t%d\n", end-start);
++	time_image += (end - start);
++	
++	sleep(1);
++	start = task_get_time();
++	for(row=-5,i=0; row<605; row+=40){
++		for(column=-5; column<1029; column+=40){
++			fb_draw_image(column,row,img3,color[i]);
++			i = (i+1) % 9;
++		}
++	}
++	end = task_get_time();
++	fb_update();
++	printf("    **font:\t%d\n", end-start);
++	time_image += (end - start);
++
++	time[3] = time_image;
++	printf("draw image: %d ms\n", time_image);
++	time_total += time_image;
++	fb_free_image(img1);
++	fb_free_image(img2);
++	fb_free_image(img3);
++
++	sleep(1);
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,WHITE);
++	start = task_get_time();
++	for(row=-5;row<605;row+=60){
++		fb_draw_text(20,row,"嵌入式系统实验",40,color[3]);
++		fb_draw_text(20,row+40,"Embedded System Experiment",20,color[8]);
++	}
++	end = task_get_time();
++	fb_update();
++	time_text = end - start;
++	time[4] = time_text;
++	printf("draw text: %d ms\n",time_text);
++	time_total += time_text;
++
++	printf("\nTotal time: %d ms\n\n", time_total);
++	printf("=================================\n");
++
++//print result
++	sleep(1);
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,WHITE);
++	fb_draw_text(55,35,"嵌入式系统实验--测试",40,BLACK);
++	for(row=50,i=0; i<8; i++){
++		fb_draw_rect(50,row,524,5,BLACK);
++		row += 52;
++	}
++	for(column=50,i=0; i<3; i++){
++		fb_draw_rect(column,50,5,364,BLACK);
++		column += 260;
++	}
++	fb_draw_text(155,90,"操作",30,RED);
++	fb_draw_text(370,90,"时间（ms）",30,CYAN);
++	fb_draw_text(135,142,"点pixel",30,RED);
++	fb_draw_text(135,194,"矩形rect",30,RED);
++	fb_draw_text(135,246,"线line",30,RED);
++	fb_draw_text(135,298,"图像image",30,RED);
++	fb_draw_text(135,350,"文本text",30,RED);
++	fb_draw_text(135,402,"合计total",30,ORANGE);
++	fb_draw_text(260,454,"华中科技大学",30,PURPLE);
++	
++	char str[5];
++	for(i=0; i<5; i++){
++		memset(str,'\0',5);
++		sprintf(str,"%d",time[i]);
++		fb_draw_text(370,90+52*(i+1),str,30,CYAN);
++	}
++	memset(str,'\0',5);
++	sprintf(str,"%d",time_total);
++	fb_draw_text(370,402,str,30,ORANGE);
++
++	fb_update();
++	return 0;
++}
++
+--- /dev/null
++++ b/preflight.py
+@@ -0,0 +1,60 @@
++"""Read-only checks on the Orange Pi. Does not stop the desktop or change Bluetooth."""
++from pathlib import Path
++import argparse, array, fcntl, json, os, shutil, subprocess, sys
++
++def touchscreen_info(path):
++    descriptor=os.open(path,os.O_RDONLY|os.O_NONBLOCK)
++    try:
++        axes={}
++        for name,code in (("slot",0x2f),("x",0x35),("y",0x36)):
++            values=array.array("i",[0]*6)
++            request=(2<<30)|(24<<16)|(ord("E")<<8)|(0x40+code)
++            fcntl.ioctl(descriptor,request,values,True)
++            axes[name]={"minimum":values[1],"maximum":values[2]}
++        return {"path":str(path),"axes":axes}
++    finally:os.close(descriptor)
++
++def main():
++    parser=argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--project",required=True)
++    parser.add_argument("--lab",choices=("lab2","lab3","lab4","lab5_bt","test"),required=True)
++    parser.add_argument("--touch");parser.add_argument("--serial",default="/dev/rfcomm0")
++    parser.add_argument("--headless",action="store_true")
++    args=parser.parse_args();project=Path(args.project).resolve(strict=True)
++    failures=[];info={"project":str(project),"lab":args.lab,"checksAreReadOnly":True}
++    binary=project/"out"/args.lab
++    if not binary.is_file() or not os.access(binary,os.X_OK):failures.append(f"Build executable first: {binary}")
++    if not args.headless:
++        try:
++            descriptor=os.open("/dev/fb0",os.O_RDONLY)
++            try:
++                values=array.array("I",[0]*40);fcntl.ioctl(descriptor,0x4600,values,True)
++            finally:os.close(descriptor)
++            info["framebuffer"]={"width":values[0],"height":values[1],"bitsPerPixel":values[6],
++                "red":[values[8],values[9]],"green":[values[11],values[12]],"blue":[values[14],values[15]]}
++            if (values[0],values[1],values[6],values[8],values[9],values[11],values[12],values[14],values[15])!=(1024,600,32,16,8,8,8,0,8):
++                failures.append("Framebuffer format differs from course constants; adjust mode/code before running.")
++        except OSError as error:failures.append(f"Framebuffer unavailable: {error}")
++        if not os.access("/dev/fb0",os.R_OK|os.W_OK):failures.append("Framebuffer is not readable/writable.")
++        for name in ("font.ttc", "test.jpg", "test.png"):
++            if args.lab in ("lab3","test") or name=="font.ttc":
++                if not (project/"out"/name).is_file():failures.append(f"Missing asset: out/{name}")
++        if args.lab in ("lab4","lab5_bt"):
++            devices=[]
++            for path in ([Path(args.touch)] if args.touch else sorted(Path("/dev/input").glob("event*"))):
++                try:devices.append(touchscreen_info(path))
++                except OSError:continue
++            info["protocolBTouchscreens"]=devices
++            if not devices:failures.append("No protocol-B touchscreen detected; check its USB touch cable.")
++            if len(devices)>1 and not args.touch:failures.append("Multiple touchscreens; choose --touch /dev/input/eventN explicitly.")
++        if shutil.which("systemctl"):
++            check=subprocess.run(["systemctl","is-active","display-manager"],capture_output=True,text=True)
++            info["displayManager"]=check.stdout.strip()
++            if check.returncode==0:
++                failures.append("Board desktop is active. Follow PPT 37-38 to stop the board desktop before framebuffer experiments.")
++    if args.lab=="lab5_bt":
++        info["bluetoothTools"]={name:shutil.which(name) for name in ("bluetoothctl","rfcomm","sdptool","hciconfig")}
++        if not Path(args.serial).exists():failures.append(f"Pair/connect the Bluetooth client and keep rfcomm watch running: {args.serial} absent.")
++    info["problems"]=failures;print(json.dumps(info,ensure_ascii=False,indent=2))
++    return bool(failures)
++if __name__=="__main__":sys.exit(main())
+--- /dev/null
++++ b/references/hust-2020/common-graphic.c
+@@ -0,0 +1,478 @@
++#include "common.h"
++#include <sys/ioctl.h>
++#include <linux/fb.h>
++#include <linux/kd.h>
++#include <linux/vt.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <stdio.h>
++#include <sys/mman.h>
++#include <string.h>
++#include <math.h>
++
++#define RED	FB_COLOR(255,0,0)
++#define ORANGE	FB_COLOR(255,165,0)
++#define YELLOW	FB_COLOR(255,255,0)
++#define GREEN	FB_COLOR(0,255,0)
++#define CYAN	FB_COLOR(0,127,255)
++#define BLUE	FB_COLOR(0,0,255)
++#define PURPLE	FB_COLOR(139,0,255)
++#define WHITE   FB_COLOR(255,255,255)
++#define BLACK   FB_COLOR(0,0,0)
++
++static int LCD_FB_FD;
++static int *LCD_FB_BUF = NULL;
++static int DRAW_BUF[SCREEN_WIDTH*SCREEN_HEIGHT];
++
++static struct area {
++	int x1, x2, y1, y2;
++} update_area = {0,0,0,0};
++
++#define AREA_SET_EMPTY(pa) do {\
++	(pa)->x1 = SCREEN_WIDTH;\
++	(pa)->x2 = 0;\
++	(pa)->y1 = SCREEN_HEIGHT;\
++	(pa)->y2 = 0;\
++} while(0)
++
++void fb_init(char *dev)
++{
++	int fd;
++	struct fb_fix_screeninfo fb_fix;
++	struct fb_var_screeninfo fb_var;
++
++	if(LCD_FB_BUF != NULL) return; /*already done*/
++
++	//进入终端图形模式
++	fd = open("/dev/tty0",O_RDWR,0);
++	ioctl(fd, KDSETMODE, KD_GRAPHICS);
++	close(fd);
++
++	//First: Open the device
++	if((fd = open(dev, O_RDWR)) < 0){
++		printf("Unable to open framebuffer %s, errno = %d\n", dev, errno);
++		return;
++	}
++	if(ioctl(fd, FBIOGET_FSCREENINFO, &fb_fix) < 0){
++		printf("Unable to FBIOGET_FSCREENINFO %s\n", dev);
++		return;
++	}
++	if(ioctl(fd, FBIOGET_VSCREENINFO, &fb_var) < 0){
++		printf("Unable to FBIOGET_VSCREENINFO %s\n", dev);
++		return;
++	}
++
++	printf("framebuffer info: bits_per_pixel=%u,size=(%d,%d),virtual_pos_size=(%d,%d)(%d,%d),line_length=%u,smem_len=%u\n",
++		fb_var.bits_per_pixel, fb_var.xres, fb_var.yres, fb_var.xoffset, fb_var.yoffset,
++		fb_var.xres_virtual, fb_var.yres_virtual, fb_fix.line_length, fb_fix.smem_len);
++
++	//Second: mmap
++	void *addr = mmap(NULL, fb_fix.smem_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
++	if(addr == (void *)-1){
++		printf("failed to mmap memory for framebuffer.\n");
++		return;
++	}
++
++	if((fb_var.xoffset != 0) ||(fb_var.yoffset != 0))
++	{
++		fb_var.xoffset = 0;
++		fb_var.yoffset = 0;
++		if(ioctl(fd, FBIOPAN_DISPLAY, &fb_var) < 0) {
++			printf("FBIOPAN_DISPLAY framebuffer failed\n");
++		}
++	}
++
++	LCD_FB_FD = fd;
++	LCD_FB_BUF = addr;
++
++	//set empty
++	AREA_SET_EMPTY(&update_area);
++	return;
++}
++
++static void _copy_area(int *dst, int *src, struct area *pa)
++{
++	int x, y, w, h;
++	x = pa->x1; w = pa->x2-x;
++	y = pa->y1; h = pa->y2-y;
++	src += y*SCREEN_WIDTH + x;
++	dst += y*SCREEN_WIDTH + x;
++	while(h-- > 0){
++		memcpy(dst, src, w*4);
++		src += SCREEN_WIDTH;
++		dst += SCREEN_WIDTH;
++	}
++}
++
++static int _check_area(struct area *pa)
++{
++	if(pa->x2 == 0) return 0; //is empty
++
++	if(pa->x1 < 0) pa->x1 = 0;
++	if(pa->x2 > SCREEN_WIDTH) pa->x2 = SCREEN_WIDTH;
++	if(pa->y1 < 0) pa->y1 = 0;
++	if(pa->y2 > SCREEN_HEIGHT) pa->y2 = SCREEN_HEIGHT;
++
++	if((pa->x2 > pa->x1) && (pa->y2 > pa->y1))
++		return 1; //no empty
++
++	//set empty
++	AREA_SET_EMPTY(pa);
++	return 0;
++}
++
++void fb_update(void)
++{
++	if(_check_area(&update_area) == 0) return; //is empty
++	_copy_area(LCD_FB_BUF, DRAW_BUF, &update_area);
++	AREA_SET_EMPTY(&update_area); //set empty
++	return;
++}
++
++/*======================================================================*/
++
++static void * _begin_draw(int x, int y, int w, int h)
++{
++	int x2 = x+w;
++	int y2 = y+h;
++	if(update_area.x1 > x) update_area.x1 = x;
++	if(update_area.y1 > y) update_area.y1 = y;
++	if(update_area.x2 < x2) update_area.x2 = x2;
++	if(update_area.y2 < y2) update_area.y2 = y2;
++	return DRAW_BUF;
++}
++
++void fb_draw_pixel(int x, int y, int color)
++{
++	if(x<0 || y<0 || x>=SCREEN_WIDTH || y>=SCREEN_HEIGHT) return;
++	int *buf = _begin_draw(x,y,1,1);
++/*---------------------------------------------------*/
++	*(buf + y*SCREEN_WIDTH + x) = color;
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_rect(int x, int y, int w, int h, int color)
++{
++	if(x < 0) { w += x; x = 0;}
++	if(x+w > SCREEN_WIDTH) { w = SCREEN_WIDTH-x;}
++	if(y < 0) { h += y; y = 0;}
++	if(y+h >SCREEN_HEIGHT) { h = SCREEN_HEIGHT-y;}
++	if(w<=0 || h<=0) return;
++	int *buf = _begin_draw(x,y,w,h);
++/*---------------------------------------------------*/
++	int x0, y0;
++	for(y0=y;y0<y+h;y0++){
++	  for(x0=x;x0<x+w;x0++){
++	    *(buf + y0*SCREEN_WIDTH + x0) = color;
++	  }
++	}
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_line(int x1, int y1, int x2, int y2, int color)
++{
++/*---------------------------------------------------*/
++	int xx, yy;
++	int stepx = (x2>x1)?1:-1;
++	int stepy = (y2>y1)?1:-1;
++	int* buf = _begin_draw(0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
++	int slope = (x1==x2)?-1:abs((y2-y1)/(x2-x1));
++	if(slope<1 && slope>=0)
++	for(xx=x1;xx!=(x2+stepx);xx+=stepx){
++        yy = (y2-y1)*(xx-x1)/(x2-x1) + y1;
++		*(buf + yy*SCREEN_WIDTH + xx) = color;
++	}
++	else
++	for(yy=y1;yy!=(y2+stepy);yy+=stepy){
++        xx = (x2-x1)*(yy-y1)/(y2-y1) + x1;
++		*(buf + yy*SCREEN_WIDTH + xx) = color;
++	}
++
++/*---------------------------------------------------*/
++	return;
++}
++
++void fb_draw_image(int x, int y, fb_image *image, int color)
++{
++	if(image == NULL) return;
++
++	int ix = 0; //image x  实际绘图的图像起始坐标  而x.y代表屏幕上的显示范围
++	int iy = 0; //image y
++	int w = image->pixel_w; //draw width
++	int h = image->pixel_h; //draw height
++
++	if(x<0) {w+=x; ix-=x; x=0;}
++	if(y<0) {h+=y; iy-=y; y=0;}
++	
++	if(x+w > SCREEN_WIDTH) {
++		w = SCREEN_WIDTH - x;
++	}
++	if(y+h > SCREEN_HEIGHT) {
++		h = SCREEN_HEIGHT - y;
++	}
++	if((w <= 0)||(h <= 0)) return;
++
++	int *buf = _begin_draw(x,y,w,h);
++/*---------------------------------------------------------------*/
++	//char *dst = (char *)(buf + y*SCREEN_WIDTH + x);
++	//char *src; //不同的图像颜色格式定位不同
++/*---------------------------------------------------------------*/
++	
++	if(image->color_type == FB_COLOR_RGB_8880) /*lab3: jpg*/
++	{
++		int y0, y3;
++		char* dst = (char*)(buf+y*SCREEN_WIDTH+x);
++		char *src = image->content;
++		for(y0=y, y3=iy;y0<y+h;y0++,y3++){
++			/*for(x0=x, x3=ix;x0<x+w;x0++,x3++){
++				temp = (int*)(image->content+y3*image->pixel_w*4+x3*4);
++				*(buf+y0*SCREEN_WIDTH+x0) = *temp;
++			}*/
++			memcpy(dst,src,w*4);
++			dst += SCREEN_WIDTH*4;
++			src += w*4;
++		}
++
++		return;
++	}
++	else if(image->color_type == FB_COLOR_RGBA_8888) /*lab3: png*/
++	{
++		//printf("you need implement fb_draw_image() FB_COLOR_RGBA_8888\n"); //exit(0);
++		int x0, y0, x3, y3;
++		unsigned char alpha;
++		char* colord, *temp;
++		for(y0=y, y3=iy;y0<y+h;y0++,y3++){
++			for(x0=x, x3=ix;x0<x+w;x0++,x3++){
++				colord = (char*)(buf+y0*SCREEN_WIDTH+x0);
++				temp = image->content+y3*image->pixel_w*4+x3*4;
++				alpha = (unsigned char)(temp[3]);
++				switch (alpha){
++					case 0: break;
++					case 255:
++					    colord[0] = temp[0];
++						colord[1] = temp[1];
++						colord[2] = temp[2];
++						break;
++					default:
++						colord[0] += (((temp[0] - colord[0]) * alpha) >> 8);
++						colord[1] += (((temp[1] - colord[1]) * alpha) >> 8);
++						colord[2] += (((temp[2] - colord[2]) * alpha) >> 8);
++				}
++			}
++		}
++		return;
++	}
++	else if(image->color_type == FB_COLOR_ALPHA_8) /*lab3: font*/
++	{
++		//printf("you need implement fb_draw_image() FB_COLOR_ALPHA_8\n");
++		int x0, y0, x3, y3;
++		unsigned char alpha;
++		char* colord, *temp;
++		for(y0=y, y3=iy;y0<y+h;y0++,y3++){
++			for(x0=x, x3=ix;x0<x+w;x0++,x3++){
++				colord = (char*)(buf+y0*SCREEN_WIDTH+x0);
++				temp = image->content+y3*image->pixel_w+x3;
++				alpha = *temp;
++				switch (alpha){
++					case 0: break;
++					case 255:
++					    colord[0] = (color & 0xff);
++						colord[1] = (color & 0xff00)>>8;
++						colord[2] = (color & 0xff0000)>>16;
++						break;
++					default:
++						colord[0] += ((((color & 0xff) - colord[0]) * alpha) >> 8);
++						colord[1] += (((((color & 0xff00)>>8)- colord[1]) * alpha) >> 8);
++						colord[2] += (((((color & 0xff0000)>>16) - colord[2]) * alpha) >> 8);
++				}
++			}
++		}
++		return;
++	}
++/*---------------------------------------------------------------*/
++	return;
++}
++
++void fb_draw_border(int x, int y, int w, int h, int color)
++{
++	if(w<=0 || h<=0) return;
++	fb_draw_rect(x, y, w, 1, color);
++	if(h > 1) {
++		fb_draw_rect(x, y+h-1, w, 1, color);
++		fb_draw_rect(x, y+1, 1, h-2, color);
++		if(w > 1) fb_draw_rect(x+w-1, y+1, 1, h-2, color);
++	}
++}
++
++/** draw a text string **/
++void fb_draw_text(int x, int y, char *text, int font_size, int color)
++{
++	fb_image *img;
++	fb_font_info info;
++	int i=0;
++	int len = strlen(text);
++	while(i < len)
++	{
++		img = fb_read_font_image(text+i, font_size, &info);
++		if(img == NULL) break;
++		fb_draw_image(x+info.left, y-info.top, img, color);
++		fb_free_image(img);
++
++		x += info.advance_x;
++		i += info.bytes;
++	}
++	return;
++}
++
++/*-----------------------------------------------------------------------------*/
++
++void fb_draw_circle(int x, int y, int r, int color)
++{
++	int w, h, x0, y0, left, right, top, bottom;
++	if(x-r < 0) left = 0; else left = x-r;
++	if(x+r > SCREEN_WIDTH) right = SCREEN_WIDTH; else right = x+r;
++	if(y-r < 0) top = 0; else top = y-r;
++	if(y+r >SCREEN_HEIGHT) bottom = SCREEN_HEIGHT; else bottom = y+r;
++	w = right-left;
++	h = bottom-top;
++	x0 = left;
++	y0 = top;
++
++	int *buf = _begin_draw(x0,y0,w,h);
++	for(y0=top;y0<=bottom;y0++){
++		for(x0=left;x0<=right;x0++){
++			double distance = sqrt((x0-x)*(x0-x)+(y0-y)*(y0-y));
++			if(distance <= r){
++				*(buf+y0*SCREEN_WIDTH+x0) = color;
++			}
++		}
++	}
++	return;
++}
++
++
++void imagecentralize(imageplus* imgplus, fb_image* img){
++	imgplus->image = img;
++	imgplus->w = img->pixel_w;
++	imgplus->h = img->pixel_h;
++	imgplus->x = 512 - imgplus->image->pixel_w/2;
++	imgplus->y = 300 - imgplus->image->pixel_h/2;
++	fb_draw_image(imgplus->x, imgplus->y, imgplus->image, BLACK);
++	return;
++}
++
++
++void drawimage(imageplus* imgplus){
++	if(imgplus->image == NULL) return;
++
++	double ratio_incre = (double)(imgplus->image->pixel_w)/(imgplus->w);
++
++	int ix = 0; //image x  实际绘图的图像起始坐标  而x.y代表屏幕上的显示范围
++	int iy = 0; //image y
++	int w = imgplus->w; //draw width
++	int h = imgplus->h; //draw height
++	int x = imgplus->x;
++	int y = imgplus->y;
++
++	if(x<0) {w+=x; ix-=x; x=0;}
++	if(y<0) {h+=y; iy-=y; y=0;}
++	
++	if(x+w > SCREEN_WIDTH) {
++		w = SCREEN_WIDTH - x;
++	}
++	if(y+h > SCREEN_HEIGHT) {
++		h = SCREEN_HEIGHT - y;
++	}
++	if((w <= 0)||(h <= 0)) return;
++
++	int *buf = _begin_draw(x,y,w,h);
++	int *temp;
++	
++	//if(imgplus->image->color_type == FB_COLOR_RGB_8880) 
++	//{
++		double x3, y3;
++		int x0, y0;
++		for(y0=y, y3=iy;y0<y+h;y0++){
++			for(x0=x, x3=ix;x0<x+w;x0++){
++				temp = (int*)(imgplus->image->content+((int)y3)*imgplus->image->pixel_w*4+((int)x3)*4);
++				*(buf+y0*SCREEN_WIDTH+x0) = *temp;
++				x3 += ratio_incre;
++			}
++			y3 += ratio_incre;
++		}
++	//}
++	return;
++}
++
++
++void imagescaling(imageplus* imgplus, int type){
++	int zoom_size_x = 50;
++	int zoom_size_y;
++	int offset_size = 60;
++	switch(type){
++		case 0://fangda
++			fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++			zoom_size_y = (int)(zoom_size_x * ((double)(imgplus->image->pixel_h)/(imgplus->image->pixel_w)));
++			imgplus->x -= zoom_size_x;
++			imgplus->y -= zoom_size_y;
++			imgplus->w += 2*zoom_size_x;
++			imgplus->h += 2*zoom_size_y;
++			drawimage(imgplus);
++			fb_draw_rect(0,0,100,100,PURPLE);
++			break;
++		case 1://suoxiao
++			fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++			zoom_size_y = (int)(zoom_size_x * ((double)(imgplus->image->pixel_h)/(imgplus->image->pixel_w)));
++			imgplus->x += zoom_size_x;
++			imgplus->y += zoom_size_y;
++			imgplus->w -= 2*zoom_size_x;
++			imgplus->h -= 2*zoom_size_y;
++			drawimage(imgplus);
++			fb_draw_rect(0,0,100,100,PURPLE);
++			break;
++		case 2://zuoyi
++			fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++			imgplus->x -= offset_size;
++			drawimage(imgplus);
++			fb_draw_rect(0,0,100,100,PURPLE);
++			break;
++		case 3://youyi
++			fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++			imgplus->x += offset_size;
++			drawimage(imgplus);
++			fb_draw_rect(0,0,100,100,PURPLE);
++			break;
++		case 4://shangyi
++			fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++			imgplus->y -= offset_size;
++			drawimage(imgplus);
++			fb_draw_rect(0,0,100,100,PURPLE);
++			break;
++		case 5://xiayi
++			fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++			imgplus->y += offset_size;
++			drawimage(imgplus);
++			fb_draw_rect(0,0,100,100,PURPLE);
++			break;
++		case 6://quanping
++			fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++			imgplus->w = SCREEN_WIDTH;
++			imgplus->h = (int)(SCREEN_WIDTH * ((double)(imgplus->image->pixel_h)/(imgplus->image->pixel_w)));
++			imgplus->x = 0;
++			imgplus->y = 0;
++			drawimage(imgplus);
++			fb_draw_rect(0,0,100,100,PURPLE);
++			break;
++		case 7://huifu
++			fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++			imagecentralize(imgplus, imgplus->image);
++			fb_draw_rect(0,0,100,100,PURPLE);
++			break;
++		default:
++			break;
++	}
++	return;
++}--- /dev/null
++++ b/references/hust-2020/common-touch.c
+@@ -0,0 +1,114 @@
++#include "common.h"
++
++#include <stdio.h>
++//#include <linux/input.h>
++#include "input.h"
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++
++static struct finger_info{
++	int x;
++	int y;
++	int event;
++} infos[FINGER_NUM_MAX];
++static int cur_slot = 0;
++
++int touch_init(char *dev)
++{
++	int fd = open(dev, O_RDONLY);
++	if(fd < 0){
++		printf("touch_init open %s error!errno = %d\n", dev, errno);
++		return -1;
++	}
++	return fd;
++}
++
++/*return:
++	TOUCH_NO_EVENT
++	TOUCH_PRESS
++	TOUCH_MOVE
++	TOUCH_RELEASE
++	TOUCH_ERROR
++	x: [0 ~ SCREEN_WIDTH)
++	y: [0 ~ SCREEN_HEIGHT)
++	finger: 0,1,2,3,4
++*/
++
++//驱动上传的xy坐标范围是[0,4096)
++#define ADJUST_X(n) ((n*SCREEN_WIDTH)>>12)  /* (n*screen_width/4096) */
++#define ADJUST_Y(n) ((n*SCREEN_HEIGHT)>>12)  /* (n*screen_height/4096) */
++
++int touch_read(int touch_fd, int *x, int *y, int *finger)
++{
++	struct input_event data; //存储触摸信息
++	int n, ret;
++	if((n = read(touch_fd, &data, sizeof(data))) != sizeof(data)){
++		printf("touch_read error %d, errno=%d\n", n, errno);
++		return TOUCH_ERROR;
++	}
++//	printf("event read: type-code-value = %d-%d-%d\n", data.type, data.code, data.value);
++	switch(data.type)
++	{
++	case EV_ABS:
++		switch(data.code)
++		{
++		case ABS_MT_SLOT:
++			if(data.value >= 0 && data.value < FINGER_NUM_MAX) {
++				int old = cur_slot;
++				cur_slot = data.value;
++				if(infos[old].event != TOUCH_NO_EVENT) {
++					*x = infos[old].x;
++					*y = infos[old].y;
++					*finger = old;
++					ret = infos[old].event;
++					infos[old].event = TOUCH_NO_EVENT;
++					return ret;
++				}
++			}
++			break;
++		case ABS_MT_TRACKING_ID:
++			if(data.value == -1){
++				*x = infos[cur_slot].x;
++				*y = infos[cur_slot].y;
++				*finger = cur_slot;
++				infos[cur_slot].event = TOUCH_NO_EVENT;
++				return TOUCH_RELEASE;
++			}
++			else{
++				infos[cur_slot].event = TOUCH_PRESS;
++			}
++			break;
++		case ABS_MT_POSITION_X:
++			infos[cur_slot].x = ADJUST_X(data.value);
++			if(infos[cur_slot].event != TOUCH_PRESS) {
++				infos[cur_slot].event = TOUCH_MOVE;
++			}
++			break;
++		case ABS_MT_POSITION_Y:
++			infos[cur_slot].y = ADJUST_Y(data.value);
++			if(infos[cur_slot].event != TOUCH_PRESS) {
++				infos[cur_slot].event = TOUCH_MOVE;
++			}
++			break;
++		}
++		break;
++	case EV_SYN:
++		switch(data.code)
++		{
++		case SYN_REPORT:
++			if(infos[cur_slot].event != TOUCH_NO_EVENT){
++				*x = infos[cur_slot].x;
++				*y = infos[cur_slot].y;
++				*finger = cur_slot;
++				ret = infos[cur_slot].event;
++				infos[cur_slot].event = TOUCH_NO_EVENT;
++				return ret;
++			}
++			break;
++		}
++		break;
++	}
++	return TOUCH_NO_EVENT;
++}
+--- /dev/null
++++ b/references/hust-2020/lab3-main.c
+@@ -0,0 +1,42 @@
++#include <stdio.h>
++#include "../common/common.h"
++
++#define RED	FB_COLOR(255,0,0)
++#define ORANGE	FB_COLOR(255,165,0)
++#define YELLOW	FB_COLOR(255,255,0)
++#define GREEN	FB_COLOR(0,255,0)
++#define CYAN	FB_COLOR(0,127,255)
++#define BLUE	FB_COLOR(0,0,255)
++#define PURPLE	FB_COLOR(139,0,255)
++#define WHITE   FB_COLOR(255,255,255)
++#define BLACK   FB_COLOR(0,0,0)
++
++int main(int argc, char *argv[])
++{
++	fb_init("/dev/fb0");
++	font_init("./font.ttc");
++
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BLACK);
++	fb_update();
++
++	fb_image *img;
++	img = fb_read_jpeg_image("./test.jpg");
++	fb_draw_image(0,0,img,0);
++	fb_update();
++	fb_free_image(img);
++
++	img = fb_read_png_image("./test.png");
++	fb_draw_image(100,300,img,0);
++	fb_update();
++	fb_free_image(img);
++
++	img = fb_read_font_image("嵌",30,NULL);
++	fb_draw_image(400,350,img,RED);
++	fb_update();
++	fb_free_image(img);
++
++	fb_draw_text(50,50,"床前明月光，疑是地上霜。",64,PURPLE);
++	fb_draw_text(50,120,"举头望明月，低头思故乡。",64,PURPLE);
++	fb_update();
++	return 0;
++}
+--- /dev/null
++++ b/references/hust-2020/lab4-main.c
+@@ -0,0 +1,84 @@
++#include <stdio.h>
++#include "../common/common.h"
++
++#define RED	FB_COLOR(255,0,0)
++#define ORANGE	FB_COLOR(255,165,0)
++#define YELLOW	FB_COLOR(255,255,0)
++#define GREEN	FB_COLOR(0,255,0)
++#define CYAN	FB_COLOR(0,127,255)
++#define BLUE	FB_COLOR(0,0,255)
++#define PURPLE	FB_COLOR(139,0,255)
++#define BLACK   FB_COLOR(0,0,0)
++
++#define COLOR_BACKGROUND	FB_COLOR(0xff,0xff,0xff)  //white
++
++static int touch_fd;
++static int radius[5] = {45,47,49,51,53};
++static struct old_pos{
++	int x;
++	int y;
++} old[5];
++
++static void touch_event_cb(int fd)
++{
++	int type,x,y,finger, color;
++	type = touch_read(fd, &x,&y,&finger);
++	switch(type){
++	case TOUCH_PRESS:
++		printf("TOUCH_PRESS:x=%d,y=%d,finger=%d\n",x,y,finger);
++		switch(finger){
++			case 0: color = ORANGE;break;
++			case 1: color = BLUE;break;
++			case 2: color = RED;break;
++			case 3: color = GREEN;break;
++			case 4: color = BLACK;break;
++			default: break;
++		}
++		fb_draw_circle(x, y, radius[finger], color);
++		old[finger].x = x;
++		old[finger].y = y;
++		break;
++	case TOUCH_MOVE:
++		switch(finger){
++			case 0: color = ORANGE;break;
++			case 1: color = BLUE;break;
++			case 2: color = RED;break;
++			case 3: color = GREEN;break;
++			case 4: color = BLACK;break;
++			default: break;
++		}
++		fb_draw_circle(old[finger].x, old[finger].y, radius[finger]+2, COLOR_BACKGROUND);
++		fb_draw_circle(x, y, radius[finger], color);
++		old[finger].x = x;
++		old[finger].y = y;
++		break;
++	case TOUCH_RELEASE:
++		printf("TOUCH_RELEASE:x=%d,y=%d,finger=%d\n",x,y,finger);
++		fb_draw_circle(x, y, radius[finger]+2, COLOR_BACKGROUND);
++		break;
++	case TOUCH_ERROR:
++		printf("close touch fd\n");
++		close(fd);
++		task_delete_file(fd);
++		break;
++	default:
++		return;
++	}
++	fb_update();
++	return;
++}
++
++int main(int argc, char *argv[])
++{
++	fb_init("/dev/fb0");
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,COLOR_BACKGROUND);
++	fb_update();
++
++	//打开多点触摸设备文件, 返回文件fd
++	touch_fd = touch_init("/dev/input/event1");
++	//添加任务, 当touch_fd文件可读时, 会自动调用touch_event_cb函数
++	task_add_file(touch_fd, touch_event_cb);
++	
++	task_loop(); //进入任务循环
++	return 0;
++}
+--- /dev/null
++++ b/references/hust-2020/lab5-main.c
+@@ -0,0 +1,107 @@
++#include <stdio.h>
++#include "../common/common.h"
++
++#define COLOR_BACKGROUND	FB_COLOR(0xff,0xff,0xff)
++#define COLOR_TEXT			FB_COLOR(0x0,0x0,0x0)
++
++static int touch_fd;
++static int bluetooth_fd;
++
++#define TIME_X	(SCREEN_WIDTH-160)
++#define TIME_Y	0
++#define TIME_W	100
++#define TIME_H	30
++
++#define SEND_X	(SCREEN_WIDTH-60)
++#define SEND_Y	0
++#define SEND_W	60
++#define SEND_H	60
++
++static void touch_event_cb(int fd)
++{
++	int type,x,y,finger;
++	type = touch_read(fd, &x,&y,&finger);
++	switch(type){
++	case TOUCH_PRESS:
++		//printf("type=%d,x=%d,y=%d,finger=%d\n",type,x,y,finger);
++		if((x>=SEND_X)&&(x<SEND_X+SEND_W)&&(y>=SEND_Y)&&(y<SEND_Y+SEND_H)) {
++			printf("bluetooth tty send hello\n");
++			myWrite_nonblock(bluetooth_fd, "hello\n", 6);
++		}
++		break;
++	case TOUCH_ERROR:
++		printf("close touch fd\n");
++		task_delete_file(fd);
++		close(fd);
++		break;
++	default:
++		return;
++	}
++	fb_update();
++	return;
++}
++
++static int pen_y=30;
++static void bluetooth_tty_event_cb(int fd)
++{
++	char buf[128];
++	int n;
++
++	n = myRead_nonblock(fd, buf, sizeof(buf)-1);
++	if(n <= 0) {
++		printf("close bluetooth tty fd\n");
++		//task_delete_file(fd);
++		//close(fd);
++		exit(0);
++		return;
++	}
++
++	buf[n] = '\0';
++	printf("bluetooth tty receive \"%s\"\n", buf);
++	fb_draw_text(2, pen_y, buf, 24, COLOR_TEXT); fb_update();
++	pen_y += 30;
++	return;
++}
++
++static int bluetooth_tty_init(const char *dev)
++{
++	int fd = open(dev, O_RDWR|O_NOCTTY|O_NONBLOCK); /*非阻塞模式*/
++	if(fd < 0){
++		printf("bluetooth_tty_init open %s error(%d): %s\n", dev, errno, strerror(errno));
++		return -1;
++	}
++	return fd;
++}
++
++static int st=0;
++static void timer_cb(int period) /*该函数0.5秒执行一次*/
++{
++	char buf[100];
++	sprintf(buf, "%d", st++);
++	fb_draw_rect(TIME_X, TIME_Y, TIME_W, TIME_H, COLOR_BACKGROUND);
++	fb_draw_border(TIME_X, TIME_Y, TIME_W, TIME_H, COLOR_TEXT);
++	fb_draw_text(TIME_X+2, TIME_Y+20, buf, 24, COLOR_TEXT);
++	fb_update();
++	return;
++}
++
++int main(int argc, char *argv[])
++{
++	fb_init("/dev/fb0");
++	font_init("./font.ttc");
++	fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,COLOR_BACKGROUND);
++	fb_draw_border(SEND_X, SEND_Y, SEND_W, SEND_H, COLOR_TEXT);
++	fb_draw_text(SEND_X+2, SEND_Y+30, "send", 24, COLOR_TEXT);
++	fb_update();
++
++	touch_fd = touch_init("/dev/input/event1");
++	task_add_file(touch_fd, touch_event_cb);
++
++	bluetooth_fd = bluetooth_tty_init("/dev/rfcomm0");
++	if(bluetooth_fd == -1) return 0;
++	task_add_file(bluetooth_fd, bluetooth_tty_event_cb);
++
++	task_add_timer(500, timer_cb); /*增加0.5秒的定时器*/
++	task_loop();
++	return 0;
++}
+--- /dev/null
++++ b/run-lab.sh
+@@ -0,0 +1,28 @@
++#!/usr/bin/env bash
++set -euo pipefail
++if [ "$#" -lt 2 ]; then echo 'Usage: bash run-lab.sh /absolute/path/lab-st-2026 lab3|lab4|lab5_bt|test [program options]' >&2; exit 2; fi
++project_dir=$(realpath -- "$1")
++lab=$2
++shift 2
++case "$lab" in lab3|lab4|lab5_bt|test) ;; *) echo 'Unknown lab' >&2; exit 2;; esac
++tool_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
++check_options=()
++remaining=("$@")
++for ((i=0; i<${#remaining[@]}; i++)); do
++    case "${remaining[$i]}" in
++        --touch|--serial)
++            if ((i+1>=${#remaining[@]})); then echo 'Missing device path' >&2; exit 2; fi
++            check_options+=("${remaining[$i]}" "${remaining[$((i+1))]}"); i=$((i+1));;
++        --headless) check_options+=(--headless);;
++    esac
++done
++python3 "$tool_dir/preflight.py" --project "$project_dir" --lab "$lab" "${check_options[@]}"
++run_dir=$(mktemp -d "$project_dir/run-$lab-XXXXXX")
++cd -- "$project_dir/out"
++echo "Log: $run_dir/run.log"
++set +e
++"./$lab" "$@" 2>&1 | tee "$run_dir/run.log"
++status=${PIPESTATUS[0]}
++set -e
++printf '\nProgram exit status: %d\n' "$status" | tee -a "$run_dir/run.log"
++exit "$status"
+--- a/test/main.c
++++ b/test/main.c
+@@ -93,6 +93,7 @@
+ 	img1 = fb_read_jpeg_image("./test.jpg");
+ 	img2 = fb_read_png_image("./test.png");
+ 	img3 = fb_read_font_image("嵌",30,NULL);
++	if(!img1 || !img2 || !img3) { fprintf(stderr,"Missing test image/font assets\n"); return EXIT_FAILURE; }
+ 	start = task_get_time();
+ 	for(row=-5; row<605; row+=100){
+ 		for(column=-5; column<1029; column+=50){
+@@ -176,14 +177,14 @@
+ 	fb_draw_text(135,402,"合计total",30,ORANGE);
+ 	fb_draw_text(260,454,"华中科技大学",30,PURPLE);
+ 	
+-	char str[5];
++	char str[32];
+ 	for(i=0; i<5; i++){
+-		memset(str,'\0',5);
+-		sprintf(str,"%d",time[i]);
++		memset(str,0,sizeof(str));
++		snprintf(str,sizeof(str),"%d",time[i]);
+ 		fb_draw_text(370,90+52*(i+1),str,30,CYAN);
+ 	}
+-	memset(str,'\0',5);
+-	sprintf(str,"%d",time_total);
++	memset(str,0,sizeof(str));
++	snprintf(str,sizeof(str),"%d",time_total);
+ 	fb_draw_text(370,402,str,30,ORANGE);
+ 
+ 	fb_update();
+--- /dev/null
++++ b/tests/asset_adapter.c
+@@ -0,0 +1,34 @@
++/* HOST SIMULATION ONLY: decoded assets and glyph masks are produced by Pillow.
++ * The deployment package uses the course's actual libjpeg/libpng/FreeType code. */
++#include "../common/common.h"
++#include "image-memory-under-test.c"
++
++void font_init(char *path) { (void)path; }
++static fb_image *load_pixels(const char *name)
++{
++    char path[256];snprintf(path,sizeof(path),"build/assets/%s.bgra",name);
++    FILE *f=fopen(path,"rb");if(!f) return NULL;
++    int32_t header[3];if(fread(header,sizeof(header),1,f)!=1) {fclose(f);return NULL;}
++    fb_image *img=fb_new_image(header[2],header[0],header[1],0);
++    if(img && fread(img->content,(size_t)img->line_byte*img->pixel_h,1,f)!=1) {fb_free_image(img);img=NULL;}
++    fclose(f);return img;
++}
++fb_image *fb_read_jpeg_image(char *path) {(void)path;return load_pixels("test.jpg");}
++fb_image *fb_read_png_image(char *path) {(void)path;return load_pixels("test.png");}
++fb_image *fb_read_font_image(const char *text,int size,fb_font_info *info)
++{
++    const unsigned char *p=(const unsigned char *)text;
++    unsigned code;int bytes;
++    if(p[0]<0x80) {code=p[0];bytes=1;}
++    else if(p[0]<0xe0) {code=((p[0]&31)<<6)|(p[1]&63);bytes=2;}
++    else if(p[0]<0xf0) {code=((p[0]&15)<<12)|((p[1]&63)<<6)|(p[2]&63);bytes=3;}
++    else {code=((p[0]&7)<<18)|((p[1]&63)<<12)|((p[2]&63)<<6)|(p[3]&63);bytes=4;}
++    char path[256];snprintf(path,sizeof(path),"build/assets/glyph-%x-%d.bin",code,size);
++    FILE *f=fopen(path,"rb");if(!f) {fprintf(stderr,"Missing host glyph: %s\n",path);return NULL;}
++    int32_t h[5];if(fread(h,sizeof(h),1,f)!=1) {fclose(f);return NULL;}
++    fb_image *img=fb_new_image(FB_COLOR_ALPHA_8,h[0],h[1],h[0]);
++    if(img && h[0]*h[1]>0 && fread(img->content,(size_t)h[0]*h[1],1,f)!=1) {fb_free_image(img);img=NULL;}
++    fclose(f);
++    if(info) *info=(fb_font_info){bytes,h[4],h[2],-h[3]};
++    return img;
++}
+--- /dev/null
++++ b/tests/board-serial-test.py
+@@ -0,0 +1,38 @@
++"""Linux-only integration check using a pseudo-terminal, NOT the Bluetooth radio."""
++from pathlib import Path
++import argparse, os, pty, select, subprocess, time
++parser=argparse.ArgumentParser(description=__doc__);parser.add_argument("--binary",required=True)
++args=parser.parse_args();binary=Path(args.binary).resolve(strict=True)
++master,slave=pty.openpty();device=os.ttyname(slave)
++process=subprocess.Popen([str(binary),"--headless","--send-hello","--serial",device],
++    cwd=binary.parent,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
++os.close(slave);os.set_blocking(master,False);os.set_blocking(process.stdout.fileno(),False)
++log=bytearray();received=bytearray()
++def wait_until(predicate,timeout=5):
++    deadline=time.monotonic()+timeout
++    while time.monotonic()<deadline:
++        if predicate():return
++        ready,_,_=select.select([master,process.stdout.fileno()],[],[],0.05)
++        for descriptor in ready:
++            try:chunk=os.read(descriptor,4096)
++            except (BlockingIOError,OSError):continue
++            (received if descriptor==master else log).extend(chunk)
++        if process.poll() is not None:break
++    raise RuntimeError(f"PTY check timed out. stdout={log.decode('utf-8','replace')} serial={received!r}")
++try:
++    wait_until(lambda: b"hello\n" in received)
++    encoded="你好，Orange Pi!\n".encode()
++    for byte in encoded:
++        os.write(master,bytes([byte]));time.sleep(0.005)
++    wait_until(lambda:"Bluetooth RX: 你好，Orange Pi!".encode() in log)
++    os.write(master,b"without-newline")
++    wait_until(lambda:b"Bluetooth RX: without-newline" in log)
++    if received!=b"hello\n":raise RuntimeError(f"Unexpected echo/serial data: {received!r}")
++    process.terminate();process.wait(timeout=3)
++    if process.returncode!=0:raise RuntimeError(f"Unclean shutdown: {process.returncode}")
++    print(log.decode("utf-8","replace"))
++    print("PASS: Linux PTY integration (raw TX, fragmented UTF-8 RX, idle flush, no echo, clean stop).")
++    print("Bluetooth pairing/radio and the physical screen remain unverified by this test.")
++finally:
++    if process.poll() is None:process.kill();process.wait()
++    process.stdout.close();os.close(master)
+--- /dev/null
++++ b/tests/build_offline.py
+@@ -0,0 +1,86 @@
++from pathlib import Path
++import argparse, datetime, difflib, hashlib, json, os, re, shutil, struct, subprocess
++import sys
++from PIL import Image, ImageFont
++sys.stdout.reconfigure(encoding="utf-8")
++ROOT=Path(__file__).resolve().parents[1]
++BUILD=ROOT/"build";RESULTS=ROOT/"test-results";PREVIEW=ROOT/"preview"
++for directory in (BUILD,RESULTS,PREVIEW,BUILD/"assets"):directory.mkdir(exist_ok=True)
++parser=argparse.ArgumentParser();parser.add_argument("--cc",required=True);args=parser.parse_args()
++compiler=Path(args.cc).resolve()
++env=dict(os.environ);env["PATH"]=str(compiler.parent)+os.pathsep+env.get("PATH","")
++def run(command,log):
++    result=subprocess.run(list(map(str,command)),cwd=ROOT,env=env,capture_output=True,
++        encoding="utf-8",errors="replace",timeout=60)
++    output=result.stdout+result.stderr;(RESULTS/log).write_text(output,encoding="utf-8")
++    if output:print(output.rstrip())
++    if result.returncode:raise RuntimeError(f"{log}: status {result.returncode}")
++    return output
++source=(ROOT/"common/graphic.c").read_text(encoding="utf-8")
++lab2=(ROOT/"original/lab2-prepared-graphic.c").read_text(encoding="utf-8")
++def lab2_functions(text):return text[text.index("void fb_draw_rect("):text.index("void fb_draw_image(")].split("/* Blend one channel")[0].rstrip()
++assert lab2_functions(source)==lab2_functions(lab2),"Prepared lab2 implementation changed"
++globals=source[source.index("static int LCD_FB_FD;"):source.index("void fb_init(")]
++globals=globals.replace("static int LCD_FB_FD;\n","").replace("static int DRAW_BUF[SCREEN_WIDTH*SCREEN_HEIGHT];",
++    "static struct { int before[GUARD_WORDS]; int pixels[SCREEN_WIDTH*SCREEN_HEIGHT]; int after[GUARD_WORDS]; } TEST_BACK;\n#define DRAW_BUF TEST_BACK.pixels")
++core='#include "common.h"\n#include <limits.h>\n#include <math.h>\n#include <time.h>\n#define GUARD_WORDS 64\n'+globals+source[source.index("static void _copy_area("):]
++(BUILD/"graphics-under-test.c").write_text(core,encoding="utf-8",newline="\n")
++image=(ROOT/"common/image.c").read_text(encoding="utf-8")
++memory=image[image.index("/*w, h maybe == 0*/"):image.index("/*================== read a jpeg image")]
++(BUILD/"image-memory-under-test.c").write_text('#include <limits.h>\n'+memory,encoding="utf-8",newline="\n")
++for name,kind in (("test.jpg",1),("test.png",2)):
++    with Image.open(ROOT/"out"/name) as image:
++        rgba=image.convert("RGBA")
++        (BUILD/"assets"/(name+".bgra")).write_bytes(struct.pack("<iii",*rgba.size,kind)+rgba.tobytes("raw","BGRA"))
++chars=set(" "+"".join(chr(i) for i in range(32,127)))
++for name in ("lab3/main.c","lab4/drawing.c","lab5_bt/main.c","test/main.c"):
++    chars.update((ROOT/name).read_text(encoding="utf-8"))
++chars={c for c in chars if ord(c)>=32 and c not in "\r\n\t"}
++for size in (20,24,28,30,40,64):
++    font=ImageFont.truetype(str(ROOT/"out/font.ttc"),size)
++    for ch in chars:
++        mask,offset=font.getmask2(ch,mode="L",anchor="ls")
++        header=struct.pack("<iiiii",*mask.size,*offset,round(font.getlength(ch)))
++        (BUILD/"assets"/f"glyph-{ord(ch):x}-{size}.bin").write_bytes(header+bytes(mask))
++flags=["-std=gnu11","-O2","-Wall","-Wextra","-Werror","-Wno-unused-parameter","-static","-I",BUILD,"-I",ROOT/"common","-I",ROOT/"tests"]
++adapter=ROOT/"tests/asset_adapter.c"
++def ctest(name,sources,arguments=(),assets=False):
++    exe=BUILD/(name+".exe")
++    run([compiler,*flags,*sources,*([adapter] if assets else []),"-o",exe,"-lm"],name+"-compile.log")
++    return run([exe,*arguments],name+".log")
++regression=ctest("lab2-regression",[ROOT/"tests/test_lab2_regression.c"],assets=True)
++images=ctest("images",[ROOT/"tests/test_images.c"],assets=True)
++interaction=ctest("interaction",[ROOT/"tests/test_touch_and_bluetooth.c",ROOT/"common/touch_protocol.c",
++    ROOT/"lab5_bt/text_stream.c",ROOT/"lab5_bt/serial_queue.c"])
++drawing=ctest("drawing",[ROOT/"tests/test_drawing.c",ROOT/"lab4/drawing.c"],[PREVIEW/"lab4-simulated.ppm"],assets=True)
++main=(ROOT/"lab3/main.c").read_text(encoding="utf-8")
++main=re.sub(r"(?m)^#include[^\n]*\n?","",main)
++replay='#include "fixture.h"\nvoid fb_init(char *dev) { (void)dev; reset_surfaces(0); }\n#define main course_main\n'+main
++replay+='\n#undef main\nint main(int argc,char **argv) { require(argc==2,"preview path"); int r=course_main(0,NULL);require(r==0,"course lab3 main");fb_update();check_front_matches_back();write_preview_ppm(argv[1]);free(front_storage);puts("PASS: lab3 main replay with host-decoded course assets");return 0;}\n'
++(BUILD/"replay-lab3.c").write_text(replay,encoding="utf-8",newline="\n")
++ctest("lab3-replay",[BUILD/"replay-lab3.c"],[PREVIEW/"lab3-simulated.ppm"],assets=True)
++syntax=[ROOT/name for name in ("lab3/main.c","lab4/main.c","lab4/drawing.c","lab5_bt/main.c","lab5_bt/text_stream.c","lab5_bt/serial_queue.c","common/touch.c","common/touch_protocol.c")]
++run([compiler,*flags,"-I",ROOT/"tests/host-headers","-DO_NONBLOCK=2048","-DO_NOCTTY=256","-fsyntax-only",*syntax],"host-syntax.log")
++for name in ("lab3","lab4"):
++    Image.open(PREVIEW/(name+"-simulated.ppm")).save(PREVIEW/(name+"-simulated.png"))
++patches=[]
++for old in sorted((ROOT/"original").rglob("*")):
++    if not old.is_file():continue
++    relative=old.relative_to(ROOT/"original");new=ROOT/relative
++    if new.exists():patches.extend(difflib.unified_diff(old.read_text(encoding="utf-8").splitlines(True),
++        new.read_text(encoding="utf-8").splitlines(True),fromfile="original/"+relative.as_posix(),tofile=relative.as_posix()))
++(ROOT/"changes.patch").write_text("".join(patches),encoding="utf-8",newline="\n")
++report={"recordedAt":datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).isoformat(),
++    "mode":"Windows C tests and memory framebuffer replay", "compiler":str(compiler),
++    "lab2RegressionCases":int(re.search(r"PASS: (\d+) offline cases",regression)[1]),
++    "imageCases":int(re.search(r"PASS: (\d+) image cases",images)[1]),
++    "interactionAssertions":int(re.search(r"PASS: (\d+) interaction assertions",interaction)[1]),
++    "canvasChecksPassed":True,"lab3CourseCompositionReplayed":True,"hostSyntaxChecksPassed":True,
++    "hostSyntaxUsesLinuxApiShims":True,"jpegPngFontDecodeInSimulation":"Pillow host adapters, not board libraries",
++    "hardwareValidated":False,"linuxNativeCompileValidated":False,"bluetoothRadioValidated":False,
++    "pending":["Linux native build and real decoder libraries","1024x600 32-bit framebuffer check",
++       "Physical display and five-point touch", "BlueZ configuration, pairing and bidirectional RFCOMM","TA acceptance"],
++    "sourceHashes":{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for d in ("common","lab3","lab4","lab5_bt","test") for p in (ROOT/d).glob("*") if p.is_file()}}
++(RESULTS/"offline-result.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
++print(json.dumps({k:v for k,v in report.items() if k.endswith("Cases") or k.endswith("Assertions") or k=="hardwareValidated"}))
++print("No board connection, desktop change, pairing or service change was performed.")
+--- /dev/null
++++ b/tests/final_check.py
+@@ -0,0 +1,20 @@
++from pathlib import Path
++import ast, hashlib, json, subprocess, sys
++ROOT=Path(__file__).resolve().parents[1]
++for path in ROOT.rglob("*.py"):
++    if "build" not in path.relative_to(ROOT).parts:
++        ast.parse(path.read_text(encoding="utf-8"),filename=str(path),feature_version=(3,8))
++result=subprocess.run([sys.executable,ROOT/"tests/test_installer.py"],capture_output=True,text=True)
++(ROOT/"test-results/installer.log").write_text(result.stdout+result.stderr,encoding="utf-8")
++print(result.stdout,end="")
++if result.returncode:raise RuntimeError(result.stderr)
++report=json.loads((ROOT/"test-results/offline-result.json").read_text(encoding="utf-8"))
++for name,value in report["sourceHashes"].items():assert hashlib.sha256((ROOT/name).read_bytes()).hexdigest()==value,name
++for name in ("font.ttc","test.jpg","test.png"):
++    original=ROOT.parent/"course-source/lab-st-2026/out"/name
++    if original.exists():assert (ROOT/"out"/name).read_bytes()==original.read_bytes()
++report["installerChecksPassed"]=True
++report["pythonSyntaxCompatibleWith38"]=True
++report["linuxShellScriptsExecuted"]=False
++(ROOT/"test-results/offline-result.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
++print("PASS: Python 3.8 syntax, unchanged tested source hashes and original course asset bytes")
+--- /dev/null
++++ b/tests/fixture.h
+@@ -0,0 +1,94 @@
++#include "graphics-under-test.c"
++
++#define PAD_WORDS 4
++#define PITCH_WORDS (SCREEN_WIDTH + PAD_WORDS)
++#define FRONT_WORDS (PITCH_WORDS * SCREEN_HEIGHT)
++#define CANARY 0x13579bdf
++#define TEST_COLOR 0x1234ab
++
++int *front_storage;
++unsigned tested_cases;
++char case_label[128] = "initialization";
++
++void require(int condition, const char *message)
++{
++    if(!condition) {
++        fprintf(stderr, "FAIL [%s]: %s\n", case_label, message);
++        exit(1);
++    }
++}
++
++void reset_surfaces(int visible_color)
++{
++    require(sizeof(int) == 4, "framebuffer requires 32-bit int pixels");
++    if(front_storage == NULL) {
++        front_storage = malloc((FRONT_WORDS + 2 * GUARD_WORDS) * sizeof(int));
++        require(front_storage != NULL, "front-buffer allocation");
++    }
++    for(int i = 0; i < FRONT_WORDS + 2 * GUARD_WORDS; ++i)
++        front_storage[i] = CANARY;
++    LCD_FB_BUF = front_storage + GUARD_WORDS;
++    LCD_FB_LINELEN = PITCH_WORDS * sizeof(int);
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = 0; x < SCREEN_WIDTH; ++x)
++            LCD_FB_BUF[y * PITCH_WORDS + x] = visible_color;
++    for(int i = 0; i < GUARD_WORDS; ++i) {
++        TEST_BACK.before[i] = CANARY;
++        TEST_BACK.after[i] = CANARY;
++    }
++    memset(DRAW_BUF, 0, sizeof(DRAW_BUF));
++    AREA_SET_EMPTY(&update_area);
++}
++
++void check_canaries(void)
++{
++    for(int i = 0; i < GUARD_WORDS; ++i) {
++        require(TEST_BACK.before[i] == CANARY, "write before back buffer");
++        require(TEST_BACK.after[i] == CANARY, "write after back buffer");
++        require(front_storage[i] == CANARY, "write before front buffer");
++        require(front_storage[GUARD_WORDS + FRONT_WORDS + i] == CANARY,
++                "write after front buffer");
++    }
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = SCREEN_WIDTH; x < PITCH_WORDS; ++x)
++            require(LCD_FB_BUF[y * PITCH_WORDS + x] == CANARY,
++                    "framebuffer row-padding was overwritten");
++}
++
++void check_front_matches_back(void)
++{
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = 0; x < SCREEN_WIDTH; ++x)
++            require(LCD_FB_BUF[y * PITCH_WORDS + x] ==
++                    DRAW_BUF[y * SCREEN_WIDTH + x], "refresh pixel mismatch");
++    check_canaries();
++}
++
++uint64_t front_hash(void)
++{
++    uint64_t hash = UINT64_C(14695981039346656037);
++    for(int i = 0; i < FRONT_WORDS; ++i) {
++        hash ^= (uint32_t)LCD_FB_BUF[i];
++        hash *= UINT64_C(1099511628211);
++    }
++    return hash;
++}
++
++void write_preview_ppm(const char *path)
++{
++    FILE *file = fopen(path, "wb");
++    require(file != NULL, "open preview file");
++    fprintf(file, "P6\n%d %d\n255\n", SCREEN_WIDTH, SCREEN_HEIGHT);
++    for(int y = 0; y < SCREEN_HEIGHT; ++y) {
++        for(int x = 0; x < SCREEN_WIDTH; ++x) {
++            uint32_t color = (uint32_t)LCD_FB_BUF[y * PITCH_WORDS + x];
++            unsigned char rgb[3] = {
++                (unsigned char)(color >> 16),
++                (unsigned char)(color >> 8),
++                (unsigned char)color
++            };
++            require(fwrite(rgb, 1, 3, file) == 3, "write preview pixels");
++        }
++    }
++    require(fclose(file) == 0, "close preview file");
++}
+--- /dev/null
++++ b/tests/host-headers/linux/input.h
+@@ -0,0 +1,16 @@
++/* Syntax-check shim only; constants/fields used by the real Linux wrapper. */
++#ifndef HOST_INPUT_H
++#define HOST_INPUT_H
++#include <stdint.h>
++struct input_event { int64_t time[2]; uint16_t type,code; int32_t value; };
++struct input_absinfo { int32_t value,minimum,maximum,fuzz,flat,resolution; };
++#define EV_SYN 0
++#define EV_ABS 3
++#define SYN_REPORT 0
++#define SYN_DROPPED 3
++#define ABS_MT_SLOT 0x2f
++#define ABS_MT_POSITION_X 0x35
++#define ABS_MT_POSITION_Y 0x36
++#define ABS_MT_TRACKING_ID 0x39
++#define EVIOCGABS(x) (x)
++#endif
+--- /dev/null
++++ b/tests/host-headers/sys/ioctl.h
+@@ -0,0 +1,2 @@
++/* Syntax-check shim only. */
++int ioctl(int fd,unsigned long request,...);
+--- /dev/null
++++ b/tests/host-headers/termios.h
+@@ -0,0 +1,13 @@
++/* Syntax-check shim only. Never packaged for the Orange Pi. */
++#ifndef HOST_TERMIOS_H
++#define HOST_TERMIOS_H
++struct termios { unsigned c_cflag; unsigned char c_cc[32]; };
++#define CLOCAL 1
++#define CREAD 2
++#define VMIN 0
++#define VTIME 1
++#define TCSANOW 0
++int tcgetattr(int fd,struct termios *tty);
++void cfmakeraw(struct termios *tty);
++int tcsetattr(int fd,int action,const struct termios *tty);
++#endif
+--- /dev/null
++++ b/tests/package.py
+@@ -0,0 +1,40 @@
++from pathlib import Path
++import hashlib,json,tarfile
++ROOT=Path(__file__).resolve().parents[1]
++def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
++files=[]
++for directory in ("common","lab3","lab4","lab5_bt","test","out"):
++    for source in sorted((ROOT/directory).glob("*")):
++        if not source.is_file():continue
++        relative=source.relative_to(ROOT)
++        previous=[]
++        for candidate in (ROOT/"original"/relative, ROOT.parent/"lab2-prepared"/relative,
++                          ROOT.parent/"course-source/lab-st-2026"/relative):
++            if candidate.is_file():previous.append(sha(candidate))
++        if relative.as_posix()=="common/rules.mk":
++            previous.append(hashlib.sha256((ROOT/"original/common/rules.mk").read_bytes().replace(
++                b"CC := $(CROSS_COMPILE)gcc",b"CC := gcc")).hexdigest())
++        if relative.as_posix()=="common/graphic.c":previous.append(sha(ROOT/"original/lab2-prepared-graphic.c"))
++        files.append({"path":relative.as_posix(),"sha256":sha(source),"allowedPreviousSHA256":sorted(set(previous))})
++manifest={"version":"2026-10-09-labs3-5", "courseHeaderSHA256":sha(ROOT/"common/common.h"),"files":files,
++          "nativeArchitectureTarget":"Linux aarch64 Orange Pi 4 LTS","hardwareValidated":False}
++(ROOT/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
++members=[]
++for path in sorted(ROOT.rglob("*")):
++    if not path.is_file():continue
++    relative=path.relative_to(ROOT)
++    if relative.parts[0] in ("build",) or "__pycache__" in relative.parts or path.suffix==".pyc":continue
++    if relative.as_posix()=="tests/prepare_base.py":continue
++    if path.suffix==".sh":assert b"\r" not in path.read_bytes(),str(path)
++    members.append(relative)
++archive_path=ROOT.parent/"labs3-5-ready.tgz"
++with tarfile.open(archive_path,"w:gz") as archive:
++    for relative in members:archive.add(ROOT/relative,arcname="labs3-5-prepared/"+relative.as_posix(),recursive=False)
++with tarfile.open(archive_path,"r:gz") as archive:
++    assert len(archive.getmembers())==len(members)
++    for relative in members:
++        assert archive.extractfile("labs3-5-prepared/"+relative.as_posix()).read()==(ROOT/relative).read_bytes()
++hash_text=sha(archive_path)+"  "+archive_path.name+"\n"
++archive_path.with_name(archive_path.name+".sha256").write_text(hash_text,encoding="ascii")
++print(f"Package verified: {len(members)} files, {archive_path.stat().st_size} bytes")
++print(hash_text.strip())
+--- /dev/null
++++ b/tests/prepare_base.py
+@@ -0,0 +1,112 @@
++"""One-time source preparation. Does not connect to or configure the board."""
++from pathlib import Path
++import shutil
++
++root = Path(__file__).resolve().parents[1]
++course = root.parent / "course-source/lab-st-2026"
++for directory in ("common", "lab3", "test", "out", "original/common", "original/lab3",
++                  "original/lab4", "original/lab5_bt", "original/test", "test-results", "build"):
++    (root / directory).mkdir(parents=True, exist_ok=True)
++for name in ("common/common.h", "common/graphic.c", "common/image.c", "common/touch.c",
++             "common/rules.mk", "lab3/main.c", "lab3/Makefile", "lab4/main.c", "lab4/Makefile",
++             "lab5_bt/main.c", "lab5_bt/Makefile", "test/main.c", "test/Makefile"):
++    shutil.copyfile(course / name, root / "original" / name)
++for name in ("common/common.h", "common/image.c", "common/rules.mk", "lab3/main.c",
++             "lab3/Makefile", "test/main.c", "test/Makefile"):
++    shutil.copyfile(course / name, root / name)
++for name in ("font.ttc", "test.jpg", "test.png"):
++    shutil.copyfile(course / "out" / name, root / "out" / name)
++
++graphics = (root.parent / "lab2-prepared/common/graphic.c").read_text(encoding="utf-8")
++shutil.copyfile(root.parent / "lab2-prepared/common/graphic.c",root / "original/lab2-prepared-graphic.c")
++start, end = graphics.index("void fb_draw_image("), graphics.index("void fb_draw_border(")
++implementation = r'''/* Blend one channel over an opaque framebuffer, with exact 0/255 endpoints. */
++static unsigned blend_channel(unsigned src, unsigned dst, unsigned alpha)
++{
++    return (src * alpha + dst * (255-alpha) + 127) / 255;
++}
++
++void fb_draw_image(int x, int y, fb_image *image, int color)
++{
++    if(!image || !image->content || image->pixel_w <= 0 || image->pixel_h <= 0) return;
++    int bytes = image->color_type == FB_COLOR_ALPHA_8 ? 1 : 4;
++    if(image->color_type != FB_COLOR_RGB_8880 &&
++       image->color_type != FB_COLOR_RGBA_8888 &&
++       image->color_type != FB_COLOR_ALPHA_8) return;
++    if(image->line_byte <= 0 || (int64_t)image->pixel_w * bytes > image->line_byte) return;
++
++    int64_t left = x, top = y;
++    int64_t right = (int64_t)x + image->pixel_w;
++    int64_t bottom = (int64_t)y + image->pixel_h;
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++    int ix = (int)(left-x), iy = (int)(top-y);
++    int w = (int)(right-left), h = (int)(bottom-top);
++    int *buf = _begin_draw((int)left, (int)top, w, h);
++    const unsigned char *source = (const unsigned char *)image->content
++        + (size_t)iy * image->line_byte + (size_t)ix * bytes;
++    uint32_t foreground = (uint32_t)color;
++
++    for(int row = 0; row < h; ++row) {
++        uint32_t *dst = (uint32_t *)(buf + ((int)top+row)*SCREEN_WIDTH + (int)left);
++        const unsigned char *src = source + (size_t)row * image->line_byte;
++        if(image->color_type == FB_COLOR_RGB_8880) {
++            memcpy(dst, src, (size_t)w * 4);
++            continue;
++        }
++        for(int column = 0; column < w; ++column) {
++            unsigned alpha, b, g, r;
++            if(bytes == 1) {
++                alpha = src[column];
++                b = foreground & 255; g = (foreground >> 8) & 255; r = (foreground >> 16) & 255;
++            } else {
++                const unsigned char *p = src + column*4;
++                b = p[0]; g = p[1]; r = p[2]; alpha = p[3];
++            }
++            if(alpha == 0) continue;
++            if(alpha != 255) {
++                uint32_t old = dst[column];
++                b = blend_channel(b, old & 255, alpha);
++                g = blend_channel(g, (old >> 8) & 255, alpha);
++                r = blend_channel(r, (old >> 16) & 255, alpha);
++            }
++            dst[column] = UINT32_C(0xff000000) | (r << 16) | (g << 8) | b;
++        }
++    }
++}
++
++'''
++graphics = graphics[:start] + implementation + graphics[end:]
++(root / "common/graphic.c").write_text(graphics, encoding="utf-8", newline="\n")
++image = (root / "common/image.c").read_text(encoding="utf-8")
++image = image.replace('#include "common.h"', '#include "common.h"\n#include <limits.h>')
++image = image.replace('if((w<0)||(h<0)) return NULL;',
++    'if((w<0)||(h<0) || w > INT_MAX/4) return NULL;')
++image = image.replace('image = (fb_image *)malloc(sizeof(fb_image) + line_byte*h);',
++    'if(line_byte < 0 || (h > 0 && (size_t)line_byte > (SIZE_MAX-sizeof(fb_image))/(size_t)h)) return NULL;\n'
++    '\timage = (fb_image *)malloc(sizeof(fb_image) + (size_t)line_byte*h);')
++image = image.replace('(x+w > img->pixel_w)', '((int64_t)x+w > img->pixel_w)')
++image = image.replace('(y+h > img->pixel_w)', '((int64_t)y+h > img->pixel_h)')
++image = image.replace('y*img->line_byte + x', '(size_t)y*img->line_byte + x')
++image = image.replace('memcpy(image->content, slot->bitmap.buffer, slot->bitmap.rows * slot->bitmap.pitch);',
++    'if(slot->bitmap.rows && slot->bitmap.pitch > 0)\n\t\tmemcpy(image->content, slot->bitmap.buffer, (size_t)slot->bitmap.rows * slot->bitmap.pitch);')
++(root / "common/image.c").write_text(image, encoding="utf-8", newline="\n")
++rules = (root / "common/rules.mk").read_text(encoding="utf-8").replace('CC := $(CROSS_COMPILE)gcc','CC := gcc')
++rules = rules.replace('../common/touch.c', '../common/touch.c ../common/touch_protocol.c')
++(root / "common/rules.mk").write_text(rules, encoding="utf-8", newline="\n")
++main = (root / "lab3/main.c").read_text(encoding="utf-8")
++main = main.replace('fb_draw_text(50,50,','fb_draw_text(50,70,').replace('fb_draw_text(50,120,','fb_draw_text(50,140,')
++for call in ('fb_read_jpeg_image("./test.jpg")', 'fb_read_png_image("./test.png")', 'fb_read_font_image("嵌",30,NULL)'):
++    main = main.replace('img = '+call+';', 'img = '+call+';\n\tif(!img) { fprintf(stderr, "Lab3 image/font load failed; run from out with all assets present.\\n"); return EXIT_FAILURE; }')
++(root / "lab3/main.c").write_text(main, encoding="utf-8", newline="\n")
++test = (root / "test/main.c").read_text(encoding="utf-8")
++test = test.replace('char str[5];', 'char str[32];').replace("memset(str,'\\0',5);", "memset(str,0,sizeof(str));")
++test = test.replace('sprintf(str,"%d",time[i]);', 'snprintf(str,sizeof(str),"%d",time[i]);')
++test = test.replace('sprintf(str,"%d",time_total);', 'snprintf(str,sizeof(str),"%d",time_total);')
++test = test.replace('img3 = fb_read_font_image("嵌",30,NULL);',
++    'img3 = fb_read_font_image("嵌",30,NULL);\n\tif(!img1 || !img2 || !img3) { fprintf(stderr,"Missing test image/font assets\\n"); return EXIT_FAILURE; }')
++(root / "test/main.c").write_text(test, encoding="utf-8", newline="\n")
++print("Prepared lab3 graphics/assets, retained lab2 functions, fixed subimage height and test number buffer.")
+--- /dev/null
++++ b/tests/test_drawing.c
+@@ -0,0 +1,43 @@
++#include "fixture.h"
++#include "../lab4/drawing.h"
++static int pixel(int x,int y) {return DRAW_BUF[y*SCREEN_WIDTH+x];}
++int main(int argc,char **argv)
++{
++    require(argc==2,"preview path");reset_surfaces(0);lab4_canvas_init();fb_update();
++    const int white=FB_COLOR(255,255,255);
++    snprintf(case_label,sizeof(case_label),"continuous thick stroke");
++    lab4_canvas_event(TOUCH_PRESS,50,100,0);lab4_canvas_event(TOUCH_MOVE,500,100,0);
++    for(int x=50;x<=500;++x) for(int y=97;y<=103;++y)
++        require(pixel(x,y)!=white,"fast stroke contains a gap or is too thin");
++    lab4_canvas_event(TOUCH_RELEASE,500,100,0);
++    lab4_canvas_event(TOUCH_PRESS,50,200,0);
++    require(pixel(50,150)==white,"new contact bridged an old stroke");
++    for(int f=1;f<5;++f) {
++        lab4_canvas_event(TOUCH_PRESS,80,200+f*60,f);
++        lab4_canvas_event(TOUCH_MOVE,700,230+f*60,f);
++        require(pixel(80,200+f*60)!=pixel(50,200),"fingers need distinct colors");
++    }
++    fb_update();check_front_matches_back();
++    snprintf(case_label,sizeof(case_label),"clear and suppression of held fingers");
++    lab4_canvas_event(TOUCH_PRESS,1000,20,0);
++    for(int y=64;y<SCREEN_HEIGHT;++y) for(int x=0;x<SCREEN_WIDTH;++x)
++        require(pixel(x,y)==white,"clear left drawing pixels");
++    lab4_canvas_event(TOUCH_MOVE,800,400,1);
++    require(pixel(800,400)==white,"held finger immediately redrew after clear");
++    lab4_canvas_event(TOUCH_RELEASE,800,400,1);
++    lab4_canvas_event(TOUCH_PRESS,80,300,1);lab4_canvas_event(TOUCH_MOVE,800,300,1);
++    require(pixel(400,300)!=white,"new stroke after clear did not draw");
++    lab4_canvas_event(TOUCH_PRESS,10,10,-1);lab4_canvas_event(TOUCH_MOVE,INT_MAX,INT_MIN,4);
++    check_canaries();
++    lab4_canvas_init();
++    for(int f=0;f<5;++f) {
++        lab4_canvas_event(TOUCH_PRESS,70,130+f*80,f);
++        lab4_canvas_event(TOUCH_MOVE,350,180+f*70,f);
++        lab4_canvas_event(TOUCH_MOVE,650,100+f*85,f);
++        lab4_canvas_event(TOUCH_MOVE,950,140+f*80,f);
++        lab4_canvas_event(TOUCH_RELEASE,950,140+f*80,f);
++    }
++    fb_update();check_front_matches_back();write_preview_ppm(argv[1]);
++    printf("PASS: canvas continuity, 9-pixel brush, five colors, release, clear, held-finger suppression, bounds\n");
++    free(front_storage);return 0;
++}
+--- /dev/null
++++ b/tests/test_images.c
+@@ -0,0 +1,78 @@
++#include "fixture.h"
++
++static unsigned rng = 0x1037;
++static unsigned random_byte(void) { rng = rng*1664525u+1013904223u; return rng>>24; }
++static uint32_t oracle(uint32_t foreground, uint32_t background, unsigned alpha)
++{
++    if(!alpha) return background;
++    uint32_t result = UINT32_C(0xff000000);
++    for(unsigned channel = 0; channel < 3; ++channel) {
++        unsigned shift = channel*8;
++        double mixed = ((foreground>>shift)&255)*(alpha/255.0) +
++                       ((background>>shift)&255)*(1-alpha/255.0);
++        result |= (uint32_t)floor(mixed+0.5) << shift;
++    }
++    return result;
++}
++
++static void image_case(int type, int x, int y, int padding)
++{
++    snprintf(case_label, sizeof(case_label), "image type=%d at %d,%d padding=%d", type,x,y,padding);
++    const int width=9, height=7, bytes=type==FB_COLOR_ALPHA_8 ? 1 : 4;
++    fb_image *image = fb_new_image(type,width,height,width*bytes+padding);
++    require(image != NULL, "image allocation");
++    memset(image->content,0xa5,(size_t)image->line_byte*height);
++    uint32_t background=UINT32_C(0xff316a9d), ink=UINT32_C(0xffe51891);
++    reset_surfaces(0);
++    fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,(int)background);
++    fb_update();
++    for(int row=0;row<height;++row) for(int col=0;col<width;++col) {
++        unsigned char *p=(unsigned char *)image->content+row*image->line_byte+col*bytes;
++        if(bytes==1) p[0]=(unsigned char)(col==0 ? 0 : col==1 ? 255 : random_byte());
++        else {
++            p[0]=random_byte();p[1]=random_byte();p[2]=random_byte();
++            p[3]=type==FB_COLOR_RGB_8880 ? 255 : col==0 ? 0 : col==1 ? 255 : random_byte();
++        }
++    }
++    uint64_t front_before=front_hash();
++    fb_draw_image(x,y,image,(int)ink);
++    require(front_hash()==front_before, "image drawing must wait for fb_update");
++    for(int row=0;row<SCREEN_HEIGHT;++row) for(int col=0;col<SCREEN_WIDTH;++col) {
++        uint32_t expected=background;
++        int64_t ix=(int64_t)col-x, iy=(int64_t)row-y;
++        if(ix>=0 && ix<width && iy>=0 && iy<height) {
++            unsigned char *p=(unsigned char *)image->content+iy*image->line_byte+ix*bytes;
++            uint32_t foreground=bytes==1 ? ink : (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16;
++            expected=oracle(foreground,background,type==FB_COLOR_RGB_8880 ? 255 : bytes==1 ? p[0] : p[3]);
++        }
++        require((uint32_t)DRAW_BUF[row*SCREEN_WIDTH+col]==expected,"image clipping/blending oracle");
++    }
++    check_canaries();fb_update();check_front_matches_back();
++    fb_free_image(image);++tested_cases;
++}
++
++int main(void)
++{
++    const int positions[][2]={{0,0},{-4,-3},{1020,596},{-9,0},{1024,600},{INT_MIN,INT_MIN},{INT_MAX,INT_MAX}};
++    for(int type=1;type<=3;++type) for(unsigned p=0;p<sizeof(positions)/sizeof(*positions);++p)
++        for(int pad=0;pad<=5;pad+=5) image_case(type,positions[p][0],positions[p][1],pad);
++    for(int type=1;type<=3;++type) for(int i=0;i<20;++i) image_case(type,10+i,20+i,i%4);
++    snprintf(case_label,sizeof(case_label),"invalid images and allocation bounds");
++    reset_surfaces(0);
++    fb_draw_image(0,0,NULL,0);
++    fb_image invalid={99,1,1,4,"abcd"};fb_draw_image(0,0,&invalid,0);
++    invalid=(fb_image){FB_COLOR_RGBA_8888,9,2,1,"abcd"};fb_draw_image(0,0,&invalid,0);
++    require(update_area.x2==0,"invalid image changed dirty region");
++    require(fb_new_image(FB_COLOR_RGBA_8888,INT_MAX,1,0)==NULL,"overflowing image width");
++    fb_image *tall=fb_new_image(FB_COLOR_ALPHA_8,2,20,3);
++    fb_image *sub=fb_get_sub_image(tall,0,15,2,5);
++    require(sub!=NULL && sub->content==tall->content+45,"subimage must use image height");
++    fb_free_image(sub);
++    require(fb_get_sub_image(tall,0,19,2,2)==NULL,"subimage exceeds height");
++    fb_free_image(tall);
++    fb_image *wide=fb_new_image(FB_COLOR_ALPHA_8,20,2,20);
++    require(fb_get_sub_image(wide,0,2,1,1)==NULL,"wide image height check");fb_free_image(wide);
++    check_canaries();++tested_cases;
++    printf("PASS: %u image cases (three formats, alpha endpoints, clipping, padding, subimages)\n",tested_cases);
++    free(front_storage);return 0;
++}
+--- /dev/null
++++ b/tests/test_installer.py
+@@ -0,0 +1,35 @@
++from pathlib import Path
++import contextlib,hashlib,importlib.util,io,json,shutil,tempfile
++ROOT=Path(__file__).resolve().parents[1]
++spec=importlib.util.spec_from_file_location("lab_installer",ROOT/"install.py")
++module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
++manifest=json.loads((ROOT/"manifest.json").read_text(encoding="utf-8"))
++(ROOT/"build").mkdir(exist_ok=True)
++def sha(path):return hashlib.sha256(path.read_bytes()).hexdigest()
++with tempfile.TemporaryDirectory(prefix="installer-check-",dir=ROOT/"build") as temp:
++    project=Path(temp)
++    for item in manifest["files"]:
++        old=ROOT/"original"/item["path"]
++        if not old.is_file() and item["path"].startswith("out/"):old=ROOT/item["path"]
++        if old.is_file():
++            target=project/item["path"];target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(old,target)
++    old_hashes={p.relative_to(project).as_posix():sha(p) for p in project.rglob("*") if p.is_file()}
++    with contextlib.redirect_stdout(io.StringIO()):
++        assert module.install(project,False) is None
++        assert old_hashes=={p.relative_to(project).as_posix():sha(p) for p in project.rglob("*") if p.is_file()}
++        backup=module.install(project,True)
++        assert backup
++        for item in manifest["files"]:assert sha(project/item["path"])==item["sha256"]
++        backup_info=json.loads((backup/"backup.json").read_text(encoding="utf-8"))
++        for item in backup_info["files"]:
++            if item["existed"]:assert sha(backup/item["path"])==old_hashes[item["path"]]
++        assert module.install(project,True) is None
++        path=project/"lab4/main.c";path.write_text("user work\n",encoding="utf-8")
++        try:module.install(project,True)
++        except ValueError as error:assert "Existing edits" in str(error)
++        else:raise AssertionError("Unrecognized edits were not protected")
++        assert path.read_text(encoding="utf-8")=="user work\n"
++        try:module.inside(project,"../../outside")
++        except ValueError:pass
++        else:raise AssertionError("Path traversal accepted")
++print("PASS: installer dry run, original-file backup, install hashes, idempotence, edited-file protection and path bounds")
+--- /dev/null
++++ b/tests/test_lab2_regression.c
+@@ -0,0 +1,236 @@
++#include "fixture.h"
++
++static int saved_pixels[SCREEN_WIDTH * SCREEN_HEIGHT];
++static uint32_t random_state = UINT32_C(0x20261008);
++
++static int random_between(int low, int high)
++{
++    random_state = random_state * UINT32_C(1664525) + UINT32_C(1013904223);
++    return low + (int)(random_state % (uint32_t)(high - low + 1));
++}
++
++static void test_rectangle(int x, int y, int width, int height)
++{
++    snprintf(case_label, sizeof(case_label), "rectangle %u (%d,%d,%d,%d)",
++             tested_cases, x, y, width, height);
++    reset_surfaces(0);
++    fb_draw_rect(x, y, width, height, TEST_COLOR);
++    int64_t right = (int64_t)x + width;
++    int64_t bottom = (int64_t)y + height;
++    for(int row = 0; row < SCREEN_HEIGHT; ++row) {
++        for(int column = 0; column < SCREEN_WIDTH; ++column) {
++            int inside = width > 0 && height > 0 &&
++                         (int64_t)column >= x && (int64_t)column < right &&
++                         (int64_t)row >= y && (int64_t)row < bottom;
++            require(DRAW_BUF[row * SCREEN_WIDTH + column] ==
++                    (inside ? TEST_COLOR : 0), "rectangle point-containment oracle");
++        }
++    }
++    check_canaries();
++    fb_update();
++    check_front_matches_back();
++    ++tested_cases;
++}
++
++static void test_line(int x1, int y1, int x2, int y2)
++{
++    snprintf(case_label, sizeof(case_label), "line %u (%d,%d)-(%d,%d)",
++             tested_cases, x1, y1, x2, y2);
++    reset_surfaces(0);
++    fb_draw_line(x1, y1, x2, y2, TEST_COLOR);
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++    int64_t major1 = steep ? y1 : x1, major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1, minor2 = steep ? x2 : y2;
++    int major_limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int minor_limit = steep ? SCREEN_WIDTH : SCREEN_HEIGHT;
++    int counts[SCREEN_WIDTH] = {0};
++    int count = 0;
++
++    for(int row = 0; row < SCREEN_HEIGHT; ++row) {
++        for(int column = 0; column < SCREEN_WIDTH; ++column) {
++            int pixel = DRAW_BUF[row * SCREEN_WIDTH + column];
++            if(pixel == 0) continue;
++            require(pixel == TEST_COLOR, "line color");
++            ++count;
++            int major = steep ? row : column;
++            int minor = steep ? column : row;
++            ++counts[major];
++            if(major1 == major2) {
++                require(column == x1 && row == y1, "degenerate line is one pixel");
++            } else {
++                int64_t low = major1 < major2 ? major1 : major2;
++                int64_t high = major1 > major2 ? major1 : major2;
++                require(major >= low && major <= high, "pixel beyond endpoints");
++                double parameter = ((double)major - major1) /
++                                   ((double)major2 - major1);
++                double ideal = minor1 + ((double)minor2 - minor1) * parameter;
++                require(fabs(minor - ideal) <= 0.50001,
++                        "line exceeds half-pixel geometric error");
++            }
++        }
++    }
++    if(major1 == major2) {
++        int visible = x1 >= 0 && x1 < SCREEN_WIDTH &&
++                      y1 >= 0 && y1 < SCREEN_HEIGHT;
++        require(count == visible, "single-point count");
++    } else {
++        int64_t low = major1 < major2 ? major1 : major2;
++        int64_t high = major1 > major2 ? major1 : major2;
++        for(int major = 0; major < major_limit; ++major) {
++            require(counts[major] <= 1, "more than one pixel per major coordinate");
++            if(major < low || major > high) {
++                require(counts[major] == 0, "major coordinate outside segment");
++                continue;
++            }
++            double parameter = ((double)major - major1) /
++                               ((double)major2 - major1);
++            double ideal = minor1 + ((double)minor2 - minor1) * parameter;
++            if(ideal >= 0 && ideal <= minor_limit - 1)
++                require(counts[major] == 1, "gap on a visible line");
++            if(ideal < -0.50001 || ideal > minor_limit - 0.49999)
++                require(counts[major] == 0, "pixel outside clipping tolerance");
++        }
++    }
++    check_canaries();
++    memcpy(saved_pixels, DRAW_BUF, sizeof(saved_pixels));
++    reset_surfaces(0);
++    fb_draw_line(x2, y2, x1, y1, TEST_COLOR);
++    require(memcmp(saved_pixels, DRAW_BUF, sizeof(saved_pixels)) == 0,
++            "endpoint reversal changed rasterization");
++    check_canaries();
++    fb_update();
++    check_front_matches_back();
++    ++tested_cases;
++}
++
++static void test_golden_octants(void)
++{
++    const int points[6][2] = {{0,0},{1,0},{2,1},{3,1},{4,2},{5,2}};
++    for(int transpose = 0; transpose < 2; ++transpose) {
++        for(int sx = -1; sx <= 1; sx += 2) {
++            for(int sy = -1; sy <= 1; sy += 2) {
++                snprintf(case_label, sizeof(case_label), "golden octant %d %d %d",
++                         transpose, sx, sy);
++                reset_surfaces(0);
++                memset(saved_pixels, 0, sizeof(saved_pixels));
++                for(int i = 0; i < 6; ++i) {
++                    int x = 20 + sx * points[i][transpose ? 1 : 0];
++                    int y = 20 + sy * points[i][transpose ? 0 : 1];
++                    saved_pixels[y * SCREEN_WIDTH + x] = TEST_COLOR;
++                }
++                int end_x = 20 + sx * (transpose ? 2 : 5);
++                int end_y = 20 + sy * (transpose ? 5 : 2);
++                fb_draw_line(20, 20, end_x, end_y, TEST_COLOR);
++                require(memcmp(saved_pixels, DRAW_BUF, sizeof(saved_pixels)) == 0,
++                        "golden pixel coordinates");
++                fb_update();
++                check_front_matches_back();
++                ++tested_cases;
++            }
++        }
++    }
++}
++
++static void test_pixel_and_double_buffer(void)
++{
++    snprintf(case_label, sizeof(case_label), "pixel clipping");
++    reset_surfaces(0);
++    fb_draw_pixel(-1, 0, TEST_COLOR);
++    fb_draw_pixel(0, -1, TEST_COLOR);
++    fb_draw_pixel(SCREEN_WIDTH, 0, TEST_COLOR);
++    fb_draw_pixel(0, SCREEN_HEIGHT, TEST_COLOR);
++    fb_draw_pixel(INT_MIN, INT_MAX, TEST_COLOR);
++    fb_draw_pixel(0, 0, TEST_COLOR);
++    fb_draw_pixel(SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, TEST_COLOR);
++    int count = 0;
++    for(int i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT; ++i) {
++        if(DRAW_BUF[i] == TEST_COLOR) ++count;
++        else require(DRAW_BUF[i] == 0, "unexpected pixel color");
++    }
++    require(count == 2, "pixel clipping count");
++    check_canaries();
++    fb_update();
++    check_front_matches_back();
++    ++tested_cases;
++
++    snprintf(case_label, sizeof(case_label), "deferred dirty-region refresh");
++    reset_surfaces(CANARY);
++    uint64_t before = front_hash();
++    fb_draw_rect(10, 20, 3, 4, TEST_COLOR);
++    require(front_hash() == before, "drawing changed front buffer before update");
++    require(update_area.x1 == 10 && update_area.x2 == 13 &&
++            update_area.y1 == 20 && update_area.y2 == 24, "dirty-region bounds");
++    fb_update();
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = 0; x < SCREEN_WIDTH; ++x) {
++            int inside = x >= 10 && x < 13 && y >= 20 && y < 24;
++            require(LCD_FB_BUF[y * PITCH_WORDS + x] ==
++                    (inside ? TEST_COLOR : CANARY), "update copied unrelated region");
++        }
++    require(update_area.x2 == 0, "dirty region not reset");
++    before = front_hash();
++    fb_update();
++    require(front_hash() == before, "empty update changed front buffer");
++    check_canaries();
++    ++tested_cases;
++
++    snprintf(case_label, sizeof(case_label), "merged dirty regions");
++    reset_surfaces(0);
++    fb_draw_pixel(3, 4, TEST_COLOR);
++    fb_draw_rect(20, 30, 2, 2, TEST_COLOR);
++    require(update_area.x1 == 3 && update_area.x2 == 22 &&
++            update_area.y1 == 4 && update_area.y2 == 32, "dirty-region union");
++    fb_update();
++    check_front_matches_back();
++    ++tested_cases;
++}
++
++int main(void)
++{
++    test_pixel_and_double_buffer();
++    printf("PASS: pixel clipping, deferred refresh, dirty-region union and padded stride\n");
++    const int rectangles[][4] = {
++        {0,0,SCREEN_WIDTH,SCREEN_HEIGHT},{0,0,1,1},{-5,-5,20,20},
++        {SCREEN_WIDTH-5,SCREEN_HEIGHT-5,20,20},{-30,5,20,20},
++        {SCREEN_WIDTH,5,20,20},{5,-30,20,20},{5,SCREEN_HEIGHT,20,20},
++        {5,5,0,20},{5,5,20,0},{5,5,-1,20},{5,5,20,-1},
++        {INT_MIN,INT_MIN,INT_MAX,INT_MAX},
++        {-100,-100,INT_MAX,INT_MAX},{INT_MAX,INT_MAX,INT_MAX,INT_MAX},
++        {INT_MIN,0,INT_MAX,100}
++    };
++    for(unsigned i = 0; i < sizeof(rectangles)/sizeof(rectangles[0]); ++i)
++        test_rectangle(rectangles[i][0], rectangles[i][1],
++                       rectangles[i][2], rectangles[i][3]);
++    for(int i = 0; i < 120; ++i)
++        test_rectangle(random_between(-50,SCREEN_WIDTH+50),
++                       random_between(-50,SCREEN_HEIGHT+50),
++                       random_between(-30,SCREEN_WIDTH+80),
++                       random_between(-30,SCREEN_HEIGHT+80));
++    printf("PASS: rectangle geometry, clipping, invalid sizes and integer extremes\n");
++
++    test_golden_octants();
++    const int lines[][4] = {
++        {0,0,0,0},{-1,-1,-1,-1},{17,20,900,20},{20,17,20,500},
++        {0,0,SCREEN_WIDTH-1,SCREEN_HEIGHT-1},
++        {-5,-5,20,20},{-20,100,1100,100},{100,-20,100,700},
++        {-20,-20,-1,-1},{1024,100,1100,500},
++        {0,-1,1023,-1},{0,600,1023,600},
++        {INT_MIN,123,INT_MAX,123},{456,INT_MIN,456,INT_MAX},
++        {INT_MIN,INT_MIN,INT_MAX,INT_MAX},
++        {INT_MIN,INT_MAX,INT_MAX,INT_MIN},
++        {INT_MAX,INT_MAX,INT_MAX,INT_MAX}
++    };
++    for(unsigned i = 0; i < sizeof(lines)/sizeof(lines[0]); ++i)
++        test_line(lines[i][0], lines[i][1], lines[i][2], lines[i][3]);
++    for(int i = 0; i < 240; ++i)
++        test_line(random_between(-80,SCREEN_WIDTH+80),
++                  random_between(-80,SCREEN_HEIGHT+80),
++                  random_between(-80,SCREEN_WIDTH+80),
++                  random_between(-80,SCREEN_HEIGHT+80));
++    printf("PASS: eight octants, geometric error, reversed endpoints and extreme clipping\n");
++    printf("PASS: %u offline cases\n", tested_cases);
++    free(front_storage);
++    return 0;
++}
+--- /dev/null
++++ b/tests/test_touch_and_bluetooth.c
+@@ -0,0 +1,110 @@
++#include "../common/touch_protocol.h"
++#include "../lab5_bt/text_stream.h"
++#include "../lab5_bt/serial_queue.h"
++#include <limits.h>
++#define CHECK(c) do { if(!(c)) { fprintf(stderr,"FAIL line %d: %s\n",__LINE__,#c); exit(1); } ++assertions; } while(0)
++static unsigned assertions;
++static touch_state state;
++static touch_sample sample;
++static char messages[100][BT_LINE_CAP];
++static unsigned message_count;
++static void capture(const char *line, void *context)
++{
++    (void)context; CHECK(message_count<100); CHECK(strlen(line)<BT_LINE_CAP);
++    strcpy(messages[message_count++],line);
++}
++static void expect_touch(int type,int x,int y,int finger)
++{
++    CHECK(touch_state_pop(&state,&sample));
++    CHECK(sample.type==type && sample.x==x && sample.y==y && sample.finger==finger);
++}
++static void touch_tests(void)
++{
++    touch_state_init(&state);
++    for(int i=0;i<5;++i) {
++        touch_state_slot(&state,i);touch_state_tracking(&state,100+i);
++        touch_state_position(&state,0,10+i);touch_state_position(&state,1,20+i);
++    }
++    CHECK(!touch_state_pop(&state,&sample)); /* Until SYN_REPORT no incomplete coordinate pair escapes. */
++    touch_state_sync(&state);
++    for(int i=0;i<5;++i) expect_touch(TOUCH_PRESS,10+i,20+i,i);
++    CHECK(!touch_state_pop(&state,&sample));
++    touch_state_slot(&state,0);touch_state_position(&state,0,42);touch_state_sync(&state);
++    expect_touch(TOUCH_MOVE,42,20,0);CHECK(!touch_state_pop(&state,&sample));
++    touch_state_sync(&state);CHECK(!touch_state_pop(&state,&sample));
++    touch_state_slot(&state,99);touch_state_position(&state,0,999);touch_state_tracking(&state,-1);
++    touch_state_sync(&state);CHECK(!touch_state_pop(&state,&sample));
++    touch_state_slot(&state,0);touch_state_tracking(&state,200);
++    touch_state_position(&state,0,50);touch_state_position(&state,1,60);touch_state_sync(&state);
++    expect_touch(TOUCH_RELEASE,42,20,0);expect_touch(TOUCH_PRESS,50,60,0);
++    for(int i=0;i<5;++i) {touch_state_slot(&state,i);touch_state_tracking(&state,-1);}
++    touch_state_sync(&state);expect_touch(TOUCH_RELEASE,50,60,0);
++    for(int i=1;i<5;++i) expect_touch(TOUCH_RELEASE,10+i,20+i,i);
++    CHECK(!touch_state_pop(&state,&sample));
++    CHECK(touch_scale_axis(0,0,4095,1024)==0);
++    CHECK(touch_scale_axis(4095,0,4095,1024)==1023);
++    CHECK(touch_scale_axis(-100,0,4095,600)==0);
++    CHECK(touch_scale_axis(5000,0,4095,600)==599);
++    CHECK(touch_scale_axis(512,0,1023,1024)==512);
++    CHECK(touch_scale_axis(0,-100,100,601)==300);
++    CHECK(touch_scale_axis(INT_MAX,INT_MIN,INT_MAX,1024)==1023);
++    printf("PASS: protocol-B replay (five slots, SYN frames, partial axes, replacement, release, scaling)\n");
++}
++static void text_tests(void)
++{
++    const char *text="你好，Orange Pi!\nsecond\r\n";
++    for(size_t split=0;split<=strlen(text);++split) {
++        bt_text_stream s;message_count=0;bt_text_init(&s,capture,NULL);
++        bt_text_feed(&s,(const uint8_t *)text,split);
++        bt_text_feed(&s,(const uint8_t *)text+split,strlen(text)-split);
++        CHECK(message_count==2);CHECK(strcmp(messages[0],"你好，Orange Pi!")==0);
++        CHECK(strcmp(messages[1],"second")==0);
++    }
++    bt_text_stream s;message_count=0;bt_text_init(&s,capture,NULL);
++    const uint8_t first[]={0xe4};bt_text_feed(&s,first,1);bt_text_flush(&s,0);
++    CHECK(message_count==0);
++    const uint8_t rest[]={0xbd,0xa0,'\n'};bt_text_feed(&s,rest,sizeof(rest));
++    CHECK(message_count==1 && strcmp(messages[0],"你")==0);
++    message_count=0;bt_text_init(&s,capture,NULL);
++    bt_text_feed(&s,(const uint8_t *)"no newline",10);bt_text_flush(&s,0);
++    CHECK(message_count==1 && strcmp(messages[0],"no newline")==0);
++    message_count=0;bt_text_init(&s,capture,NULL);
++    for(int i=0;i<200;++i) bt_text_feed(&s,(const uint8_t *)"嵌",3);
++    bt_text_flush(&s,1);size_t bytes=0;
++    for(unsigned i=0;i<message_count;++i) {CHECK(strlen(messages[i])%3==0);bytes+=strlen(messages[i]);}
++    CHECK(bytes==600);
++    message_count=0;bt_text_init(&s,capture,NULL);
++    const uint8_t invalid[]={0xed,0xa0,0x80,0,27,'\n'};
++    bt_text_feed(&s,invalid,sizeof(invalid));CHECK(message_count==1);
++    CHECK(strcmp(messages[0],"?????")==0);
++    message_count=0;bt_text_init(&s,capture,NULL);
++    bt_text_feed(&s,first,1);bt_text_flush(&s,1);CHECK(message_count==1 && strcmp(messages[0],"?")==0);
++    printf("PASS: Bluetooth text stream (every split point, UTF-8, CRLF, idle flush, long/invalid input)\n");
++}
++static int write_step;
++static char transmitted[256];
++static size_t transmitted_length;
++static int fake_writer(const char *bytes,size_t length,void *context)
++{
++    (void)context;
++    int result=write_step==0 ? 2 : write_step==1 ? BT_IO_RETRY : write_step==2 ? BT_IO_WAIT : (int)length;
++    ++write_step;
++    if(result>0) {memcpy(transmitted+transmitted_length,bytes,(size_t)result);transmitted_length+=(size_t)result;}
++    return result;
++}
++static void queue_tests(void)
++{
++    bt_tx_queue q={0};
++    CHECK(bt_tx_enqueue(&q,"hello\n",6)==0);
++    CHECK(bt_tx_flush(&q,fake_writer,NULL)==0);
++    CHECK(q.offset==2 && q.length==6);
++    CHECK(bt_tx_enqueue(&q,"next\n",5)==0);
++    CHECK(bt_tx_flush(&q,fake_writer,NULL)==1);
++    CHECK(q.offset==0 && q.length==0);
++    CHECK(transmitted_length==11 && memcmp(transmitted,"hello\nnext\n",11)==0);
++    char full[256];memset(full,'x',sizeof(full));
++    CHECK(bt_tx_enqueue(&q,full,sizeof(full))==0);
++    CHECK(bt_tx_enqueue(&q,"x",1)<0 && q.length==sizeof(full));
++    printf("PASS: transmit queue (partial write, EINTR retry, EAGAIN resume, order, capacity)\n");
++}
++int main(void) { touch_tests();text_tests();queue_tests();printf("PASS: %u interaction assertions\n",assertions);return 0; }

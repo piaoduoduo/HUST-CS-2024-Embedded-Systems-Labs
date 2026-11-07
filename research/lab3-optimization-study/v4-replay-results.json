@@ -1,0 +1,92 @@
+{
+  "allNineStageHashesEqual": true,
+  "hashes": {
+    "original": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ],
+    "batch": [
+      [
+        "0",
+        "b128420dd322eb05"
+      ],
+      [
+        "1",
+        "ce7ea1555936eb05"
+      ],
+      [
+        "2",
+        "4c67f48d07ddf22b"
+      ],
+      [
+        "3",
+        "9e7e7d957baaca9c"
+      ],
+      [
+        "4",
+        "951b0f9d1afaea99"
+      ],
+      [
+        "5",
+        "50768f050eb37b30"
+      ],
+      [
+        "6",
+        "872430dbecb78e62"
+      ],
+      [
+        "7",
+        "21f287a39ef199e5"
+      ],
+      [
+        "8",
+        "0d51968aab5a26fa"
+      ]
+    ]
+  },
+  "logs": {
+    "original": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n",
+    "batch": "STAGE_HASH 0 b128420dd322eb05\n\n========== Start Test ===========\n\nLab2 test:\nSTAGE_HASH 1 ce7ea1555936eb05\ndraw pixel: 0 ms\nSTAGE_HASH 2 4c67f48d07ddf22b\ndraw rect: 0 ms\nSTAGE_HASH 3 9e7e7d957baaca9c\ndraw line: 0 ms\n\nLab3 test:\nSTAGE_HASH 4 951b0f9d1afaea99\n    **jpeg:\t0\nBATCH_API_EXPERIMENT=1 submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 flushes=1\nSTAGE_HASH 5 50768f050eb37b30\n    **png:\t0\nSTAGE_HASH 6 872430dbecb78e62\n    **font:\t0\ndraw image: 0 ms\nSTAGE_HASH 7 21f287a39ef199e5\ndraw text: 0 ms\n\nTotal time: 0 ms\n\n=================================\nSTAGE_HASH 8 0d51968aab5a26fa\n"
+  },
+  "hardwareValidated": false,
+  "performanceMeasured": false,
+  "timeStubAlwaysZero": true,
+  "sleepsDisabledOnlyInHostReplay": true,
+  "decodeAndFontSimulation": "Pillow host adapters",
+  "neonArithmeticEmulated": true,
+  "hostThreads": 4
+}

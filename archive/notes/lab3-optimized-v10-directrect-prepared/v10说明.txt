@@ -1,0 +1,48 @@
+实验三 v10：整合画点优化（2026-10-18）
+
+版本
+v10-sprint默认采用FB_PIXEL_MODE=2：无符号边界/size_t地址计算、按轴跳过已包含点的脏区更新。
+v10-unsigned为mode1；v10-minmax为mode3。--disable pixel保持原画点语义的回退路径。
+继承v9的PNG、文字、几何、JPG、精确整数混合和并行优化；本次新增逻辑只在画点函数。
+sprint-v10-main.c与sprint-v9-main.c逐字节相同，157685次画点调用和153600个有效点保留。
+点颜色立即写入，精确脏区立即更新；没有把工作移出计时或把点阵换成预制结果。
+
+保留
+resources/lab3-optimized-v9-ready.tgz为完整v9包，SHA256：
+a6bfb3e6336bcee2c7197164fc1c3fce0dc455d52243463e241a78136a9b9877
+lab3-optimized-prepared为原v9源码，保持不变；实验三原版及v6/v7/v8归档继续保留。
+lab3-pixel-prepared与lab3-pixel-candidate-ready.tgz保留上一轮独立候选。
+公开仓库逐文件与此前冻结zip比对，保持不变；等待实验三、五、六验收后再更新公开成果。
+
+最新入口
+本目录为lab3-optimized-v10-prepared。
+lab3-optimized-v10-ready.tgz为v10版本包；通用lab3-optimized-ready.tgz同步指向这个v10包。
+旧工具的历史文档可能仍写v9；本说明和新版run-sprint.py为当前入口。
+package.py只按已验证manifest重新归档v10，不从旧研究目录重新生成源码。
+
+上板待执行
+1. 解压到独立目录，进入lab3-optimized-v10-prepared：
+   python3 run-sprint.py --project /path/to/course-project --build-only
+   以相同flags先运行原生像素/即时脏区/真实字体/完整回放检查，任一失败会停止。
+2. 确认板上桌面、其他画屏进程和framebuffer配置正确后：
+   python3 run-sprint.py --project /path/to/course-project --runs 5 --precise-timing
+   比较baseline、v9-sprint、v10-sprint、v10-unsigned、v10-minmax；默认2线程、LTO、native、performance和fast核集合。
+   轮换原课程测试顺序，先完成全部原口径成绩，再另跑纳秒诊断，记录pixel与total等分项。
+   只想看画点差异时可用run-pixel-compare.py，比较v9和三种v10，不包含baseline。
+3. 根据实测选择版本。电脑上axis最快不表示在A72上一定最快，保留另外两种和--disable pixel。
+4. 正常退出恢复临时CPU设置；断电/强制终止后按runtime-controls记录与restore-controls.py核对恢复。
+
+验证口径
+画点候选已有8配置离线测试，每配置590检查点/194651次点调用，另有404项基础图形及9阶段回放。
+本次v10包再覆盖默认、unsigned、minmax、关闭pixel以及NEON模拟+OMP2+LTO五组整合回归。
+入口与原生检查的计划通过模拟检查；尚未在ARM编译或真实FreeType执行。
+电脑微基准中LTO下axis相对原画点约快31%，无LTO时改善不明显；只说明存在值得板测的候选，不能按此百分比推算整个程序。
+v9已用LTO、调频和绑核，不能把这些已有配置再算一次新增收益。
+
+总时间预估
+尚无v9/v10板上耗时。当前仍以约25—45ms作为宽松工程规划，中心约30ms；不是置信区间，实际可能超出。
+相对同配置v9，本次画点新增收益暂按0—2ms级别看待，甚至可能回退；保留对照选更快版本。
+如果实际v9画点仍约6ms、v10达到2ms，才会节省4ms；如果v9本来只有1—2ms，不能再扣4ms。
+接近20ms属于乐观情形，目前把握偏低，没有可信的统计百分比，不能据主机结果承诺达标。
+剩余关键在PNG混合、字模/文字、几何生成与索引的板上实际成本。20ms预算需要七项总和实测满足，不以减少操作次数替代计时。
+原课程计时不含解码、fb_update和sleep；精细诊断另记，两者都不是程序总运行时长或FPS。

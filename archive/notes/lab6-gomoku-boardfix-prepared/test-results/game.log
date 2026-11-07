@@ -1,0 +1,2 @@
+PASS: 4700043 checks; rules, AI, touch gating, undo, confirmations, session replay/checksum and resume
+Host test CPU time: 0.220 s (not an Orange Pi measurement)

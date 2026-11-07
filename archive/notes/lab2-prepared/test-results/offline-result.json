@@ -1,0 +1,30 @@
+{
+  "recordedAt": "2026-10-22T17:21:15.525588+08:00",
+  "mode": "Windows-host C tests and memory framebuffer simulation",
+  "offlineCasesPassed": 404,
+  "compiler": "E:\\x86_64-8.1.0-release-win32-seh-rt_v6-rev0\\mingw64\\bin\\gcc.exe",
+  "compilerFlags": [
+    "-std=c11",
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-Wno-unused-parameter",
+    "-static",
+    "-I",
+    "/example/user\\Documents\\ChatGPT\\嵌入式系统实验\\lab2-prepared\\build"
+  ],
+  "productionSourceSHA256": "dccfc7483cbf3c46fe2981a680d91044a8ccae776b2d492e7eec41b32739b6f5",
+  "onlyLab2FunctionsChangedInGraphicC": true,
+  "courseLab2MainAndMakefileUnchanged": true,
+  "originalCourseMainCompletedInSimulation": true,
+  "backBufferAndFrontBufferCanariesIntact": true,
+  "paddedFramebufferStrideVerified": true,
+  "hardwareValidated": false,
+  "preview": "preview/lab2-simulated.png",
+  "pending": [
+    "ARM-native compilation on the Orange Pi",
+    "Real framebuffer format and geometry check",
+    "Physical screen verification and teaching-assistant acceptance"
+  ]
+}

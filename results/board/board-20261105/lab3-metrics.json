@@ -1,0 +1,41 @@
+{
+  "actualDate": "2026-11-05",
+  "boardClockStale": true,
+  "allRoundsIncluded": true,
+  "rounds": [
+    {
+      "round": 1,
+      "rawBoardDirectory": "20261019-142859-071267",
+      "pixelMs": 0,
+      "rectMs": 4,
+      "lineMs": 4,
+      "imageMs": 9,
+      "textMs": 41,
+      "totalMs": 58
+    },
+    {
+      "round": 2,
+      "rawBoardDirectory": "20261019-142910-408683",
+      "pixelMs": 1,
+      "rectMs": 4,
+      "lineMs": 4,
+      "imageMs": 9,
+      "textMs": 1,
+      "totalMs": 19
+    },
+    {
+      "round": 3,
+      "rawBoardDirectory": "20261019-142918-954174",
+      "pixelMs": 1,
+      "rectMs": 5,
+      "lineMs": 4,
+      "imageMs": 9,
+      "textMs": 1,
+      "totalMs": 20
+    }
+  ],
+  "medianMs": 20,
+  "minimumMs": 19,
+  "firstRoundNote": "Text stage 41 ms versus 1 ms in following rounds; cause not established.",
+  "timingScope": "Original course integer-ms draw timers; includes batch API candidate; not application startup time or all display/decode/refresh overhead."
+}

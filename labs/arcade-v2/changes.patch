@@ -1,0 +1,2684 @@
+--- /dev/null
++++ b/arcade/Makefile
+@@ -0,0 +1,3 @@
++EXENAME := lab6_arcade
++EXESRCS := main.c engine.c breaker.c app.c render.c profile.c
++include ../common/rules.mk
+--- /dev/null
++++ b/arcade/app.c
+@@ -0,0 +1,79 @@
++#include "app.h"
++#include <string.h>
++#include <stdlib.h>
++void arcade_init(arcade_app *a,unsigned seed) {
++    memset(a,0,sizeof(*a));a->owner=-1;a->rng=seed?seed:1;a->dirty=1;
++    puzzle_init(&a->puzzle,a->rng);breaker_init(&a->breaker);
++    a->hint=-2;a->records_ok=1;
++}
++static void restart(arcade_app *a) {
++    if(a->mode==1){puzzle_init(&a->puzzle,++a->rng);a->can_undo=0;a->hint=-2;a->pulse=0;}
++    if(a->mode==2)breaker_init(&a->breaker);
++}
++void arcade_touch(arcade_app *a,int type,int x,int y,int finger) {
++    arcade_collect(a);
++    if(finger<0||finger>=5)return;
++    if(type==1) {
++        if(a->owner!=-1)return;
++        a->owner=finger;a->start_x=x;a->start_y=y;
++    } else if(finger!=a->owner)return;
++    if(a->mode==2&&!a->confirm&&a->start_x<740&&x<740&&type==2) {
++        breaker_paddle(&a->breaker,x);a->dirty=1;
++    }
++    if(type!=3)return;
++    a->owner=-1;a->dirty=1;
++    int dx=x-a->start_x,dy=y-a->start_y;
++    int tap=abs(dx)<25&&abs(dy)<25;
++    if(a->confirm) {
++        if(tap&&x>=780&&x<1000&&y>=270&&y<330){restart(a);a->confirm=0;}
++        else if(tap)a->confirm=0;
++        return;
++    }
++    if(!a->mode) {
++        if(!tap)return;
++        if(x>=50&&x<974&&y>=120&&y<180)a->launch_gomoku=1;
++        if(x>=50&&x<974&&y>=220&&y<280)a->mode=1;
++        if(x>=50&&x<974&&y>=320&&y<380)a->mode=2;
++        if(x>=780&&y>=520)a->quit=1;
++        return;
++    }
++    if(tap&&x>=780&&x<1000) {
++        if(y>=100&&y<160){a->mode=0;return;}
++        if(y>=190&&y<250){a->confirm=1;return;}
++        if(a->mode==2&&y>=280&&y<340){a->breaker.paused=!a->breaker.paused;return;}
++        if(a->mode==2&&y>=360&&y<420){breaker_next_level(&a->breaker);return;}
++        if(a->mode==1&&y>=280&&y<340) {
++            if(a->can_undo){a->puzzle=a->undo;a->can_undo=0;a->hint=-2;a->pulse=0;}
++            return;
++        }
++        if(a->mode==1&&y>=360&&y<420){a->hint=puzzle_hint(&a->puzzle);return;}
++    }
++    if(a->mode==1&&a->start_x>=110&&a->start_x<590&&a->start_y>=90&&a->start_y<570) {
++        if(abs(dx)>=35||abs(dy)>=35) {
++            puzzle before=a->puzzle;
++            if(puzzle_move(&a->puzzle,abs(dx)>abs(dy)?(dx<0?0:1):(dy<0?2:3))) {
++                a->undo=before;a->can_undo=1;a->hint=-2;a->pulse=0.22;
++            }
++        }
++    }
++    if(a->mode==2&&x<740&&a->start_x<740) {breaker_paddle(&a->breaker,x);breaker_launch(&a->breaker);}
++}
++void arcade_tick(arcade_app *a,double dt) {
++    if(dt>0&&a->pulse>0&&a->mode==1){a->pulse-=dt;if(a->pulse<0)a->pulse=0;a->dirty=1;}
++    if(a->mode==2&&!a->confirm) {
++        breaker before=a->breaker;
++        breaker_tick(&a->breaker,dt);
++        if(memcmp(&before,&a->breaker,sizeof(before)))a->dirty=1;
++    }
++    arcade_collect(a);
++}
++void arcade_collect(arcade_app *a) {
++    arcade_profile before=a->profile;
++    if(a->puzzle.score>a->profile.puzzle_best)a->profile.puzzle_best=a->puzzle.score;
++    if((unsigned)a->breaker.score>a->profile.breaker_best)a->profile.breaker_best=(unsigned)a->breaker.score;
++    if((unsigned)a->breaker.best_combo>a->profile.best_combo)a->profile.best_combo=(unsigned)a->breaker.best_combo;
++    for(int i=0;i<16;i++)if(a->puzzle.cell[i]>=2048)a->profile.badges|=1;
++    if(a->breaker.best_combo>=5)a->profile.badges|=2;
++    if(a->breaker.result==1)a->profile.badges|=1u<<(a->breaker.level+1);
++    if(memcmp(&before,&a->profile,sizeof(before)))a->dirty=1;
++}
+--- /dev/null
++++ b/arcade/app.h
+@@ -0,0 +1,19 @@
++#ifndef ARCADE_APP_H
++#define ARCADE_APP_H
++#include "engine.h"
++#include "profile.h"
++typedef struct {
++    puzzle puzzle; breaker breaker;
++    int mode,owner,start_x,start_y,dirty,quit,launch_gomoku,confirm;
++    unsigned rng;
++    puzzle undo;
++    int can_undo,hint,records_ok;
++    double pulse;
++    arcade_profile profile;
++} arcade_app;
++void arcade_init(arcade_app *a,unsigned seed);
++void arcade_touch(arcade_app *a,int type,int x,int y,int finger);
++void arcade_tick(arcade_app *a,double dt);
++void arcade_render(const arcade_app *a);
++void arcade_collect(arcade_app *a);
++#endif
+--- /dev/null
++++ b/arcade/breaker.c
+@@ -0,0 +1,118 @@
++#include "engine.h"
++#include <string.h>
++#include <math.h>
++static const double STEP=1.0/240.0;
++double breaker_half_width(const breaker *b) {return b->wide_time>0?85:55;}
++static double speed(const breaker *b) {return 300+(b->level-1)*35;}
++static void reset_ball(breaker *b) {
++    b->x=b->paddle;b->y=495;b->vx=speed(b)*0.5;b->vy=-speed(b)*0.8660254;
++    b->launched=0;b->combo=0;b->trail_count=0;
++}
++static void layout(breaker *b) {
++    b->remaining=0;b->result=0;b->paused=0;b->accumulator=0;
++    b->drop_type=0;b->wide_time=b->slow_time=0;b->shield=0;
++    memset(b->particles,0,sizeof(b->particles));
++    for(int i=0;i<50;i++) {
++        int row=i/10,col=i%10;
++        int on=b->level==1||b->level==3||(row+col)%2==0;
++        b->brick[i]=(unsigned char)(on?(b->level==3&&row<3?2:1):0);
++        b->remaining+=!!b->brick[i];
++    }
++    breaker_paddle(b,b->paddle);reset_ball(b);
++}
++void breaker_init(breaker *b) {
++    memset(b,0,sizeof(*b));b->lives=3;b->level=1;b->paddle=380;b->effects_rng=71;layout(b);
++}
++int breaker_next_level(breaker *b) {
++    if(b->result!=1||b->level>=3)return 0;
++    b->level++;layout(b);return 1;
++}
++void breaker_paddle(breaker *b,double x) {
++    double half=breaker_half_width(b);
++    b->paddle=x<40+half?40+half:x>720-half?720-half:x;
++    if(!b->launched)b->x=b->paddle;
++}
++void breaker_launch(breaker *b) {if(!b->result&&!b->paused)b->launched=1;}
++static unsigned random_effect(breaker *b) {
++    b->effects_rng=b->effects_rng*1664525u+1013904223u;return b->effects_rng;
++}
++static void burst(breaker *b,double x,double y) {
++    int n=0;
++    for(int i=0;i<BREAK_PARTICLES&&n<8;i++)if(b->particles[i].life<=0) {
++        b->particles[i]=(spark){x,y,(int)(random_effect(b)%241)-120,(int)(random_effect(b)%181)-120,0.45};n++;
++    }
++}
++static void effects(breaker *b,double dt) {
++    for(int i=0;i<BREAK_PARTICLES;i++)if(b->particles[i].life>0) {
++        spark *p=&b->particles[i];p->life-=dt;p->x+=p->vx*dt;p->y+=p->vy*dt;p->vy+=150*dt;
++    }
++}
++static void powerups(breaker *b) {
++    if(b->wide_time>0)b->wide_time=fmax(0,b->wide_time-STEP);
++    if(b->slow_time>0)b->slow_time=fmax(0,b->slow_time-STEP);
++    if(!b->drop_type)return;
++    double old=b->drop_y;b->drop_y+=130*STEP;
++    if(old<=522&&b->drop_y>=500&&fabs(b->drop_x-b->paddle)<=breaker_half_width(b)+10) {
++        if(b->drop_type==1)b->wide_time=10;
++        if(b->drop_type==2)b->slow_time=8;
++        if(b->drop_type==3)b->shield=1;
++        b->drop_type=0;breaker_paddle(b,b->paddle);
++    } else if(b->drop_y>570)b->drop_type=0;
++}
++static void step(breaker *b) {
++    const double r=7;double ox=b->x,oy=b->y;
++    powerups(b);effects(b,STEP);
++    double dt=STEP*(b->slow_time>0?0.68:1);
++    b->x+=b->vx*dt;b->y+=b->vy*dt;
++    if(b->x<47){b->x=47;b->vx=fabs(b->vx);}
++    if(b->x>713){b->x=713;b->vx=-fabs(b->vx);}
++    if(b->y<87){b->y=87;b->vy=fabs(b->vy);}
++    double half=breaker_half_width(b);
++    if(b->vy>0&&oy+r<=510&&b->y+r>=510&&fabs(b->x-b->paddle)<=half+7) {
++        b->y=503;double offset=(b->x-b->paddle)/(half+7);
++        b->vx=offset*speed(b)*0.80;b->vy=-sqrt(speed(b)*speed(b)-b->vx*b->vx);
++        b->combo=0;
++    }
++    for(int i=0;i<50;i++)if(b->brick[i]) {
++        double x=48+(i%10)*66,y=110+(i/10)*32;
++        if(b->x+r>=x&&b->x-r<=x+60&&b->y+r>=y&&b->y-r<=y+24) {
++            b->brick[i]--;burst(b,b->x,b->y);
++            if(!b->brick[i]) {
++                b->remaining--;b->destroyed++;b->combo++;
++                if(b->combo>b->best_combo)b->best_combo=b->combo;
++                b->score+=10*(b->combo>8?8:b->combo);
++                if(b->destroyed%5==0&&!b->drop_type) {
++                    b->drop_type=1+(b->drop_serial++%3);b->drop_x=x+30;b->drop_y=y+12;
++                }
++            } else b->score+=2;
++            if(oy+r<=y){b->y=y-r;b->vy=-fabs(b->vy);}
++            else if(oy-r>=y+24){b->y=y+24+r;b->vy=fabs(b->vy);}
++            else if(ox<x){b->x=x-r;b->vx=-fabs(b->vx);}
++            else {b->x=x+60+r;b->vx=fabs(b->vx);}
++            if(!b->remaining)b->result=1;
++            break;
++        }
++    }
++    if(b->shield&&b->vy>0&&b->y+r>=550) {
++        b->shield=0;b->y=543;b->vy=-fabs(b->vy);burst(b,b->x,550);
++    }
++    if(b->y>570) {
++        b->wide_time=b->slow_time=0;b->drop_type=0;
++        if(--b->lives==0)b->result=-1;else reset_ball(b);
++    }
++}
++void breaker_tick(breaker *b,double seconds) {
++    if(!isfinite(seconds)||seconds<=0||b->paused)return;
++    if(seconds>0.1)seconds=0.1;
++    if(!b->launched||b->result){effects(b,seconds);return;}
++    b->accumulator+=seconds;
++    while(b->accumulator+1e-12>=STEP) {
++        b->accumulator=fmax(0,b->accumulator-STEP);step(b);
++        if(b->result||!b->launched){b->accumulator=0;break;}
++    }
++    if(b->launched) {
++        b->trail_x[b->trail_head]=b->x;b->trail_y[b->trail_head]=b->y;
++        b->trail_head=(b->trail_head+1)%BREAK_TRAIL;
++        if(b->trail_count<BREAK_TRAIL)b->trail_count++;
++    }
++}
+--- /dev/null
++++ b/arcade/engine.c
+@@ -0,0 +1,80 @@
++#include "engine.h"
++#include <string.h>
++#include <math.h>
++#include <stdlib.h>
++static unsigned random_next(puzzle *p) {
++    unsigned x=p->rng; x^=x<<13; x^=x>>17; x^=x<<5; return p->rng=x;
++}
++static void spawn(puzzle *p) {
++    int empty[16],n=0;
++    for(int i=0;i<16;i++) if(!p->cell[i]) empty[n++]=i;
++    if(n) { int at=empty[random_next(p)%(unsigned)n]; p->cell[at]=random_next(p)%10 ? 2:4; }
++}
++void puzzle_init(puzzle *p,unsigned seed) { memset(p,0,sizeof(*p));p->rng=seed?seed:1;spawn(p);spawn(p); }
++static int index_at(int d,int line,int i) {
++    if(d==0)return line*4+i;
++    if(d==1)return line*4+3-i;
++    if(d==2)return i*4+line;
++    return (3-i)*4+line;
++}
++static int slide(puzzle *p,int d) {
++    if(d<0||d>3)return 0;
++    unsigned old[16];memcpy(old,p->cell,sizeof(old));
++    for(int l=0;l<4;l++) {
++        unsigned a[4]={0},out[4]={0};int n=0,k=0;
++        for(int i=0;i<4;i++){unsigned v=p->cell[index_at(d,l,i)];if(v)a[n++]=v;}
++        for(int i=0;i<n;i++) {
++            unsigned v=a[i];
++            if(i+1<n&&a[i+1]==v&&v<0x40000000u){v*=2;p->score+=v;i++;}
++            out[k++]=v;
++        }
++        for(int i=0;i<4;i++)p->cell[index_at(d,l,i)]=out[i];
++    }
++    if(!memcmp(old,p->cell,sizeof(old)))return 0;
++    return 1;
++}
++int puzzle_move(puzzle *p,int d) {if(!slide(p,d))return 0;spawn(p);return 1;}
++int puzzle_over(const puzzle *p) {
++    for(int i=0;i<16;i++) {
++        if(!p->cell[i])return 0;
++        if(i%4<3&&p->cell[i]==p->cell[i+1])return 0;
++        if(i<12&&p->cell[i]==p->cell[i+4])return 0;
++    }
++    return 1;
++}
++static int exponent(unsigned v) {int n=0;while(v>1){v>>=1;n++;}return n;}
++static double evaluate(const puzzle *p) {
++    double score=0;unsigned largest=0;
++    for(int i=0;i<16;i++) {
++        if(!p->cell[i])score+=250;
++        if(p->cell[i]>largest)largest=p->cell[i];
++        if(i%4<3)score-=4*abs(exponent(p->cell[i])-exponent(p->cell[i+1]));
++        if(i<12)score-=4*abs(exponent(p->cell[i])-exponent(p->cell[i+4]));
++    }
++    if(largest&&(p->cell[0]==largest||p->cell[3]==largest||p->cell[12]==largest||p->cell[15]==largest))score+=120;
++    return score;
++}
++int puzzle_hint(const puzzle *p) {
++    int best=-1;double best_value=-1e30;
++    for(int d=0;d<4;d++) {
++        puzzle moved=*p;if(!slide(&moved,d))continue;
++        double sum=0;int empty=0;
++        for(int i=0;i<16;i++)if(!moved.cell[i]) {
++            empty++;
++            for(int v=2;v<=4;v+=2) {
++                puzzle chance=moved;chance.cell[i]=(unsigned)v;
++                double future=-1e20;
++                for(int next=0;next<4;next++) {
++                    puzzle c=chance;if(!slide(&c,next))continue;
++                    double s=evaluate(&c)+0.1*(c.score-chance.score);
++                    if(s>future)future=s;
++                }
++                if(future==-1e20)future=evaluate(&chance)-1000;
++                sum+=(v==2?0.9:0.1)*future;
++            }
++        }
++        double value=(empty?sum/empty:evaluate(&moved))+0.1*(moved.score-p->score);
++        if(value>best_value){best_value=value;best=d;}
++    }
++    return best;
++}
+--- /dev/null
++++ b/arcade/engine.h
+@@ -0,0 +1,28 @@
++#ifndef ARCADE_ENGINE_H
++#define ARCADE_ENGINE_H
++#include <stdint.h>
++typedef struct { unsigned cell[16], score, rng; } puzzle;
++void puzzle_init(puzzle *p, unsigned seed);
++int puzzle_move(puzzle *p, int direction); /* left, right, up, down; spawn only on change */
++int puzzle_over(const puzzle *p);
++int puzzle_hint(const puzzle *p); /* deterministic two-ply expectation, no RNG changes */
++#define BREAK_PARTICLES 64
++#define BREAK_TRAIL 12
++typedef struct { double x,y,vx,vy,life; } spark;
++typedef struct {
++    double x,y,vx,vy,paddle,accumulator;
++    unsigned char brick[50];
++    int lives,score,remaining,launched,paused,result;
++    int level,combo,best_combo,destroyed,shield,drop_type,drop_serial;
++    double wide_time,slow_time,drop_x,drop_y,trail_x[BREAK_TRAIL],trail_y[BREAK_TRAIL];
++    int trail_count,trail_head;
++    spark particles[BREAK_PARTICLES];
++    unsigned effects_rng;
++} breaker;
++void breaker_init(breaker *b);
++void breaker_paddle(breaker *b, double x);
++void breaker_launch(breaker *b);
++void breaker_tick(breaker *b, double seconds);
++int breaker_next_level(breaker *b);
++double breaker_half_width(const breaker *b);
++#endif
+--- /dev/null
++++ b/arcade/main.c
+@@ -0,0 +1,59 @@
++#define _POSIX_C_SOURCE 200809L
++#include "../common/common.h"
++#include "app.h"
++#include <signal.h>
++#include <time.h>
++#include <sys/ioctl.h>
++#include <linux/fb.h>
++static arcade_app app;
++static volatile sig_atomic_t stopped;
++static struct timespec previous;
++static profile_io records;
++static void stop(int signal_number) {(void)signal_number;stopped=1;}
++static int screen_ready(void) {
++    struct fb_fix_screeninfo fix;struct fb_var_screeninfo var;
++    int fd=open("/dev/fb0",O_RDWR);if(fd<0){perror("/dev/fb0");return 0;}
++    int ok=ioctl(fd,FBIOGET_FSCREENINFO,&fix)==0&&ioctl(fd,FBIOGET_VSCREENINFO,&var)==0;close(fd);
++    return ok&&var.xres==1024&&var.yres==600&&var.bits_per_pixel==32&&
++        var.red.offset==16&&var.red.length==8&&var.green.offset==8&&var.green.length==8&&
++        var.blue.offset==0&&var.blue.length==8&&fix.line_length>=4096&&
++        (uint64_t)fix.smem_len>=(uint64_t)fix.line_length*600;
++}
++static void touch_callback(int fd) {
++    int type,x,y,finger;
++    while((type=touch_read(fd,&x,&y,&finger))!=TOUCH_NO_EVENT) {
++        if(type==TOUCH_ERROR){fprintf(stderr,"Touch disconnected\n");exit(1);}
++        arcade_touch(&app,type,x,y,finger);
++    }
++}
++static void timer_callback(int unused) {
++    (void)unused;struct timespec now;
++    if(clock_gettime(CLOCK_MONOTONIC,&now)){perror("clock_gettime");exit(1);}
++    double dt=(double)(now.tv_sec-previous.tv_sec)+(now.tv_nsec-previous.tv_nsec)/1e9;previous=now;
++    arcade_collect(&app);
++    if(stopped||app.quit||app.launch_gomoku) {
++        if(!profile_sync(&records,&app.profile,0,1))fprintf(stderr,"Records not saved; original preserved when possible\n");
++        exit(app.launch_gomoku?42:0);
++    }
++    arcade_tick(&app,dt);
++    if(!profile_sync(&records,&app.profile,dt,0)&&app.records_ok){app.records_ok=0;app.dirty=1;fprintf(stderr,"Record write failed; further writes paused\n");}
++    if(app.dirty){arcade_render(&app);app.dirty=0;}
++}
++int main(int argc,char **argv) {
++    char *device=NULL;
++    if(argc==3&&!strcmp(argv[1],"--touch"))device=argv[2];
++    else if(argc!=1){fprintf(stderr,"Usage: %s [--touch /dev/input/eventN]\n",argv[0]);return 2;}
++    if(!screen_ready()){fprintf(stderr,"Expected 1024x600 32-bit RGB framebuffer\n");return 1;}
++    int fd=touch_init(device);if(fd<0)return 1;
++    font_init("./font.ttc");fb_image *probe=fb_read_font_image("游",24,NULL);
++    if(!probe){fprintf(stderr,"font.ttc missing or unreadable\n");close(fd);return 1;}fb_free_image(probe);
++    fb_init("/dev/fb0");
++    if(clock_gettime(CLOCK_MONOTONIC,&previous)){perror("clock_gettime");close(fd);return 1;}
++    arcade_init(&app,(unsigned)(previous.tv_nsec^previous.tv_sec));
++    if(profile_open(&records,"./arcade-records-v2.txt",&app.profile)<0) {
++        app.records_ok=0;fprintf(stderr,"Record file invalid/unreadable: preserved, saving paused\n");
++    }
++    signal(SIGINT,stop);signal(SIGTERM,stop);
++    setvbuf(stdout,NULL,_IOLBF,0);puts("Arcade ready: gomoku / 2048 / breakout; 240Hz physics, 50Hz timer");
++    task_add_file(fd,touch_callback);task_add_timer(20,timer_callback);task_loop();return 0;
++}
+--- /dev/null
++++ b/arcade/profile.c
+@@ -0,0 +1,80 @@
++#define _POSIX_C_SOURCE 200809L
++#include "profile.h"
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <errno.h>
++#include <math.h>
++#ifdef _WIN32
++#include <windows.h>
++#include <io.h>
++#else
++#include <unistd.h>
++#include <fcntl.h>
++#endif
++static uint32_t checksum(const arcade_profile *p) {
++    uint32_t h=2166136261u,v[4]={p->puzzle_best,p->breaker_best,p->best_combo,p->badges};
++    for(int i=0;i<4;i++)for(int shift=0;shift<32;shift+=8){h^=(v[i]>>shift)&255;h*=16777619u;}
++    return h;
++}
++static int read_profile(FILE *f,arcade_profile *p) {
++    char buf[160];size_t n=fread(buf,1,sizeof(buf)-1,f);
++    if(ferror(f)||!feof(f)||n<8)return 0;
++    buf[n]=0;if(memchr(buf,0,n)||strncmp(buf,"ARCADE2\n",8))return 0;
++    uint32_t v[5];char *s=buf+8;
++    for(int i=0;i<5;i++) {
++        while(*s==' '||*s=='\n'||*s=='\r')s++;
++        if(*s<'0'||*s>'9')return 0;
++        char *end;errno=0;unsigned long long x=strtoull(s,&end,10);
++        if(errno||x>UINT32_MAX||end==s)return 0;
++        v[i]=(uint32_t)x;s=end;
++    }
++    while(*s==' '||*s=='\n'||*s=='\r')s++;
++    if(*s||v[3]>31||v[2]>100000)return 0;
++    arcade_profile candidate={v[0],v[1],v[2],v[3]};
++    if(checksum(&candidate)!=v[4])return 0;
++    *p=candidate;return 1;
++}
++int profile_open(profile_io *io,const char *path,arcade_profile *p) {
++    memset(io,0,sizeof(*io));memset(p,0,sizeof(*p));
++    if(strlen(path)>=sizeof(io->path)){io->blocked=1;return -1;}
++    strcpy(io->path,path);FILE *f=fopen(path,"rb");
++    if(!f){if(errno==ENOENT)return 0;io->blocked=1;return -1;}
++    int ok=read_profile(f,p);if(fclose(f))ok=0;
++    if(!ok){memset(p,0,sizeof(*p));io->blocked=1;return -1;}
++    io->saved=*p;return 1;
++}
++static int write_profile(const char *path,const arcade_profile *p) {
++    char temp[600];
++    if(snprintf(temp,sizeof(temp),"%s.tmp",path)>=(int)sizeof(temp))return 0;
++    FILE *f=fopen(temp,"wb");if(!f)return 0;
++    int ok=fprintf(f,"ARCADE2\n%u %u %u %u %u\n",p->puzzle_best,p->breaker_best,p->best_combo,p->badges,checksum(p))>0;
++    if(fflush(f))ok=0;
++#ifdef _WIN32
++    if(_commit(_fileno(f)))ok=0;
++#else
++    if(fsync(fileno(f)))ok=0;
++#endif
++    if(fclose(f))ok=0;
++    if(!ok){remove(temp);return 0;}
++#ifdef _WIN32
++    ok=MoveFileExA(temp,path,MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=0;
++#else
++    ok=rename(temp,path)==0;
++    if(ok) {
++        char dir[512];strcpy(dir,path);char *slash=strrchr(dir,'/');
++        if(!slash)strcpy(dir,".");else if(slash==dir)slash[1]=0;else *slash=0;
++        int fd=open(dir,O_RDONLY|O_DIRECTORY);if(fd<0)ok=0;else {if(fsync(fd))ok=0;close(fd);}
++    }
++#endif
++    if(!ok)remove(temp);
++    return ok;
++}
++int profile_sync(profile_io *io,const arcade_profile *p,double dt,int force) {
++    if(io->blocked)return 0;
++    if(!memcmp(p,&io->saved,sizeof(*p))){io->pending_seconds=0;return 1;}
++    if(isfinite(dt)&&dt>0)io->pending_seconds+=dt;
++    if(!force&&io->pending_seconds<1)return 1;
++    if(!write_profile(io->path,p)){io->blocked=1;return 0;}
++    io->saved=*p;io->pending_seconds=0;return 1;
++}
+--- /dev/null
++++ b/arcade/profile.h
+@@ -0,0 +1,14 @@
++#ifndef ARCADE_PROFILE_H
++#define ARCADE_PROFILE_H
++#include <stdint.h>
++typedef struct {uint32_t puzzle_best,breaker_best,best_combo,badges;} arcade_profile;
++typedef struct {
++    arcade_profile saved;
++    char path[512];
++    double pending_seconds;
++    int blocked;
++} profile_io;
++/* Missing file = 0, valid = 1, invalid/unreadable = -1 (preserve and block writes). */
++int profile_open(profile_io *io,const char *path,arcade_profile *profile);
++int profile_sync(profile_io *io,const arcade_profile *profile,double dt,int force);
++#endif
+--- /dev/null
++++ b/arcade/render.c
+@@ -0,0 +1,99 @@
++#include "../common/common.h"
++#include "app.h"
++#define BG FB_COLOR(18,25,42)
++#define PANEL FB_COLOR(32,43,64)
++#define TEXT FB_COLOR(235,240,248)
++#define ACCENT FB_COLOR(66,211,184)
++#define GOLD FB_COLOR(255,205,100)
++static void text(int x,int y,char *s,int size) {fb_draw_text(x,y,s,size,TEXT);}
++static void button(int x,int y,int w,char *s) {fb_draw_rect(x,y,w,60,PANEL);text(x+18,y+39,s,24);}
++static void disk(int x,int y,int r,int color) {
++    for(int dy=-r;dy<=r;dy++)for(int dx=-r;dx<=r;dx++)if(dx*dx+dy*dy<=r*r)fb_draw_pixel(x+dx,y+dy,color);
++}
++static void draw_breaker(const breaker *b) {
++    char buf[100];
++    snprintf(buf,sizeof(buf),"关卡 %d/3   得分 %d   生命 %d",b->level,b->score,b->lives);text(310,50,buf,24);
++    fb_draw_border(40,80,680,490,FB_COLOR(65,82,108));
++    for(int i=0;i<50;i++)if(b->brick[i]) {
++        int x=48+i%10*66,y=110+i/10*32;
++        fb_draw_rect(x,y,60,24,FB_COLOR((80+i/10*30),(180-i/10*20),180));
++        if(b->brick[i]>1)fb_draw_border(x+4,y+4,52,16,GOLD);
++    }
++    for(int i=0;i<b->trail_count;i++) {
++        int at=(b->trail_head-b->trail_count+i+BREAK_TRAIL)%BREAK_TRAIL;
++        disk((int)b->trail_x[at],(int)b->trail_y[at],2+i*4/BREAK_TRAIL,FB_COLOR((28+i*4),(55+i*8),(74+i*8)));
++    }
++    int half=(int)breaker_half_width(b);
++    fb_draw_rect((int)b->paddle-half,510,half*2,12,b->wide_time>0?GOLD:ACCENT);
++    disk((int)b->x,(int)b->y,7,TEXT);
++    if(b->shield)fb_draw_rect(42,550,676,3,ACCENT);
++    for(int i=0;i<BREAK_PARTICLES;i++) {
++        const spark *p=&b->particles[i];
++        if(p->life>0&&p->x>=42&&p->x<714&&p->y>=82&&p->y<564)fb_draw_rect((int)p->x,(int)p->y,3,3,GOLD);
++    }
++    if(b->drop_type) {
++        int x=(int)b->drop_x,y=(int)b->drop_y;
++        fb_draw_rect(x-15,y-15,30,30,FB_COLOR(68,111,151));
++        char *labels[]={"","宽","缓","盾"};text(x-10,y+8,labels[b->drop_type],20);
++    }
++    snprintf(buf,sizeof(buf),"COMBO %d",b->combo);fb_draw_text(58,300,buf,24,b->combo>=5?GOLD:TEXT);
++    if(b->wide_time>0){snprintf(buf,sizeof(buf),"加宽 %.0fs",b->wide_time);text(58,335,buf,20);}
++    if(b->slow_time>0){snprintf(buf,sizeof(buf),"减速 %.0fs",b->slow_time);text(210,335,buf,20);}
++    button(780,280,220,b->paused?"继续":"暂停");
++    if(b->result==1&&b->level<3)button(780,360,220,"进入下一关");
++    else {text(780,385,"拖动挡板接道具",20);text(780,417,"松手发球",20);}
++    if(b->result)text(780,475,b->result<0?"挑战结束":b->level==3?"三关全通！":"本关已完成",24);
++    else if(b->paused)text(780,475,"已暂停",24);
++    else if(!b->launched)text(780,475,"点击场地发球",20);
++    text(780,525,"宽：挡板加宽",16);text(780,550,"缓：球速减慢",16);text(780,575,"盾：抵挡一次漏球",16);
++}
++void arcade_render(const arcade_app *a) {
++    char buf[120];fb_draw_rect(0,0,1024,600,BG);
++    text(40,50,"橙派游戏工坊",30);
++    if(!a->mode) {
++        text(330,48,"挑战版 v2 · 策略与反应",20);
++        button(50,120,924,"01  五子棋     人机对战 / 同屏双人 / 自动存档");
++        button(50,220,924,"02  2048        撤销一步 / 局面提示 / 挑战纪录");
++        button(50,320,924,"03  打砖块     三关挑战 / 连击道具 / 耐打砖块");
++        for(int i=0;i<3;i++)fb_draw_rect(50,120+i*100,5,60,ACCENT);
++        fb_draw_rect(50,405,924,95,PANEL);
++        snprintf(buf,sizeof(buf),"最高分   2048: %u     打砖块: %u     最佳连击: %u",a->profile.puzzle_best,a->profile.breaker_best,a->profile.best_combo);
++        text(70,438,buf,20);
++        char *labels[]={"2048达成","五连击","第一关","第二关","全通关"};
++        for(int i=0;i<5;i++) {
++            int x=70+i*175;fb_draw_rect(x,458,150,27,(a->profile.badges&(1u<<i))?FB_COLOR(43,119,109):BG);
++            text(x+9,479,labels[i],16);
++        }
++        text(50,548,a->records_ok?"纪录自动保存 · 点亮徽章，刷新自己的最好成绩":"纪录保存暂停，请检查存档文件和日志",20);
++        button(780,520,220,"退出合集");
++    } else {
++        button(780,100,220,"返回菜单");button(780,190,220,"重新开始");
++        if(a->mode==1) {
++            snprintf(buf,sizeof(buf),"2048   得分 %u",a->puzzle.score);text(340,50,buf,24);
++            for(int i=0;i<16;i++) {
++                int x=110+i%4*120,y=90+i/4*120;unsigned v=a->puzzle.cell[i];
++                unsigned power=0;for(unsigned n=v;n>1;n>>=1)power++;if(power>11)power=11;
++                int color=v?FB_COLOR((35+power*14),(130-power*5),(155-power*6)):PANEL;
++                fb_draw_rect(x,y,110,110,color);
++                if(v){snprintf(buf,sizeof(buf),"%u",v);text(x+12,y+65,buf,v>=10000?20:30);}
++                if(a->pulse>0&&v&&a->undo.cell[i]!=v) {
++                    fb_draw_border(x,y,110,110,GOLD);fb_draw_border(x+1,y+1,108,108,GOLD);
++                }
++            }
++            button(780,280,220,a->can_undo?"撤销一步":"暂无可撤销");button(780,360,220,"局面提示");
++            char *hints[]={"建议向左滑","建议向右滑","建议向上滑","建议向下滑"};
++            if(a->hint>=0)text(780,465,hints[a->hint],24);
++            else if(a->hint==-1)text(780,465,"无可用移动",24);
++            else text(780,465,"在棋盘上滑动",20);
++            snprintf(buf,sizeof(buf),"纪录 %u",a->profile.puzzle_best);text(780,508,buf,20);
++            if(puzzle_over(&a->puzzle))text(780,550,"本局结束",24);
++            else if(a->profile.badges&1)text(780,550,"已解锁 2048",20);
++            text(780,578,"提示为估算，可自由选择",16);
++        } else draw_breaker(&a->breaker);
++        if(a->confirm) {
++            fb_draw_rect(770,260,240,330,BG);
++            button(780,270,220,"确认重新开始");text(780,380,"点其他处取消",20);
++        }
++    }
++    fb_update();
++}
+--- /dev/null
++++ b/build-on-board.sh
+@@ -0,0 +1,26 @@
++#!/usr/bin/env bash
++set -euo pipefail
++root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
++if [ "$#" -ne 1 ]; then echo 'Usage: bash build-on-board.sh /path/to/course-project' >&2; exit 2; fi
++course=$(realpath -- "$1")
++test -f "$course/out/font.ttc"
++test -d "$course/common/external"
++test -f "$course/common/task.c"
++mkdir -p "$root/out" "$root/logs"
++# This isolated release reuses the course event loop; prepared overlays did not ship it.
++if [ ! -f "$root/common/task.c" ]; then cp -- "$course/common/task.c" "$root/common/task.c"; fi
++# All products remain inside this new release. Never overwrite course binaries.
++if [ ! -e "$root/common/external" ]; then ln -s "$course/common/external" "$root/common/external"; fi
++if [ ! -e "$root/out/font.ttc" ]; then ln -s "$course/out/font.ttc" "$root/out/font.ttc"; fi
++exec > >(tee "$root/logs/build.log") 2>&1
++date -Is
++make -B -C "$root/arcade" CC=gcc CFLAGS='-O2 -Wall -Wextra -Wno-unused-parameter'
++make -B -C "$root/lab6_gomoku" CC=gcc CFLAGS='-O2 -Wall -Wextra -Wno-unused-parameter'
++gcc -std=c11 -O2 -Wall -Wextra -Werror "$root/tests/test_arcade.c" "$root/arcade/engine.c" "$root/arcade/breaker.c" "$root/arcade/app.c" -lm -o "$root/out/test_arcade"
++"$root/out/test_arcade"
++gcc -std=c11 -O2 -Wall -Wextra -Werror "$root/tests/test_v2.c" "$root/arcade/engine.c" "$root/arcade/breaker.c" "$root/arcade/app.c" -lm -o "$root/out/test_v2"
++"$root/out/test_v2"
++gcc -std=gnu11 -O2 -Wall -Wextra -Werror "$root/tests/test_profile.c" "$root/arcade/profile.c" -lm -o "$root/out/test_profile"
++mkdir -p "$root/test-results"
++(cd "$root" && ./out/test_profile)
++echo 'Build complete. Run: bash run-on-board.sh [--touch /dev/input/eventN]'
+--- a/common/graphic.c
++++ b/common/graphic.c
+@@ -146,77 +146,150 @@
+ 
+ void fb_draw_rect(int x, int y, int w, int h, int color)
+ {
+-	if(x < 0) { w += x; x = 0;}
+-	if(x+w > SCREEN_WIDTH) { w = SCREEN_WIDTH-x;}
+-	if(y < 0) { h += y; y = 0;}
+-	if(y+h >SCREEN_HEIGHT) { h = SCREEN_HEIGHT-y;}
+-	if(w<=0 || h<=0) return;
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_rect()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    if(w <= 0 || h <= 0) return;
++
++    /* Clip before indexing. Widen the sums to avoid signed-int overflow. */
++    int64_t left = x;
++    int64_t top = y;
++    int64_t right = (int64_t)x + w;
++    int64_t bottom = (int64_t)y + h;
++
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++
++    x = (int)left;
++    y = (int)top;
++    w = (int)(right - left);
++    h = (int)(bottom - top);
++    int *buf = _begin_draw(x, y, w, h);
++
++    for(int row = y; row < y + h; ++row) {
++        int *pixel = buf + row * SCREEN_WIDTH + x;
++        for(int column = 0; column < w; ++column) {
++            pixel[column] = color;
++        }
++    }
++    return;
+ }
+ 
+ void fb_draw_line(int x1, int y1, int x2, int y2, int color)
+ {
+-/*---------------------------------------------------*/
+-	printf("you need implement fb_draw_line()\n"); exit(0);
+-
+-/*---------------------------------------------------*/
+-	return;
++    int64_t dx = (int64_t)x2 - x1;
++    int64_t dy = (int64_t)y2 - y1;
++    int steep = llabs(dy) > llabs(dx);
++
++    /* Use the longer axis, ordered consistently for reversed endpoints. */
++    int64_t major1 = steep ? y1 : x1;
++    int64_t major2 = steep ? y2 : x2;
++    int64_t minor1 = steep ? x1 : y1;
++    int64_t minor2 = steep ? x2 : y2;
++    if(major1 > major2) {
++        int64_t temporary = major1;
++        major1 = major2;
++        major2 = temporary;
++        temporary = minor1;
++        minor1 = minor2;
++        minor2 = temporary;
++    }
++
++    uint64_t length = (uint64_t)(major2 - major1);
++    if(length == 0) {
++        fb_draw_pixel(x1, y1, color);
++        return;
++    }
++
++    int direction = minor2 < minor1 ? -1 : 1;
++    uint64_t minor_distance = (uint64_t)llabs(minor2 - minor1);
++    int64_t limit = steep ? SCREEN_HEIGHT : SCREEN_WIDTH;
++    int64_t first = major1 < 0 ? 0 : major1;
++    int64_t last = major2 >= limit ? limit - 1 : major2;
++    if(first > last) return;
++
++    /*
++     * Integer error accumulation, rounded to the nearest pixel.
++     * Preserve the error phase when skipping off-screen major coordinates.
++     * For 32-bit int endpoints, this product and sum fit in uint64_t.
++     * The loop visits at most SCREEN_WIDTH or SCREEN_HEIGHT coordinates.
++     */
++    uint64_t numerator = minor_distance * (uint64_t)(first - major1)
++                       + length / 2;
++    int64_t minor = minor1 + direction * (int64_t)(numerator / length);
++    uint64_t remainder = numerator % length;
++
++    for(int64_t major = first; major <= last; ++major) {
++        if(steep) {
++            fb_draw_pixel((int)minor, (int)major, color);
++        } else {
++            fb_draw_pixel((int)major, (int)minor, color);
++        }
++        remainder += minor_distance;
++        if(remainder >= length) {
++            remainder -= length;
++            minor += direction;
++        }
++    }
++    return;
++}
++
++/* Blend one channel over an opaque framebuffer, with exact 0/255 endpoints. */
++static unsigned blend_channel(unsigned src, unsigned dst, unsigned alpha)
++{
++    return (src * alpha + dst * (255-alpha) + 127) / 255;
+ }
+ 
+ void fb_draw_image(int x, int y, fb_image *image, int color)
+ {
+-	if(image == NULL) return;
+-
+-	int ix = 0; //image x
+-	int iy = 0; //image y
+-	int w = image->pixel_w; //draw width
+-	int h = image->pixel_h; //draw height
+-
+-	if(x<0) {w+=x; ix-=x; x=0;}
+-	if(y<0) {h+=y; iy-=y; y=0;}
+-	
+-	if(x+w > SCREEN_WIDTH) {
+-		w = SCREEN_WIDTH - x;
+-	}
+-	if(y+h > SCREEN_HEIGHT) {
+-		h = SCREEN_HEIGHT - y;
+-	}
+-	if((w <= 0)||(h <= 0)) return;
+-
+-	int *buf = _begin_draw(x,y,w,h);
+-/*---------------------------------------------------------------*/
+-	char *dst = (char *)(buf + y*SCREEN_WIDTH + x);
+-	char *src; //不同的图像颜色格式定位不同
+-/*---------------------------------------------------------------*/
+-
+-	int alpha;
+-	int ww;
+-
+-	if(image->color_type == FB_COLOR_RGB_8880) /*lab3: jpg*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_RGB_8880\n"); exit(0);
+-
+-		return;
+-	}
+-	else if(image->color_type == FB_COLOR_RGBA_8888) /*lab3: png*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_RGBA_8888\n"); exit(0);
+-
+-		return;
+-	}
+-	else if(image->color_type == FB_COLOR_ALPHA_8) /*lab3: font*/
+-	{
+-		printf("you need implement fb_draw_image() FB_COLOR_ALPHA_8\n"); exit(0);
+-
+-		return;
+-	}
+-/*---------------------------------------------------------------*/
+-	return;
++    if(!image || !image->content || image->pixel_w <= 0 || image->pixel_h <= 0) return;
++    int bytes = image->color_type == FB_COLOR_ALPHA_8 ? 1 : 4;
++    if(image->color_type != FB_COLOR_RGB_8880 &&
++       image->color_type != FB_COLOR_RGBA_8888 &&
++       image->color_type != FB_COLOR_ALPHA_8) return;
++    if(image->line_byte <= 0 || (int64_t)image->pixel_w * bytes > image->line_byte) return;
++
++    int64_t left = x, top = y;
++    int64_t right = (int64_t)x + image->pixel_w;
++    int64_t bottom = (int64_t)y + image->pixel_h;
++    if(left < 0) left = 0;
++    if(top < 0) top = 0;
++    if(right > SCREEN_WIDTH) right = SCREEN_WIDTH;
++    if(bottom > SCREEN_HEIGHT) bottom = SCREEN_HEIGHT;
++    if(left >= right || top >= bottom) return;
++    int ix = (int)(left-x), iy = (int)(top-y);
++    int w = (int)(right-left), h = (int)(bottom-top);
++    int *buf = _begin_draw((int)left, (int)top, w, h);
++    const unsigned char *source = (const unsigned char *)image->content
++        + (size_t)iy * image->line_byte + (size_t)ix * bytes;
++    uint32_t foreground = (uint32_t)color;
++
++    for(int row = 0; row < h; ++row) {
++        uint32_t *dst = (uint32_t *)(buf + ((int)top+row)*SCREEN_WIDTH + (int)left);
++        const unsigned char *src = source + (size_t)row * image->line_byte;
++        if(image->color_type == FB_COLOR_RGB_8880) {
++            memcpy(dst, src, (size_t)w * 4);
++            continue;
++        }
++        for(int column = 0; column < w; ++column) {
++            unsigned alpha, b, g, r;
++            if(bytes == 1) {
++                alpha = src[column];
++                b = foreground & 255; g = (foreground >> 8) & 255; r = (foreground >> 16) & 255;
++            } else {
++                const unsigned char *p = src + column*4;
++                b = p[0]; g = p[1]; r = p[2]; alpha = p[3];
++            }
++            if(alpha == 0) continue;
++            if(alpha != 255) {
++                uint32_t old = dst[column];
++                b = blend_channel(b, old & 255, alpha);
++                g = blend_channel(g, (old >> 8) & 255, alpha);
++                r = blend_channel(r, (old >> 16) & 255, alpha);
++            }
++            dst[column] = UINT32_C(0xff000000) | (r << 16) | (g << 8) | b;
++        }
++    }
+ }
+ 
+ void fb_draw_border(int x, int y, int w, int h, int color)
+--- a/common/image.c
++++ b/common/image.c
+@@ -5,13 +5,14 @@
+ #include <linux/fb.h>
+ 
+ #include "common.h"
++#include <limits.h>
+ 
+ /*w, h maybe == 0*/
+ fb_image * fb_new_image(int color_type, int w, int h, int line_byte)
+ {
+ 	fb_image *image;
+ 
+-	if((w<0)||(h<0)) return NULL;
++	if((w<0)||(h<0) || w > INT_MAX/4) return NULL;
+ 	switch(color_type)
+ 	{
+ 	case FB_COLOR_RGB_8880:
+@@ -25,7 +26,8 @@
+ 		return NULL;
+ 	}
+ 
+-	image = (fb_image *)malloc(sizeof(fb_image) + line_byte*h);
++	if(line_byte < 0 || (h > 0 && (size_t)line_byte > (SIZE_MAX-sizeof(fb_image))/(size_t)h)) return NULL;
++	image = (fb_image *)malloc(sizeof(fb_image) + (size_t)line_byte*h);
+ 	if(image == NULL) return NULL;
+ 
+ 	image->color_type = color_type;
+@@ -42,8 +44,8 @@
+ 	if(img == NULL) return NULL;
+ 	if((x<0)||(y<0)||
+ 		(w<0)||(h<0)||
+-		(x+w > img->pixel_w)||
+-		(y+h > img->pixel_w))
++		((int64_t)x+w > img->pixel_w)||
++		((int64_t)y+h > img->pixel_h))
+ 		return NULL;
+ 
+ 	ret = (fb_image *)malloc(sizeof(fb_image));
+@@ -53,7 +55,7 @@
+ 		ret->pixel_w = w;
+ 		ret->pixel_h = h;
+ 		if(img->color_type != FB_COLOR_ALPHA_8) x*=4;
+-		ret->content = img->content + y*img->line_byte + x;
++		ret->content = img->content + (size_t)y*img->line_byte + x;
+ 	}
+ 	return ret;
+ }
+@@ -235,6 +237,31 @@
+ static FT_Library library=NULL;
+ static FT_Face face;
+ 
++/* Cache rendered glyphs for any text/size. Returned images remain caller-owned.
++ * Round-robin eviction bounds retained bitmap data to 64 * 64 KiB.
++ * Failed cache allocations simply fall back to normal FreeType rendering.
++ */
++#define GLYPH_CACHE_COUNT 64
++#define GLYPH_CACHE_MAX_BYTES (64U * 1024U)
++static struct glyph_cache_entry {
++	FT_Face face;
++	FT_ULong codepoint;
++	int pixel_size;
++	fb_font_info info;
++	fb_image *image;
++} glyph_cache[GLYPH_CACHE_COUNT];
++static unsigned glyph_cache_next;
++
++static fb_image *copy_glyph_image(const fb_image *source)
++{
++	fb_image *copy = fb_new_image(source->color_type, source->pixel_w,
++		source->pixel_h, source->line_byte);
++	if(copy && source->pixel_h && source->line_byte)
++		memcpy(copy->content, source->content,
++			(size_t)source->pixel_h * source->line_byte);
++	return copy;
++}
++
+ #if 0 /** Change UTF-8 to Unicode **/
+ static FT_ULong Utf8ToUnicode(const char *utf8, int len)
+ {
+@@ -293,12 +320,6 @@
+ 	}
+ 	if((text == NULL)||(pixel_size <= 0)) {
+ 		printf("arg error\n");
+-		return NULL;
+-	}
+-
+-	FT_Error error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
+-	if(error){
+-		printf("FT_Set_Pixel_Sizes: error %d\n", error);
+ 		return NULL;
+ 	}
+ 
+@@ -321,6 +342,24 @@
+ 		return NULL;
+ 	}
+ 
++	for(unsigned entry = 0; entry < GLYPH_CACHE_COUNT; ++entry) {
++		struct glyph_cache_entry *cached = &glyph_cache[entry];
++		if(cached->image && cached->face == face &&
++		   cached->codepoint == ucs4 && cached->pixel_size == pixel_size) {
++			fb_image *copy = copy_glyph_image(cached->image);
++			if(copy) {
++				if(info) { *info = cached->info; info->bytes = sinfo.bytes; }
++				return copy;
++			}
++			break;
++		}
++	}
++
++	FT_Error error = FT_Set_Pixel_Sizes(face, 0, pixel_size);
++	if(error){
++		printf("FT_Set_Pixel_Sizes: error %d\n", error);
++		return NULL;
++	}
+ 	error = FT_Load_Char(face, ucs4, FT_LOAD_RENDER);
+ 	if(error){
+ 		printf("FT_Load_Char: error %d", error);
+@@ -335,12 +374,38 @@
+ 		printf("fb_new_image(\"%s\", %d,%d,%d) failed\n", text, slot->bitmap.width, slot->bitmap.rows, slot->bitmap.pitch);
+ 		return NULL;
+ 	}
+-	memcpy(image->content, slot->bitmap.buffer, slot->bitmap.rows * slot->bitmap.pitch);
++	/* FreeType embedded strikes may be packed MONO/GRAY2/GRAY4.
++	 * Always normalize coverage to one byte per pixel, including row padding. */
++	if(slot->bitmap.rows && slot->bitmap.width) {
++		unsigned mode=slot->bitmap.pixel_mode;
++		unsigned bits=mode==FT_PIXEL_MODE_MONO?1:mode==FT_PIXEL_MODE_GRAY2?2:mode==FT_PIXEL_MODE_GRAY4?4:mode==FT_PIXEL_MODE_GRAY?8:0;
++		if(!bits || !slot->bitmap.buffer) {fb_free_image(image);return NULL;}
++		unsigned long stride=slot->bitmap.pitch<0?-(long)slot->bitmap.pitch:slot->bitmap.pitch;
++		if(stride<((size_t)slot->bitmap.width*bits+7)/8) {fb_free_image(image);return NULL;}
++		memset(image->content,0,(size_t)image->line_byte*image->pixel_h);
++		for(unsigned row=0;row<slot->bitmap.rows;row++) {
++			const unsigned char *source=slot->bitmap.buffer+(long)row*slot->bitmap.pitch;
++			unsigned char *target=(unsigned char *)image->content+(size_t)row*image->line_byte;
++			for(unsigned col=0;col<slot->bitmap.width;col++) {
++				if(bits==8)target[col]=slot->bitmap.num_grays==256?source[col]:slot->bitmap.num_grays>1?(unsigned)source[col]*255/(slot->bitmap.num_grays-1):0;
++				else {unsigned mask=(1u<<bits)-1;unsigned shift=8-bits-(col*bits)%8;target[col]=((source[col*bits/8]>>shift)&mask)*255/mask;}
++			}
++		}
++	}
+ 
+ 	sinfo.advance_x = slot->advance.x >> 6;
+ 	sinfo.left = slot->bitmap_left;
+ 	sinfo.top = slot->bitmap_top;
+ 	if(info) *info = sinfo;
++	if((size_t)image->pixel_h * image->line_byte <= GLYPH_CACHE_MAX_BYTES) {
++		fb_image *copy = copy_glyph_image(image);
++		if(copy) {
++			struct glyph_cache_entry *cached = &glyph_cache[glyph_cache_next];
++			fb_free_image(cached->image);
++			*cached = (struct glyph_cache_entry){face, ucs4, pixel_size, sinfo, copy};
++			glyph_cache_next = (glyph_cache_next + 1) % GLYPH_CACHE_COUNT;
++		}
++	}
+ 	return image;
+ }
+ 
+--- a/common/rules.mk
++++ b/common/rules.mk
+@@ -1,7 +1,7 @@
+ 
+ CROSS_COMPILE := /work/HUST/OrangePi4/gcc-aarch64/bin/aarch64-none-linux-gnu-
+ 
+-CC := $(CROSS_COMPILE)gcc
++CC := gcc
+ 
+ CFLAGS := -Wall -O2
+ LDFLAGS := -Wall
+@@ -9,7 +9,7 @@
+ INCLUDE += -I../common/external/include
+ LIB += -L../common/external/lib -ljpeg -lfreetype -lpng -lasound -lz -lpthread -lc -lm
+ 
+-EXESRCS += ../common/graphic.c ../common/touch.c ../common/image.c ../common/task.c
++EXESRCS += ../common/graphic.c ../common/touch.c ../common/touch_protocol.c ../common/image.c ../common/task.c
+ 
+ EXEOBJS := $(patsubst %.c, %.o, $(EXESRCS))
+ 
+--- a/common/touch.c
++++ b/common/touch.c
+@@ -1,114 +1,127 @@
+ #include "common.h"
++#include "touch_protocol.h"
++#include <linux/input.h>
++#include <sys/ioctl.h>
++#include <dirent.h>
+ 
+-#include <stdio.h>
+-//#include <linux/input.h>
+-#include "input.h"
+-#include <sys/types.h>
+-#include <sys/stat.h>
+-#include <fcntl.h>
+-#include <unistd.h>
++static touch_state state;
++static struct input_absinfo x_axis, y_axis;
++static int dropped;
+ 
+-static struct finger_info{
+-	int x;
+-	int y;
+-	int event;
+-} infos[FINGER_NUM_MAX];
+-static int cur_slot = 0;
++static int initial_slots(int fd,const struct input_absinfo *slot)
++{
++    /* Protocol B omits unchanged slot/position fields, including on the first
++       packet delivered to a newly opened evdev client. Seed those fields. */
++    int32_t ids[FINGER_NUM_MAX+1]={ABS_MT_TRACKING_ID};
++    int32_t xs[FINGER_NUM_MAX+1]={ABS_MT_POSITION_X};
++    int32_t ys[FINGER_NUM_MAX+1]={ABS_MT_POSITION_Y};
++    if(ioctl(fd,EVIOCGMTSLOTS(sizeof(ids)),ids)<0 ||
++       ioctl(fd,EVIOCGMTSLOTS(sizeof(xs)),xs)<0 ||
++       ioctl(fd,EVIOCGMTSLOTS(sizeof(ys)),ys)<0) return 0;
++    int count=slot->maximum+1;
++    if(count>FINGER_NUM_MAX) count=FINGER_NUM_MAX;
++    touch_state_init(&state);
++    touch_state_slot(&state,slot->value);
++    for(int i=0;i<count;++i) {
++        /* Do not turn a finger already on the screen into an accidental move. */
++        if(ids[i+1]>=0) { errno=EBUSY;return 0; }
++        touch_slot *p=&state.slots[i];
++        p->x=p->old_x=touch_scale_axis(xs[i+1],x_axis.minimum,x_axis.maximum,SCREEN_WIDTH);
++        p->y=p->old_y=touch_scale_axis(ys[i+1],y_axis.minimum,y_axis.maximum,SCREEN_HEIGHT);
++    }
++    return 1;
++}
++
++static int open_touch(const char *path)
++{
++    int fd = open(path, O_RDONLY | O_NONBLOCK);
++    struct input_absinfo slot;
++    if(fd < 0) return -1;
++    if(ioctl(fd, EVIOCGABS(ABS_MT_SLOT), &slot) < 0 || slot.minimum != 0 || slot.maximum<0 ||
++       ioctl(fd, EVIOCGABS(ABS_MT_POSITION_X), &x_axis) < 0 ||
++       ioctl(fd, EVIOCGABS(ABS_MT_POSITION_Y), &y_axis) < 0 ||
++       x_axis.maximum <= x_axis.minimum || y_axis.maximum <= y_axis.minimum) {
++        close(fd);
++        errno = ENODEV;
++        return -1;
++    }
++    if(!initial_slots(fd,&slot)) {
++        int error=errno;
++        if(error==EBUSY) fprintf(stderr,"Lift every finger from the screen, then restart the program.\n");
++        else fprintf(stderr,"Cannot read initial touchscreen slots: %s\n",strerror(error));
++        close(fd);errno=error;return -1;
++    }
++    printf("touch device: %s, x=[%d,%d], y=[%d,%d], slots=%d\n", path,
++           x_axis.minimum, x_axis.maximum, y_axis.minimum, y_axis.maximum,
++           slot.maximum + 1);
++    dropped = 0;
++    return fd;
++}
+ 
+ int touch_init(char *dev)
+ {
+-	int fd = open(dev, O_RDONLY);
+-	if(fd < 0){
+-		printf("touch_init open %s error!errno = %d\n", dev, errno);
+-		return -1;
+-	}
+-	return fd;
++    if(dev && *dev) {
++        int fd = open_touch(dev);
++        if(fd < 0) fprintf(stderr, "touch_init %s: %s\n", dev, strerror(errno));
++        return fd;
++    }
++    DIR *dir = opendir("/dev/input");
++    if(!dir) { perror("/dev/input"); return -1; }
++    struct dirent *entry;
++    int fd = -1;
++    while((entry = readdir(dir)) != NULL) {
++        if(strncmp(entry->d_name, "event", 5) != 0) continue;
++        char path[512];
++        snprintf(path, sizeof(path), "/dev/input/%s", entry->d_name);
++        fd = open_touch(path);
++        if(fd >= 0) break;
++    }
++    closedir(dir);
++    if(fd < 0) fprintf(stderr, "No protocol-B touchscreen found; use --touch /dev/input/eventN.\n");
++    return fd;
+ }
+ 
+-/*return:
+-	TOUCH_NO_EVENT
+-	TOUCH_PRESS
+-	TOUCH_MOVE
+-	TOUCH_RELEASE
+-	TOUCH_ERROR
+-	x: [0 ~ SCREEN_WIDTH)
+-	y: [0 ~ SCREEN_HEIGHT)
+-	finger: 0,1,2,3,4
+-*/
+-
+-//驱动上传的xy坐标范围是[0,4096)
+-#define ADJUST_X(n) ((n*SCREEN_WIDTH)>>12)  /* (n*screen_width/4096) */
+-#define ADJUST_Y(n) ((n*SCREEN_HEIGHT)>>12)  /* (n*screen_height/4096) */
+-
+-int touch_read(int touch_fd, int *x, int *y, int *finger)
++int touch_read(int fd, int *x, int *y, int *finger)
+ {
+-	struct input_event data;
+-	int n, ret;
+-	if((n = read(touch_fd, &data, sizeof(data))) != sizeof(data)){
+-		printf("touch_read error %d, errno=%d\n", n, errno);
+-		return TOUCH_ERROR;
+-	}
+-//	printf("event read: type-code-value = %d-%d-%d\n", data.type, data.code, data.value);
+-	switch(data.type)
+-	{
+-	case EV_ABS:
+-		switch(data.code)
+-		{
+-		case ABS_MT_SLOT:
+-			if(data.value >= 0 && data.value < FINGER_NUM_MAX) {
+-				int old = cur_slot;
+-				cur_slot = data.value;
+-				if(infos[old].event != TOUCH_NO_EVENT) {
+-					*x = infos[old].x;
+-					*y = infos[old].y;
+-					*finger = old;
+-					ret = infos[old].event;
+-					infos[old].event = TOUCH_NO_EVENT;
+-					return ret;
+-				}
+-			}
+-			break;
+-		case ABS_MT_TRACKING_ID:
+-			if(data.value == -1){
+-				*x = infos[cur_slot].x;
+-				*y = infos[cur_slot].y;
+-				*finger = cur_slot;
+-				infos[cur_slot].event = TOUCH_NO_EVENT;
+-				return TOUCH_RELEASE;
+-			}
+-			else{
+-				infos[cur_slot].event = TOUCH_PRESS;
+-			}
+-			break;
+-		case ABS_MT_POSITION_X:
+-			infos[cur_slot].x = ADJUST_X(data.value);
+-			if(infos[cur_slot].event != TOUCH_PRESS) {
+-				infos[cur_slot].event = TOUCH_MOVE;
+-			}
+-			break;
+-		case ABS_MT_POSITION_Y:
+-			infos[cur_slot].y = ADJUST_Y(data.value);
+-			if(infos[cur_slot].event != TOUCH_PRESS) {
+-				infos[cur_slot].event = TOUCH_MOVE;
+-			}
+-			break;
+-		}
+-		break;
+-	case EV_SYN:
+-		switch(data.code)
+-		{
+-		case SYN_REPORT:
+-			if(infos[cur_slot].event != TOUCH_NO_EVENT){
+-				*x = infos[cur_slot].x;
+-				*y = infos[cur_slot].y;
+-				*finger = cur_slot;
+-				ret = infos[cur_slot].event;
+-				infos[cur_slot].event = TOUCH_NO_EVENT;
+-				return ret;
+-			}
+-			break;
+-		}
+-		break;
+-	}
+-	return TOUCH_NO_EVENT;
++    touch_sample sample;
++    for(;;) {
++        if(touch_state_pop(&state, &sample)) {
++            *x = sample.x; *y = sample.y; *finger = sample.finger;
++            return sample.type;
++        }
++        struct input_event event;
++        ssize_t n = read(fd, &event, sizeof(event));
++        if(n < 0 && errno == EINTR) continue;
++        if(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return TOUCH_NO_EVENT;
++        if(n != (ssize_t)sizeof(event)) {
++            fprintf(stderr, "touch read stopped: %s\n", n == 0 ? "device closed" : strerror(errno));
++            return TOUCH_ERROR;
++        }
++        if(event.type == EV_SYN && event.code == SYN_DROPPED) {
++            dropped = 1;
++            touch_state_init(&state);
++            continue;
++        }
++        if(dropped) {
++            if(event.type == EV_SYN && event.code == SYN_REPORT) {
++                fprintf(stderr, "Touch events overflowed; restart the experiment to resynchronize.\n");
++                return TOUCH_ERROR;
++            }
++            continue;
++        }
++        if(event.type == EV_ABS) {
++            switch(event.code) {
++            case ABS_MT_SLOT: touch_state_slot(&state, event.value); break;
++            case ABS_MT_TRACKING_ID: touch_state_tracking(&state, event.value); break;
++            case ABS_MT_POSITION_X:
++                touch_state_position(&state, 0, touch_scale_axis(event.value,
++                    x_axis.minimum, x_axis.maximum, SCREEN_WIDTH)); break;
++            case ABS_MT_POSITION_Y:
++                touch_state_position(&state, 1, touch_scale_axis(event.value,
++                    y_axis.minimum, y_axis.maximum, SCREEN_HEIGHT)); break;
++            }
++        } else if(event.type == EV_SYN && event.code == SYN_REPORT) {
++            touch_state_sync(&state);
++        }
++    }
+ }
+--- /dev/null
++++ b/common/touch_protocol.c
+@@ -0,0 +1,71 @@
++#include "touch_protocol.h"
++
++void touch_state_init(touch_state *s)
++{
++    memset(s, 0, sizeof(*s));
++    for(int i = 0; i < FINGER_NUM_MAX; ++i)
++        s->slots[i].tracking = s->slots[i].old_tracking = -1;
++}
++
++void touch_state_slot(touch_state *s, int slot)
++{
++    /* Ignore every update for an unsupported slot, rather than corrupt slot 0. */
++    s->slot = slot >= 0 && slot < FINGER_NUM_MAX ? slot : -1;
++}
++
++void touch_state_tracking(touch_state *s, int tracking)
++{
++    if(s->slot < 0) return;
++    touch_slot *p = &s->slots[s->slot];
++    p->tracking = tracking >= 0 ? tracking : -1;
++    p->changed = 1;
++}
++
++void touch_state_position(touch_state *s, int is_y, int value)
++{
++    if(s->slot < 0) return;
++    touch_slot *p = &s->slots[s->slot];
++    if(is_y) p->y = value; else p->x = value;
++    p->changed = 1;
++}
++
++static void append(touch_state *s, int type, int x, int y, int finger)
++{
++    s->ready[s->count++] = (touch_sample){type, x, y, finger};
++}
++
++void touch_state_sync(touch_state *s)
++{
++    /* Caller drains ready samples before feeding another complete frame. */
++    s->count = s->next = 0;
++    for(int i = 0; i < FINGER_NUM_MAX; ++i) {
++        touch_slot *p = &s->slots[i];
++        if(p->old_tracking >= 0 && p->tracking != p->old_tracking)
++            append(s, TOUCH_RELEASE, p->old_x, p->old_y, i);
++        if(p->tracking >= 0) {
++            if(p->tracking != p->old_tracking)
++                append(s, TOUCH_PRESS, p->x, p->y, i);
++            else if(p->changed && (p->x != p->old_x || p->y != p->old_y))
++                append(s, TOUCH_MOVE, p->x, p->y, i);
++        }
++        p->old_tracking = p->tracking;
++        p->old_x = p->x;
++        p->old_y = p->y;
++        p->changed = 0;
++    }
++}
++
++int touch_state_pop(touch_state *s, touch_sample *out)
++{
++    if(s->next == s->count) return 0;
++    *out = s->ready[s->next++];
++    return 1;
++}
++
++int touch_scale_axis(int value, int minimum, int maximum, int pixels)
++{
++    if(pixels <= 1 || maximum <= minimum || value <= minimum) return 0;
++    if(value >= maximum) return pixels - 1;
++    return (int)(((int64_t)value - minimum) * (pixels - 1) /
++                 ((int64_t)maximum - minimum));
++}
+--- /dev/null
++++ b/common/touch_protocol.h
+@@ -0,0 +1,22 @@
++#ifndef TOUCH_PROTOCOL_H
++#define TOUCH_PROTOCOL_H
++#include "common.h"
++
++/* Protocol B state, independent of Linux read/ioctl for offline replay. */
++typedef struct { int type, x, y, finger; } touch_sample;
++typedef struct {
++    int x, y, tracking, old_tracking, old_x, old_y, changed;
++} touch_slot;
++typedef struct {
++    touch_slot slots[FINGER_NUM_MAX];
++    touch_sample ready[FINGER_NUM_MAX * 2];
++    int slot, count, next;
++} touch_state;
++void touch_state_init(touch_state *s);
++void touch_state_slot(touch_state *s, int slot);
++void touch_state_tracking(touch_state *s, int tracking);
++void touch_state_position(touch_state *s, int is_y, int value);
++void touch_state_sync(touch_state *s);
++int touch_state_pop(touch_state *s, touch_sample *out);
++int touch_scale_axis(int value, int minimum, int maximum, int pixels);
++#endif
+--- /dev/null
++++ b/lab6_gomoku/Makefile
+@@ -0,0 +1,3 @@
++EXENAME := lab6_gomoku
++EXESRCS := main.c gomoku.c ai.c app.c render.c session.c storage.c
++include ../common/rules.mk
+--- /dev/null
++++ b/lab6_gomoku/ai.c
+@@ -0,0 +1,122 @@
++#include "ai.h"
++#include <limits.h>
++#include <stdlib.h>
++#include <string.h>
++#define WIN_SCORE 10000000
++static const int dirs[4][2]={{0,1},{1,0},{1,1},{1,-1}};
++static int inside(int r,int c) { return r>=0 && r<GM_SIZE && c>=0 && c<GM_SIZE; }
++static int shape(int length,int open)
++{
++    if(length>=5) return 500000;
++    if(!open) return 0;
++    if(length==4) return open==2 ? 50000 : 5000;
++    if(length==3) return open==2 ? 1500 : 120;
++    if(length==2) return open==2 ? 70 : 8;
++    return open==2 ? 3 : 1;
++}
++static int near_stone(const gm_game *g,int r,int c)
++{
++    if(!g->count) return r==GM_SIZE/2 && c==GM_SIZE/2;
++    for(int dr=-2;dr<=2;++dr) for(int dc=-2;dc<=2;++dc)
++        if(inside(r+dr,c+dc) && g->cells[r+dr][c+dc]) return 1;
++    return 0;
++}
++static int placement(const gm_game *g,int r,int c,int side)
++{
++    int total=0;
++    for(int d=0;d<4;++d) {
++        int length=1,open=0;
++        for(int sign=-1;sign<=1;sign+=2) {
++            int rr=r+dirs[d][0]*sign, cc=c+dirs[d][1]*sign;
++            while(inside(rr,cc) && g->cells[rr][cc]==side) {
++                ++length; rr+=dirs[d][0]*sign; cc+=dirs[d][1]*sign;
++            }
++            if(inside(rr,cc) && !g->cells[rr][cc]) ++open;
++        }
++        total+=shape(length,open);
++        /* Five-cell windows recognize broken threats, not just contiguous runs. */
++        for(int start=-4;start<=0;++start) {
++            int stones=0,valid=1;
++            for(int k=0;k<5;++k) {
++                int delta=start+k,rr=r+delta*dirs[d][0],cc=c+delta*dirs[d][1];
++                if(!inside(rr,cc) || (g->cells[rr][cc] && g->cells[rr][cc]!=side)) { valid=0; break; }
++                stones+=delta==0 || g->cells[rr][cc]==side;
++            }
++            if(valid) total+=stones==5 ? 500000 : stones==4 ? 3000 : stones==3 ? 150 : stones==2 ? 10 : 0;
++        }
++    }
++    return total;
++}
++static int position_score(const gm_game *g,int side)
++{
++    int total=0;
++    for(int r=0;r<GM_SIZE;++r) for(int c=0;c<GM_SIZE;++c) {
++        int stone=g->cells[r][c];
++        if(!stone) continue;
++        for(int d=0;d<4;++d) {
++            int dr=dirs[d][0],dc=dirs[d][1],pr=r-dr,pc=c-dc;
++            if(inside(pr,pc) && g->cells[pr][pc]==stone) continue;
++            int length=0,rr=r,cc=c;
++            while(inside(rr,cc) && g->cells[rr][cc]==stone) { ++length;rr+=dr;cc+=dc; }
++            int open=(inside(pr,pc) && !g->cells[pr][pc])+(inside(rr,cc) && !g->cells[rr][cc]);
++            total+=(stone==side ? 1 : -1)*shape(length,open);
++        }
++    }
++    return total;
++}
++static int candidates(const gm_game *g,int side,gm_move *out,int capacity)
++{
++    int scores[GM_AI_CANDIDATES],count=0;
++    for(int r=0;r<GM_SIZE;++r) for(int c=0;c<GM_SIZE;++c) {
++        if(!gm_legal(g,r,c) || !near_stone(g,r,c)) continue;
++        int score=placement(g,r,c,side)*2+placement(g,r,c,3-side)*2;
++        score=score*4-(abs(r-GM_SIZE/2)+abs(c-GM_SIZE/2));
++        int index=count;
++        if(index==capacity) { if(score<=scores[index-1]) continue; --index; }
++        else ++count;
++        while(index>0 && score>scores[index-1]) { scores[index]=scores[index-1];out[index]=out[index-1];--index; }
++        scores[index]=score;out[index]=(gm_move){r,c};
++    }
++    return count;
++}
++void gm_ai_begin(gm_ai *ai,const gm_game *g)
++{
++    memset(ai,0,sizeof(*ai));ai->snapshot=*g;ai->side=g->next;
++    ai->best=(gm_move){-1,-1};ai->best_score=INT_MIN;
++    if(g->result || g->count==GM_CAPACITY) return;
++    /* Check all legal cells before pruning: never discard a one-move win. */
++    for(int side=g->next,pass=0;pass<2;++pass,side=3-side)
++        for(int r=0;r<GM_SIZE;++r) for(int c=0;c<GM_SIZE;++c)
++            if(gm_legal(g,r,c) && gm_would_win(g,r,c,side)) {
++                ai->candidates[0]=(gm_move){r,c};ai->count=1;ai->active=1;return;
++            }
++    ai->count=candidates(g,g->next,ai->candidates,GM_AI_CANDIDATES);
++    ai->active=ai->count>0;
++}
++int gm_ai_step(gm_ai *ai)
++{
++    if(!ai->active) return 1;
++    gm_move move=ai->candidates[ai->cursor++];
++    gm_game after=ai->snapshot;
++    gm_play(&after,move.row,move.col);
++    int score=after.result==ai->side ? WIN_SCORE : position_score(&after,ai->side);
++    if(!after.result) {
++        int losing=0;
++        for(int r=0;r<GM_SIZE && !losing;++r) for(int c=0;c<GM_SIZE;++c)
++            if(gm_legal(&after,r,c) && gm_would_win(&after,r,c,3-ai->side)) { losing=1;break; }
++        if(losing) score=-WIN_SCORE;
++        else {
++            gm_move replies[GM_AI_CANDIDATES];
++            int n=candidates(&after,3-ai->side,replies,8),worst=INT_MAX;
++            for(int i=0;i<n;++i) {
++                gm_game leaf=after;gm_play(&leaf,replies[i].row,replies[i].col);
++                int value=leaf.result==3-ai->side ? -WIN_SCORE : position_score(&leaf,ai->side);
++                if(value<worst) worst=value;
++            }
++            if(n) score=worst;
++        }
++    }
++    if(score>ai->best_score) { ai->best_score=score;ai->best=move; }
++    ai->active=ai->cursor<ai->count;
++    return !ai->active;
++}
+--- /dev/null
++++ b/lab6_gomoku/ai.h
+@@ -0,0 +1,13 @@
++#ifndef GM_AI_H
++#define GM_AI_H
++#include "gomoku.h"
++#define GM_AI_CANDIDATES 12
++typedef struct {
++    gm_game snapshot;
++    gm_move candidates[GM_AI_CANDIDATES], best;
++    int count, cursor, side, best_score, active;
++} gm_ai;
++void gm_ai_begin(gm_ai *ai, const gm_game *game);
++/* Evaluates one root candidate per call. Returns 1 when best is ready. */
++int gm_ai_step(gm_ai *ai);
++#endif
+--- /dev/null
++++ b/lab6_gomoku/app.c
+@@ -0,0 +1,87 @@
++#include "app.h"
++#include <stdlib.h>
++#include <string.h>
++static void reset_game(gm_app *app)
++{
++    gm_init(&app->game);memset(&app->ai,0,sizeof(app->ai));
++    app->message=GM_MSG_NORMAL;app->dirty=1;
++    app->pending_action=GM_CONFIRM_NONE;app->confirm_deadline_ms=0;++app->revision;
++}
++void gm_app_restore(gm_app *app,const gm_game *game,int human_ai)
++{
++    gm_app_init(app,human_ai);app->game=*game;
++    if(app->human_ai && !game->result && game->next==GM_WHITE) gm_ai_begin(&app->ai,game);
++}
++void gm_app_init(gm_app *app,int human_ai)
++{
++    memset(app,0,sizeof(*app));app->human_ai=!!human_ai;reset_game(app);
++}
++int gm_screen_cell(int x,int y,gm_move *move)
++{
++    if(x<GM_BOARD_X-14 || y<GM_BOARD_Y-14 ||
++       x>GM_BOARD_X+(GM_SIZE-1)*GM_CELL+14 || y>GM_BOARD_Y+(GM_SIZE-1)*GM_CELL+14) return 0;
++    int col=(x-GM_BOARD_X+GM_CELL/2)/GM_CELL;
++    int row=(y-GM_BOARD_Y+GM_CELL/2)/GM_CELL;
++    if(abs(x-(GM_BOARD_X+col*GM_CELL))>14 || abs(y-(GM_BOARD_Y+row*GM_CELL))>14) return 0;
++    *move=(gm_move){row,col};return 1;
++}
++static int button(int x,int y,int top)
++{ return x>=GM_BUTTON_X && x<GM_BUTTON_X+GM_BUTTON_W && y>=top && y<top+GM_BUTTON_H; }
++void gm_app_set_time(gm_app *app,uint64_t now_ms)
++{
++    if(now_ms<app->now_ms) return;
++    app->now_ms=now_ms;
++    if(app->pending_action && now_ms>=app->confirm_deadline_ms) {
++        app->pending_action=GM_CONFIRM_NONE;app->confirm_deadline_ms=0;app->dirty=1;
++    }
++}
++void gm_app_touch(gm_app *app,int type,int x,int y,int finger)
++{
++    if(finger<0 || finger>=5) return;
++    if(type==3) { app->held[finger]=0;return; }
++    if(type!=1 || app->quit || app->held[finger]) return;
++    int other_down=0;
++    for(int i=0;i<5;++i) other_down|=app->held[i];
++    app->held[finger]=1;
++    if(other_down || x<0 || y<0 || x>=1024 || y>=600) return;
++    int action=button(x,y,GM_NEW_Y) ? GM_CONFIRM_NEW : button(x,y,GM_MODE_Y) ? GM_CONFIRM_MODE :
++        button(x,y,GM_EXIT_Y) ? GM_CONFIRM_EXIT : GM_CONFIRM_NONE;
++    if(action && app->game.count && app->pending_action!=action) {
++        app->pending_action=action;app->confirm_deadline_ms=app->now_ms+3000;app->dirty=1;return;
++    }
++    if(app->pending_action) { app->pending_action=GM_CONFIRM_NONE;app->confirm_deadline_ms=0;app->dirty=1; }
++    if(action==GM_CONFIRM_NEW) { reset_game(app);return; }
++    if(action==GM_CONFIRM_MODE) { app->human_ai=!app->human_ai;reset_game(app);return; }
++    if(action==GM_CONFIRM_EXIT) { app->quit=1;app->dirty=1;return; }
++    if(button(x,y,GM_UNDO_Y)) {
++        int steps=app->human_ai ? (app->game.count%2 ? 1 : 2) : 1;
++        app->ai.active=0;
++        int removed=gm_undo(&app->game,steps);
++        app->message=removed ? GM_MSG_NORMAL : GM_MSG_NO_UNDO;
++        if(removed) ++app->revision;
++        app->dirty=1;return;
++    }
++    gm_move move;
++    if(!gm_screen_cell(x,y,&move)) return;
++    if(app->game.result) app->message=GM_MSG_FINISHED;
++    else if(app->human_ai && (app->game.next==GM_WHITE || app->ai.active)) app->message=GM_MSG_WAIT;
++    else if(!gm_play(&app->game,move.row,move.col)) app->message=GM_MSG_OCCUPIED;
++    else {
++        app->message=GM_MSG_NORMAL;++app->revision;
++        if(app->human_ai && !app->game.result) gm_ai_begin(&app->ai,&app->game);
++    }
++    app->dirty=1;
++}
++void gm_app_tick(gm_app *app)
++{
++    if(app->quit) return;
++    if(!app->ai.active) return;
++    if(gm_ai_step(&app->ai)) {
++        gm_move m=app->ai.best;
++        if(!app->game.result && app->game.next==GM_WHITE && gm_legal(&app->game,m.row,m.col)) {
++            gm_play(&app->game,m.row,m.col);
++            ++app->revision;
++        }
++        app->message=GM_MSG_NORMAL;app->dirty=1;
++    }
++}
+--- /dev/null
++++ b/lab6_gomoku/app.h
+@@ -0,0 +1,33 @@
++#ifndef GM_APP_H
++#define GM_APP_H
++#include "ai.h"
++#define GM_BOARD_X 66
++#define GM_BOARD_Y 100
++#define GM_CELL 32
++#define GM_BUTTON_X 584
++#define GM_BUTTON_W 380
++#define GM_BUTTON_H 52
++#define GM_NEW_Y 230
++#define GM_UNDO_Y 294
++#define GM_MODE_Y 358
++#define GM_EXIT_Y 422
++enum { GM_MSG_NORMAL, GM_MSG_OCCUPIED, GM_MSG_FINISHED, GM_MSG_WAIT, GM_MSG_NO_UNDO };
++enum { GM_CONFIRM_NONE, GM_CONFIRM_NEW, GM_CONFIRM_MODE, GM_CONFIRM_EXIT };
++enum { GM_SAVE_OFF, GM_SAVE_OK, GM_SAVE_ERROR, GM_SAVE_PAUSED };
++typedef struct {
++    gm_game game;
++    gm_ai ai;
++    int human_ai, held[5], message, dirty, quit;
++    int pending_action, save_status;
++    uint64_t now_ms, confirm_deadline_ms;
++    unsigned revision;
++} gm_app;
++void gm_app_init(gm_app *app,int human_ai);
++void gm_app_restore(gm_app *app,const gm_game *game,int human_ai);
++int gm_screen_cell(int x,int y,gm_move *move);
++void gm_app_touch(gm_app *app,int type,int x,int y,int finger);
++/* Caller supplies CLOCK_MONOTONIC milliseconds before input and timer work. */
++void gm_app_set_time(gm_app *app,uint64_t now_ms);
++void gm_app_tick(gm_app *app);
++void gm_render(const gm_app *app);
++#endif
+--- /dev/null
++++ b/lab6_gomoku/gomoku.c
+@@ -0,0 +1,61 @@
++#include "gomoku.h"
++#include <string.h>
++static const int directions[4][2] = {{0,1},{1,0},{1,1},{1,-1}};
++static int inside(int r, int c) { return r >= 0 && r < GM_SIZE && c >= 0 && c < GM_SIZE; }
++static int run(const gm_game *g, int r, int c, int dr, int dc, int side)
++{
++    int length = 0;
++    for(r += dr, c += dc; inside(r,c) && g->cells[r][c] == side; r += dr, c += dc)
++        ++length;
++    return length;
++}
++void gm_init(gm_game *g) { memset(g,0,sizeof(*g)); g->next = GM_BLACK; }
++int gm_legal(const gm_game *g, int r, int c)
++{ return !g->result && inside(r,c) && g->cells[r][c] == GM_EMPTY; }
++int gm_would_win(const gm_game *g, int r, int c, int side)
++{
++    if(!inside(r,c) || g->cells[r][c] || (side != GM_BLACK && side != GM_WHITE)) return 0;
++    for(int d=0; d<4; ++d) {
++        int dr=directions[d][0], dc=directions[d][1];
++        if(1+run(g,r,c,dr,dc,side)+run(g,r,c,-dr,-dc,side) >= 5) return 1;
++    }
++    return 0;
++}
++int gm_play(gm_game *g, int r, int c)
++{
++    if(!gm_legal(g,r,c) || g->count >= GM_CAPACITY) return 0;
++    int side=g->next, win=gm_would_win(g,r,c,side);
++    g->cells[r][c]=(uint8_t)side;
++    g->moves[g->count++]=(gm_move){r,c};
++    g->next=3-side;
++    if(win) g->result=side;
++    else if(g->count == GM_CAPACITY) g->result=GM_DRAW;
++    return 1;
++}
++int gm_undo(gm_game *g, int steps)
++{
++    int removed=0;
++    while(steps-- > 0 && g->count > 0) {
++        gm_move m=g->moves[--g->count];
++        g->cells[m.row][m.col]=GM_EMPTY;
++        ++removed;
++    }
++    if(removed) { g->next=g->count%2 ? GM_WHITE : GM_BLACK; g->result=GM_EMPTY; }
++    return removed;
++}
++int gm_win_line(const gm_game *g, gm_move *first, gm_move *last)
++{
++    if(!g->count || !g->result || g->result == GM_DRAW) return 0;
++    gm_move m=g->moves[g->count-1];
++    for(int d=0; d<4; ++d) {
++        int dr=directions[d][0], dc=directions[d][1];
++        int before=run(g,m.row,m.col,-dr,-dc,g->result);
++        int after=run(g,m.row,m.col,dr,dc,g->result);
++        if(1+before+after >= 5) {
++            *first=(gm_move){m.row-before*dr,m.col-before*dc};
++            *last=(gm_move){m.row+after*dr,m.col+after*dc};
++            return 1;
++        }
++    }
++    return 0;
++}
+--- /dev/null
++++ b/lab6_gomoku/gomoku.h
+@@ -0,0 +1,19 @@
++#ifndef GOMOKU_H
++#define GOMOKU_H
++#include <stdint.h>
++#define GM_SIZE 15
++#define GM_CAPACITY (GM_SIZE * GM_SIZE)
++enum { GM_EMPTY, GM_BLACK, GM_WHITE, GM_DRAW };
++typedef struct { int row, col; } gm_move;
++typedef struct {
++    uint8_t cells[GM_SIZE][GM_SIZE];
++    gm_move moves[GM_CAPACITY];
++    int count, next, result;
++} gm_game;
++void gm_init(gm_game *game);
++int gm_legal(const gm_game *game, int row, int col);
++int gm_would_win(const gm_game *game, int row, int col, int side);
++int gm_play(gm_game *game, int row, int col);
++int gm_undo(gm_game *game, int steps);
++int gm_win_line(const gm_game *game, gm_move *first, gm_move *last);
++#endif
+--- /dev/null
++++ b/lab6_gomoku/main.c
+@@ -0,0 +1,116 @@
++#include "../common/common.h"
++#include "app.h"
++#include "storage.h"
++#include <signal.h>
++#include <sys/ioctl.h>
++#include <linux/fb.h>
++#include <time.h>
++static gm_app app;
++static volatile sig_atomic_t stopped;
++static const char *save_path="./gomoku-save.txt";
++static unsigned saved_revision;
++static void stop(int sig) { (void)sig;stopped=1; }
++static void update_time(void)
++{
++    struct timespec now;
++    if(clock_gettime(CLOCK_MONOTONIC,&now)!=0) { perror("CLOCK_MONOTONIC");exit(EXIT_FAILURE); }
++    gm_app_set_time(&app,(uint64_t)now.tv_sec*1000+(uint64_t)now.tv_nsec/1000000);
++}
++static int screen_ready(void)
++{
++    struct fb_fix_screeninfo fix;
++    struct fb_var_screeninfo var;
++    int fd=open("/dev/fb0",O_RDWR);
++    if(fd<0) { perror("/dev/fb0");return 0; }
++    int ok=ioctl(fd,FBIOGET_FSCREENINFO,&fix)==0 && ioctl(fd,FBIOGET_VSCREENINFO,&var)==0;
++    close(fd);
++    if(!ok || var.xres!=1024 || var.yres!=600 || var.bits_per_pixel!=32 ||
++       var.red.offset!=16 || var.red.length!=8 || var.green.offset!=8 || var.green.length!=8 ||
++       var.blue.offset!=0 || var.blue.length!=8 || fix.line_length<4096 ||
++       (uint64_t)fix.smem_len<(uint64_t)fix.line_length*600) {
++        fprintf(stderr,"Unsupported framebuffer; expected 1024x600, 32-bit RGB. Run preflight.py first.\n");
++        return 0;
++    }
++    return 1;
++}
++static void save_if_changed(void)
++{
++    if(app.save_status==GM_SAVE_PAUSED || saved_revision==app.revision) return;
++    int ok=gm_storage_save(save_path,&app.game,app.human_ai);
++    saved_revision=app.revision;
++    app.save_status=ok ? GM_SAVE_OK : GM_SAVE_ERROR;app.dirty=1;
++    if(!ok) perror("Autosave failed");
++}
++static void flush_view(void)
++{
++    save_if_changed();
++    if(app.dirty) { gm_render(&app);app.dirty=0; }
++}
++static void touch_callback(int fd)
++{
++    int type,x,y,finger;
++    while((type=touch_read(fd,&x,&y,&finger))!=TOUCH_NO_EVENT) {
++        if(type==TOUCH_ERROR) { fprintf(stderr,"Touch input stopped; restart after checking USB cable.\n");exit(EXIT_FAILURE); }
++        update_time();
++        int previous=app.game.count,previous_result=app.game.result;
++        gm_app_touch(&app,type,x,y,finger);
++        if(previous!=app.game.count || previous_result!=app.game.result)
++            printf("game: moves=%d next=%d result=%d mode=%s\n",app.game.count,app.game.next,app.game.result,app.human_ai?"human-ai":"two-player");
++    }
++    flush_view();
++}
++static void timer_callback(int period)
++{
++    (void)period;
++    update_time();
++    if(stopped || app.quit) {
++        if(app.save_status==GM_SAVE_ERROR) { saved_revision=app.revision-1;save_if_changed(); }
++        printf("Gomoku stopped; autosave status=%d\n",app.save_status);
++        exit(app.save_status==GM_SAVE_OK ? EXIT_SUCCESS : EXIT_FAILURE);
++    }
++    int previous=app.game.count;
++    gm_app_tick(&app);
++    if(app.game.count!=previous) {
++        gm_move m=app.game.moves[app.game.count-1];
++        printf("AI move: row=%d col=%d moves=%d result=%d\n",m.row,m.col,app.game.count,app.game.result);
++    }
++    flush_view();
++}
++int main(int argc,char **argv)
++{
++    char *device=NULL;int human_ai=1,fresh=0;
++    for(int i=1;i<argc;++i) {
++        if(!strcmp(argv[i],"--touch") && i+1<argc) device=argv[++i];
++        else if(!strcmp(argv[i],"--two-player")) { human_ai=0;fresh=1; }
++        else if(!strcmp(argv[i],"--fresh")) fresh=1;
++        else if(!strcmp(argv[i],"--save") && i+1<argc) save_path=argv[++i];
++        else { fprintf(stderr,"Usage: %s [--touch event-path] [--two-player] [--fresh] [--save path]\n",argv[0]);return EXIT_FAILURE; }
++    }
++    setvbuf(stdout,NULL,_IOLBF,0);
++    if(!screen_ready()) return EXIT_FAILURE;
++    int save_lock=gm_storage_lock(save_path);
++    if(save_lock<0) { perror("Game save lock; check directory permissions or another instance");return EXIT_FAILURE; }
++    int fd=touch_init(device);
++    if(fd<0) return EXIT_FAILURE;
++    font_init("./font.ttc");
++    fb_image *probe=fb_read_font_image("棋",24,NULL);
++    if(!probe) { fprintf(stderr,"Load font.ttc failed; run from the course out directory.\n");close(fd);return EXIT_FAILURE; }
++    fb_free_image(probe);
++    fb_init("/dev/fb0");
++    gm_app_init(&app,human_ai);
++    gm_game restored;int mode;
++    int loaded=fresh ? 0 : gm_storage_load(save_path,&restored,&mode);
++    if(loaded>0) {
++        gm_app_restore(&app,&restored,mode);saved_revision=app.revision;app.save_status=GM_SAVE_OK;
++        printf("Resumed saved game: %d moves\n",app.game.count);
++    }
++    else if(loaded<0) {
++        app.save_status=GM_SAVE_PAUSED;
++        fprintf(stderr,"Saved game invalid/unreadable; preserved original and paused autosave. Use --fresh to deliberately replace it.\n");
++    }
++    flush_view();
++    signal(SIGINT,stop);signal(SIGTERM,stop);
++    task_add_file(fd,touch_callback);task_add_timer(20,timer_callback);
++    printf("Gomoku ready: %s, freestyle >=5 wins, board=15x15, max AI roots=%d\n",app.human_ai?"human-ai":"two-player",GM_AI_CANDIDATES);
++    task_loop();return 0;
++}
+--- /dev/null
++++ b/lab6_gomoku/render.c
+@@ -0,0 +1,83 @@
++#include "../common/common.h"
++#include "app.h"
++#define BG FB_COLOR(246,244,239)
++#define INK FB_COLOR(40,50,57)
++#define MUTED FB_COLOR(108,116,119)
++#define ACCENT FB_COLOR(36,113,97)
++#define WOOD FB_COLOR(239,219,181)
++#define GRID FB_COLOR(131,107,74)
++#define WHITE FB_COLOR(255,255,255)
++static void disk(int x,int y,int radius,int color)
++{
++    for(int dy=-radius;dy<=radius;++dy) for(int dx=-radius;dx<=radius;++dx)
++        if(dx*dx+dy*dy<=radius*radius) fb_draw_pixel(x+dx,y+dy,color);
++}
++static void stone(int x,int y,int side)
++{
++    disk(x,y,13,FB_COLOR(101,88,67));
++    disk(x,y,12,side==GM_BLACK ? INK : WHITE);
++    disk(x-4,y-4,3,side==GM_BLACK ? FB_COLOR(75,88,95) : FB_COLOR(239,240,234));
++}
++static void draw_button(int top,char *label,int enabled,int primary)
++{
++    int background=primary ? ACCENT : WHITE;
++    fb_draw_rect(GM_BUTTON_X,top,GM_BUTTON_W,GM_BUTTON_H,background);
++    fb_draw_border(GM_BUTTON_X,top,GM_BUTTON_W,GM_BUTTON_H,FB_COLOR(218,223,216));
++    fb_draw_text(GM_BUTTON_X+22,top+35,label,24,primary ? WHITE : enabled ? INK : MUTED);
++}
++void gm_render(const gm_app *app)
++{
++    const gm_game *g=&app->game;
++    char text[120];
++    fb_draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,BG);
++    fb_draw_text(40,43,"触屏五子棋",30,INK);
++    fb_draw_text(584,38,"自由规则 / 连续五子或以上获胜",20,MUTED);
++    fb_draw_rect(40,74,500,500,WOOD);
++    fb_draw_border(40,74,500,500,FB_COLOR(212,188,149));
++    for(int i=0;i<GM_SIZE;++i) {
++        fb_draw_line(GM_BOARD_X,GM_BOARD_Y+i*GM_CELL,GM_BOARD_X+14*GM_CELL,GM_BOARD_Y+i*GM_CELL,GRID);
++        fb_draw_line(GM_BOARD_X+i*GM_CELL,GM_BOARD_Y,GM_BOARD_X+i*GM_CELL,GM_BOARD_Y+14*GM_CELL,GRID);
++        snprintf(text,sizeof(text),"%c",'A'+i);
++        fb_draw_text(GM_BOARD_X+i*GM_CELL-5,92,text,16,GRID);
++        snprintf(text,sizeof(text),"%d",GM_SIZE-i);
++        fb_draw_text(GM_BOARD_X-24,GM_BOARD_Y+i*GM_CELL+5,text,16,GRID);
++    }
++    const int stars[5][2]={{3,3},{3,11},{7,7},{11,3},{11,11}};
++    for(int i=0;i<5;++i) disk(GM_BOARD_X+stars[i][1]*GM_CELL,GM_BOARD_Y+stars[i][0]*GM_CELL,3,GRID);
++    gm_move first,last;
++    if(gm_win_line(g,&first,&last)) {
++        int x1=GM_BOARD_X+first.col*GM_CELL,y1=GM_BOARD_Y+first.row*GM_CELL;
++        int x2=GM_BOARD_X+last.col*GM_CELL,y2=GM_BOARD_Y+last.row*GM_CELL;
++        for(int k=-2;k<=2;++k) fb_draw_line(x1+k,y1,x2+k,y2,ACCENT);
++    }
++    for(int r=0;r<GM_SIZE;++r) for(int c=0;c<GM_SIZE;++c)
++        if(g->cells[r][c]) stone(GM_BOARD_X+c*GM_CELL,GM_BOARD_Y+r*GM_CELL,g->cells[r][c]);
++    if(g->count) {
++        gm_move m=g->moves[g->count-1];
++        fb_draw_rect(GM_BOARD_X+m.col*GM_CELL-2,GM_BOARD_Y+m.row*GM_CELL-2,5,5,FB_COLOR(218,107,65));
++    }
++    fb_draw_rect(568,74,412,130,WHITE);
++    fb_draw_text(584,102,app->human_ai ? "人机对战 / 你执黑棋" : "同屏双人 / 黑棋先行",20,MUTED);
++    char *status=app->quit ? "已退出" : g->result==GM_BLACK ? "黑棋获胜" : g->result==GM_WHITE ? "白棋获胜" :
++        g->result==GM_DRAW ? "本局和棋" : app->ai.active ? "电脑思考中…" : g->next==GM_BLACK ? "轮到黑棋" : "轮到白棋";
++    fb_draw_text(584,148,status,30,g->result ? ACCENT : INK);
++    if(g->count) {
++        gm_move m=g->moves[g->count-1];
++        snprintf(text,sizeof(text),"已落 %d 手 / 最后一手 %c%d",g->count,'A'+m.col,GM_SIZE-m.row);
++    } else snprintf(text,sizeof(text),"已落 0 手");
++    fb_draw_text(584,184,text,20,MUTED);
++    draw_button(GM_NEW_Y,app->pending_action==GM_CONFIRM_NEW ? "再点确认重新开始" : "重新开始",1,1);
++    draw_button(GM_UNDO_Y,app->human_ai ? "悔棋 / 回退一轮" : "悔棋 / 回退一步",g->count>0,0);
++    draw_button(GM_MODE_Y,app->pending_action==GM_CONFIRM_MODE ? "再点确认切换模式并重开" :
++        app->human_ai ? "切换为同屏双人（重开）" : "切换为人机对战（重开）",1,0);
++    draw_button(GM_EXIT_Y,app->save_status==GM_SAVE_PAUSED ?
++        (app->pending_action==GM_CONFIRM_EXIT ? "再点退出（本局未保存）" : "退出（自动保存已暂停）") :
++        app->pending_action==GM_CONFIRM_EXIT ? "再点确认保存并退出" : "保存并退出",1,0);
++    const char *messages[]={"点击棋盘交叉点落子","这个位置已有棋子","对局已结束，请重开或悔棋","请等待电脑落子","当前没有可悔的棋步"};
++    fb_draw_text(584,512,app->pending_action ? "三秒内再点同一按钮确认" : (char *)messages[app->message],20,
++        app->pending_action || app->message ? ACCENT : MUTED);
++    fb_draw_text(584,545,"一次按下只落一子，多指不连落",20,MUTED);
++    const char *saves[]={"电脑模拟 / 不读写真实存档","对局已自动保存，下次可继续","自动保存失败，请保留日志","旧存档异常，自动保存已暂停"};
++    fb_draw_text(584,578,(char *)saves[app->save_status],16,app->save_status>=GM_SAVE_ERROR ? FB_COLOR(170,65,45) : MUTED);
++    fb_update();
++}
+--- /dev/null
++++ b/lab6_gomoku/session.c
+@@ -0,0 +1,62 @@
++#include "session.h"
++#include <ctype.h>
++#include <errno.h>
++#include <stdlib.h>
++#include <string.h>
++static int same_game(const gm_game *a,const gm_game *b)
++{
++    return a->count==b->count && a->next==b->next && a->result==b->result &&
++           !memcmp(a->cells,b->cells,sizeof(a->cells));
++}
++static unsigned checksum(const gm_game *g,int mode)
++{
++    uint32_t hash=UINT32_C(2166136261);
++    hash=(hash^(unsigned)mode)*UINT32_C(16777619);
++    for(int i=0;i<g->count;++i) {
++        hash=(hash^(unsigned)g->moves[i].row)*UINT32_C(16777619);
++        hash=(hash^(unsigned)g->moves[i].col)*UINT32_C(16777619);
++    }
++    return (unsigned)hash;
++}
++int gm_write_session(FILE *file,const gm_game *g,int human_ai)
++{
++    if(!file || g->count<0 || g->count>GM_CAPACITY || human_ai<0 || human_ai>1) return 0;
++    gm_game replay;gm_init(&replay);
++    for(int i=0;i<g->count;++i) if(!gm_play(&replay,g->moves[i].row,g->moves[i].col)) return 0;
++    if(!same_game(g,&replay)) return 0;
++    if(fprintf(file,"HUST-GOMOKU 1\n%d %d\n",human_ai,g->count)<0) return 0;
++    for(int i=0;i<g->count;++i) if(fprintf(file,"%d %d\n",g->moves[i].row,g->moves[i].col)<0) return 0;
++    return fprintf(file,"END %08x\n",checksum(g,human_ai))>0 && !ferror(file);
++}
++static int line(FILE *file,char *buf,size_t length)
++{
++    if(!fgets(buf,(int)length,file)) return 0;
++    size_t n=strlen(buf);
++    if(!n || buf[n-1]!='\n') return 0;
++    buf[--n]=0;if(n && buf[n-1]=='\r')buf[n-1]=0;
++    return 1;
++}
++static int pair(const char *text,int *a,int *b)
++{
++    char *end;errno=0;long x=strtol(text,&end,10);
++    if(errno || end==text || !isspace((unsigned char)*end)) return 0;
++    text=end;long y=strtol(text,&end,10);
++    if(errno || end==text) return 0;
++    while(isspace((unsigned char)*end))++end;
++    if(*end || x<0 || x>GM_CAPACITY || y<0 || y>GM_CAPACITY) return 0;
++    *a=(int)x;*b=(int)y;return 1;
++}
++int gm_read_session(FILE *file,gm_game *g,int *human_ai)
++{
++    char buf[96];int mode,count;
++    if(!file || !line(file,buf,sizeof(buf)) || strcmp(buf,"HUST-GOMOKU 1") ||
++       !line(file,buf,sizeof(buf)) || !pair(buf,&mode,&count) || mode>1 || count>GM_CAPACITY) return 0;
++    gm_game replay;gm_init(&replay);
++    for(int i=0;i<count;++i) {
++        int r,c;
++        if(!line(file,buf,sizeof(buf)) || !pair(buf,&r,&c) || !gm_play(&replay,r,c)) return 0;
++    }
++    char end_line[40];snprintf(end_line,sizeof(end_line),"END %08x",checksum(&replay,mode));
++    if(!line(file,buf,sizeof(buf)) || strcmp(buf,end_line) || fgetc(file)!=EOF || ferror(file)) return 0;
++    *g=replay;*human_ai=mode;return 1;
++}
+--- /dev/null
++++ b/lab6_gomoku/session.h
+@@ -0,0 +1,8 @@
++#ifndef GM_SESSION_H
++#define GM_SESSION_H
++#include "gomoku.h"
++#include <stdio.h>
++int gm_write_session(FILE *file,const gm_game *game,int human_ai);
++/* Parse/replay into temporary state; failure leaves both output arguments intact. */
++int gm_read_session(FILE *file,gm_game *game,int *human_ai);
++#endif
+--- /dev/null
++++ b/lab6_gomoku/storage.c
+@@ -0,0 +1,53 @@
++#include "storage.h"
++#include "session.h"
++#include <errno.h>
++#include <fcntl.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/file.h>
++#include <unistd.h>
++static int sync_directory(const char *path)
++{
++    char directory[4096];
++    if(strlen(path)>=sizeof(directory)) { errno=ENAMETOOLONG;return 0; }
++    strcpy(directory,path);char *slash=strrchr(directory,'/');
++    if(!slash) strcpy(directory,".");
++    else if(slash==directory) slash[1]=0;
++    else *slash=0;
++    int fd=open(directory,O_RDONLY|O_DIRECTORY);
++    if(fd<0) return 0;
++    int ok=fsync(fd)==0,error=errno;close(fd);errno=error;return ok;
++}
++int gm_storage_lock(const char *path)
++{
++    char lock_path[4096];
++    if(snprintf(lock_path,sizeof(lock_path),"%s.lock",path)>=(int)sizeof(lock_path)) { errno=ENAMETOOLONG;return -1; }
++    int fd=open(lock_path,O_CREAT|O_RDWR,0600);
++    if(fd<0) return -1;
++    if(flock(fd,LOCK_EX|LOCK_NB)<0) { int error=errno;close(fd);errno=error;return -1; }
++    return fd;
++}
++int gm_storage_load(const char *path,gm_game *game,int *human_ai)
++{
++    FILE *file=fopen(path,"rb");
++    if(!file) return errno==ENOENT ? 0 : -1;
++    int ok=gm_read_session(file,game,human_ai);
++    int closed=fclose(file)==0;
++    if(!ok || !closed) { errno=EINVAL;return -1; }
++    return 1;
++}
++int gm_storage_save(const char *path,const gm_game *game,int human_ai)
++{
++    char temp[4096];
++    if(snprintf(temp,sizeof(temp),"%s.tmp-XXXXXX",path)>=(int)sizeof(temp)) { errno=ENAMETOOLONG;return 0; }
++    int fd=mkstemp(temp);
++    if(fd<0) return 0;
++    FILE *file=fdopen(fd,"wb");
++    if(!file) { int error=errno;close(fd);unlink(temp);errno=error;return 0; }
++    int ok=gm_write_session(file,game,human_ai) && fflush(file)==0 && fsync(fd)==0;
++    int error=errno;
++    if(fclose(file)!=0) { ok=0;error=errno; }
++    if(ok && rename(temp,path)==0) return sync_directory(path);
++    if(ok) error=errno;
++    unlink(temp);errno=error ? error : EIO;return 0;
++}
+--- /dev/null
++++ b/lab6_gomoku/storage.h
+@@ -0,0 +1,7 @@
++#ifndef GM_STORAGE_H
++#define GM_STORAGE_H
++#include "gomoku.h"
++int gm_storage_lock(const char *path);
++int gm_storage_load(const char *path,gm_game *game,int *human_ai);
++int gm_storage_save(const char *path,const gm_game *game,int human_ai);
++#endif
+--- /dev/null
++++ b/run-on-board.sh
+@@ -0,0 +1,33 @@
++#!/usr/bin/env bash
++set -euo pipefail
++root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
++cd "$root/out"
++mkdir -p "$root/logs"
++exec 9>"$root/out/arcade.lock"
++flock -n 9 || { echo 'Arcade is already running'; exit 1; }
++export LD_LIBRARY_PATH="$root/common/external/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
++record=$(mktemp "$root/logs/session-XXXXXX.log")
++exec > >(tee "$record") 2>&1
++# Temporarily stop only the board display manager, restoring it on exit.
++restore=0
++if systemctl is-active --quiet display-manager; then
++    systemctl stop display-manager
++    restore=1
++fi
++cleanup() { if [ "$restore" = 1 ]; then systemctl start display-manager; fi; }
++trap cleanup EXIT
++trap 'exit 130' INT
++trap 'exit 143' TERM
++while true; do
++    set +e
++    ./lab6_arcade "$@"
++    status=$?
++    set -e
++    if [ "$status" != 42 ]; then exit "$status"; fi
++    # Independent save file preserves the previously accepted gomoku save.
++    set +e
++    ./lab6_gomoku "$@" --save "$root/out/arcade-gomoku-save.txt"
++    status=$?
++    set -e
++    if [ "$status" != 0 ]; then echo "Gomoku exited with error $status; see log"; exit "$status"; fi
++done
+--- /dev/null
++++ b/tests/asset_adapter.c
+@@ -0,0 +1,34 @@
++/* HOST SIMULATION ONLY: decoded assets and glyph masks are produced by Pillow.
++ * The deployment package uses the course's actual libjpeg/libpng/FreeType code. */
++#include "../common/common.h"
++#include "image-memory-under-test.c"
++
++void font_init(char *path) { (void)path; }
++static fb_image *load_pixels(const char *name)
++{
++    char path[256];snprintf(path,sizeof(path),"build/assets/%s.bgra",name);
++    FILE *f=fopen(path,"rb");if(!f) return NULL;
++    int32_t header[3];if(fread(header,sizeof(header),1,f)!=1) {fclose(f);return NULL;}
++    fb_image *img=fb_new_image(header[2],header[0],header[1],0);
++    if(img && fread(img->content,(size_t)img->line_byte*img->pixel_h,1,f)!=1) {fb_free_image(img);img=NULL;}
++    fclose(f);return img;
++}
++fb_image *fb_read_jpeg_image(char *path) {(void)path;return load_pixels("test.jpg");}
++fb_image *fb_read_png_image(char *path) {(void)path;return load_pixels("test.png");}
++fb_image *fb_read_font_image(const char *text,int size,fb_font_info *info)
++{
++    const unsigned char *p=(const unsigned char *)text;
++    unsigned code;int bytes;
++    if(p[0]<0x80) {code=p[0];bytes=1;}
++    else if(p[0]<0xe0) {code=((p[0]&31)<<6)|(p[1]&63);bytes=2;}
++    else if(p[0]<0xf0) {code=((p[0]&15)<<12)|((p[1]&63)<<6)|(p[2]&63);bytes=3;}
++    else {code=((p[0]&7)<<18)|((p[1]&63)<<12)|((p[2]&63)<<6)|(p[3]&63);bytes=4;}
++    char path[256];snprintf(path,sizeof(path),"build/assets/glyph-%x-%d.bin",code,size);
++    FILE *f=fopen(path,"rb");if(!f) {fprintf(stderr,"Missing host glyph: %s\n",path);return NULL;}
++    int32_t h[5];if(fread(h,sizeof(h),1,f)!=1) {fclose(f);return NULL;}
++    fb_image *img=fb_new_image(FB_COLOR_ALPHA_8,h[0],h[1],h[0]);
++    if(img && h[0]*h[1]>0 && fread(img->content,(size_t)h[0]*h[1],1,f)!=1) {fb_free_image(img);img=NULL;}
++    fclose(f);
++    if(info) *info=(fb_font_info){bytes,h[4],h[2],-h[3]};
++    return img;
++}
+--- /dev/null
++++ b/tests/fixture.h
+@@ -0,0 +1,94 @@
++#include "graphics-under-test.c"
++
++#define PAD_WORDS 4
++#define PITCH_WORDS (SCREEN_WIDTH + PAD_WORDS)
++#define FRONT_WORDS (PITCH_WORDS * SCREEN_HEIGHT)
++#define CANARY 0x13579bdf
++#define TEST_COLOR 0x1234ab
++
++int *front_storage;
++unsigned tested_cases;
++char case_label[128] = "initialization";
++
++void require(int condition, const char *message)
++{
++    if(!condition) {
++        fprintf(stderr, "FAIL [%s]: %s\n", case_label, message);
++        exit(1);
++    }
++}
++
++void reset_surfaces(int visible_color)
++{
++    require(sizeof(int) == 4, "framebuffer requires 32-bit int pixels");
++    if(front_storage == NULL) {
++        front_storage = malloc((FRONT_WORDS + 2 * GUARD_WORDS) * sizeof(int));
++        require(front_storage != NULL, "front-buffer allocation");
++    }
++    for(int i = 0; i < FRONT_WORDS + 2 * GUARD_WORDS; ++i)
++        front_storage[i] = CANARY;
++    LCD_FB_BUF = front_storage + GUARD_WORDS;
++    LCD_FB_LINELEN = PITCH_WORDS * sizeof(int);
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = 0; x < SCREEN_WIDTH; ++x)
++            LCD_FB_BUF[y * PITCH_WORDS + x] = visible_color;
++    for(int i = 0; i < GUARD_WORDS; ++i) {
++        TEST_BACK.before[i] = CANARY;
++        TEST_BACK.after[i] = CANARY;
++    }
++    memset(DRAW_BUF, 0, sizeof(DRAW_BUF));
++    AREA_SET_EMPTY(&update_area);
++}
++
++void check_canaries(void)
++{
++    for(int i = 0; i < GUARD_WORDS; ++i) {
++        require(TEST_BACK.before[i] == CANARY, "write before back buffer");
++        require(TEST_BACK.after[i] == CANARY, "write after back buffer");
++        require(front_storage[i] == CANARY, "write before front buffer");
++        require(front_storage[GUARD_WORDS + FRONT_WORDS + i] == CANARY,
++                "write after front buffer");
++    }
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = SCREEN_WIDTH; x < PITCH_WORDS; ++x)
++            require(LCD_FB_BUF[y * PITCH_WORDS + x] == CANARY,
++                    "framebuffer row-padding was overwritten");
++}
++
++void check_front_matches_back(void)
++{
++    for(int y = 0; y < SCREEN_HEIGHT; ++y)
++        for(int x = 0; x < SCREEN_WIDTH; ++x)
++            require(LCD_FB_BUF[y * PITCH_WORDS + x] ==
++                    DRAW_BUF[y * SCREEN_WIDTH + x], "refresh pixel mismatch");
++    check_canaries();
++}
++
++uint64_t front_hash(void)
++{
++    uint64_t hash = UINT64_C(14695981039346656037);
++    for(int i = 0; i < FRONT_WORDS; ++i) {
++        hash ^= (uint32_t)LCD_FB_BUF[i];
++        hash *= UINT64_C(1099511628211);
++    }
++    return hash;
++}
++
++void write_preview_ppm(const char *path)
++{
++    FILE *file = fopen(path, "wb");
++    require(file != NULL, "open preview file");
++    fprintf(file, "P6\n%d %d\n255\n", SCREEN_WIDTH, SCREEN_HEIGHT);
++    for(int y = 0; y < SCREEN_HEIGHT; ++y) {
++        for(int x = 0; x < SCREEN_WIDTH; ++x) {
++            uint32_t color = (uint32_t)LCD_FB_BUF[y * PITCH_WORDS + x];
++            unsigned char rgb[3] = {
++                (unsigned char)(color >> 16),
++                (unsigned char)(color >> 8),
++                (unsigned char)color
++            };
++            require(fwrite(rgb, 1, 3, file) == 3, "write preview pixels");
++        }
++    }
++    require(fclose(file) == 0, "close preview file");
++}
+--- /dev/null
++++ b/tests/host-headers/linux/fb.h
+@@ -0,0 +1,9 @@
++/* Host syntax-check shim only; native Linux builds use the real kernel header. */
++#ifndef HOST_FB_H
++#define HOST_FB_H
++#define FBIOGET_FSCREENINFO 0x4602
++#define FBIOGET_VSCREENINFO 0x4600
++struct fb_bitfield { unsigned offset,length,msb_right; };
++struct fb_fix_screeninfo { unsigned line_length,smem_len; };
++struct fb_var_screeninfo { unsigned xres,yres,bits_per_pixel;struct fb_bitfield red,green,blue; };
++#endif
+--- /dev/null
++++ b/tests/host-headers/linux/input.h
+@@ -0,0 +1,17 @@
++/* Syntax-check shim only; constants/fields used by the real Linux wrapper. */
++#ifndef HOST_INPUT_H
++#define HOST_INPUT_H
++#include <stdint.h>
++struct input_event { int64_t time[2]; uint16_t type,code; int32_t value; };
++struct input_absinfo { int32_t value,minimum,maximum,fuzz,flat,resolution; };
++#define EV_SYN 0
++#define EV_ABS 3
++#define SYN_REPORT 0
++#define SYN_DROPPED 3
++#define ABS_MT_SLOT 0x2f
++#define ABS_MT_POSITION_X 0x35
++#define ABS_MT_POSITION_Y 0x36
++#define ABS_MT_TRACKING_ID 0x39
++#define EVIOCGABS(x) (x)
++#define EVIOCGMTSLOTS(size) (0x10000u+(size))
++#endif
+--- /dev/null
++++ b/tests/host-headers/storage_port.h
+@@ -0,0 +1,3 @@
++/* Declarations for Linux-only calls during Windows syntax checks. */
++int mkstemp(char *path);
++int fsync(int fd);
+--- /dev/null
++++ b/tests/host-headers/sys/file.h
+@@ -0,0 +1,4 @@
++/* Host syntax shim only: native Linux uses real flock. */
++#define LOCK_EX 2
++#define LOCK_NB 4
++int flock(int fd,int operation);
+--- /dev/null
++++ b/tests/host-headers/sys/ioctl.h
+@@ -0,0 +1,2 @@
++/* Syntax-check shim only. */
++int ioctl(int fd,unsigned long request,...);
+--- /dev/null
++++ b/tests/offline.py
+@@ -0,0 +1,64 @@
++"""Reproducible Windows tests. Host simulations are not ARM or board acceptance."""
++from pathlib import Path
++import hashlib,json,os,struct,subprocess
++from PIL import Image,ImageFont,ImageDraw
++root=Path(__file__).resolve().parents[1]
++cc=Path(os.environ.get('ARCADE_CC','C:/msys64/ucrt64/bin/gcc.exe'))
++env=dict(os.environ);env['PATH']=str(cc.parent)+os.pathsep+env.get('PATH','')
++for d in ('build/assets','test-results','preview'):(root/d).mkdir(parents=True,exist_ok=True)
++(root/'test-results/result.json').write_text('{"status":"running","hardwareVerified":false}',encoding='utf-8')
++def run(args,log):
++    with (root/'test-results'/log).open('w',encoding='utf-8') as output:
++        try:r=subprocess.run([str(v) for v in args],cwd=root,env=env,stdout=output,stderr=subprocess.STDOUT,timeout=60)
++        except subprocess.TimeoutExpired:
++            (root/'test-results/result.json').write_text(json.dumps({'status':'failed','step':log,'reason':'timeout','hardwareVerified':False}),encoding='utf-8')
++            raise
++    print((root/'test-results'/log).read_text(encoding='utf-8',errors='replace'),end='')
++    if r.returncode:(root/'test-results/result.json').write_text(json.dumps({'status':'failed','step':log,'hardwareVerified':False}),encoding='utf-8')
++    if r.returncode:raise RuntimeError(f'{log}: exit {r.returncode}')
++flags=['-std=gnu11','-O2','-Wall','-Wextra','-Werror','-Wno-unused-parameter','-static','-Ibuild','-Icommon','-Itests']
++engine=['arcade/engine.c','arcade/breaker.c','arcade/app.c']
++run([cc,*flags,'tests/test_arcade.c',*engine,'-lm','-o','build/test_arcade.exe'],'compile.log')
++run([root/'build/test_arcade.exe'],'engine.log')
++run([cc,*flags,'tests/test_v2.c',*engine,'-lm','-o','build/test_v2.exe'],'v2-compile.log')
++run([root/'build/test_v2.exe'],'v2.log')
++run([cc,*flags,'tests/test_profile.c','arcade/profile.c','-o','build/test_profile.exe'],'profile-compile.log')
++run([root/'build/test_profile.exe'],'profile.log')
++source=(root/'common/graphic.c').read_text(encoding='utf-8')
++globals=source[source.index('static int LCD_FB_FD;'):source.index('void fb_init(')]
++globals=globals.replace('static int LCD_FB_FD;\n','').replace('static int DRAW_BUF[SCREEN_WIDTH*SCREEN_HEIGHT];','static struct { int before[GUARD_WORDS]; int pixels[SCREEN_WIDTH*SCREEN_HEIGHT]; int after[GUARD_WORDS]; } TEST_BACK;\n#define DRAW_BUF TEST_BACK.pixels')
++(root/'build/graphics-under-test.c').write_text('#include "common.h"\n#include <limits.h>\n#include <math.h>\n#define GUARD_WORDS 64\n'+globals+source[source.index('static void _copy_area('):],encoding='utf-8')
++image=(root/'common/image.c').read_text(encoding='utf-8')
++(root/'build/image-memory-under-test.c').write_text('#include <limits.h>\n'+image[image.index('/*w, h maybe == 0*/'):image.index('/*================== read a jpeg image')],encoding='utf-8')
++chars=set(chr(i) for i in range(32,127))
++for folder in ('arcade','lab6_gomoku'):
++    for path in (root/folder).glob('*.c'):chars.update(path.read_text(encoding='utf-8'))
++fontpath=root.parent/'course-source/lab-st-2026/out/font.ttc'
++for size in (16,20,24,30):
++    font=ImageFont.truetype(str(fontpath),size)
++    for ch in sorted(c for c in chars if ord(c)>=32):
++        mask,offset=font.getmask2(ch,mode='L',anchor='ls')
++        (root/f'build/assets/glyph-{ord(ch):x}-{size}.bin').write_bytes(struct.pack('<iiiii',*mask.size,*offset,round(font.getlength(ch)))+bytes(mask))
++run([cc,*flags,'tests/test_render.c',*engine,'arcade/render.c','tests/asset_adapter.c','-lm','-o','build/test_render.exe'],'render-compile.log')
++run([root/'build/test_render.exe'],'render.log')
++run([cc,*flags,'-DO_NONBLOCK=2048','-Itests/host-headers','-fsyntax-only','arcade/main.c'],'host-syntax.log')
++gm=['lab6_gomoku/'+n+'.c' for n in ('gomoku','ai','app','session','render')]
++run([cc,*flags,'tests/simulator.c',*engine,'arcade/render.c','arcade/profile.c',*gm,'tests/asset_adapter.c','-lm','-lgdi32','-luser32','-lshell32','-mwindows','-o','build/arcade-simulator.exe'],'simulator-compile.log')
++run([root/'build/arcade-simulator.exe','--self-test'],'window-events.log')
++paths=[]
++for p in (root/'preview').glob('*.ppm'):
++    Image.open(p).save(p.with_suffix('.png'));paths.append(p.with_suffix('.png'))
++sheet=Image.new('RGB',(1024,((len(paths)+1)//2)*220),'#eeeeee');draw=ImageDraw.Draw(sheet)
++for i,p in enumerate(sorted(paths)):
++    im=Image.open(p);im.thumbnail((500,190));x=(i%2)*512;y=(i//2)*220
++    sheet.paste(im,(x,y+25));draw.text((x+10,y+5),p.stem+' (HOST SIMULATION)',fill='black')
++sheet.save(root/'preview/contact.png')
++original=root.parent/'lab6-gomoku-boardfix-prepared'
++hashes=json.loads((root/'preserved-source-hashes.json').read_text())
++assert all(hashlib.sha256((original/p).read_bytes()).hexdigest()==h for p,h in hashes.items())
++v1hash=json.loads((root/'v1-preserved-hashes.json').read_text())
++assert all(hashlib.sha256((root.parent/'lab6-arcade-v1'/p).read_bytes()).hexdigest()==h for p,h in v1hash.items())
++report={'hostTestsPassed':True,'generated2048Moves':8000,'hintPositions':200,'syntheticPhysicsFrames':100000,'simulatedUIStates':len(paths),'profileHostIOPassed':True,'v1SourceUnchanged':True,'hostSyntaxWithLinuxShimsPassed':True,'originalSourceUnchanged':True,'nativeLinuxBuildVerified':False,'hardwareVerified':False,'formalAcceptance':False,'sources':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'arcade').glob('*') if p.is_file()}}
++report['scriptedWindowsEventTestsPassed']=True
++(root/'test-results/result.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
++print('PASS: originals unchanged; host verification complete; ARM and board testing pending')
+--- /dev/null
++++ b/tests/package.py
+@@ -0,0 +1,21 @@
++"""Package only after the source-bound offline result passes; keep previous releases."""
++from pathlib import Path
++import hashlib,json,tarfile,zipfile
++root=Path(__file__).resolve().parents[1]
++result=json.loads((root/'test-results/result.json').read_text())
++assert result.get('hostTestsPassed') and result.get('scriptedWindowsEventTestsPassed')
++for rel,digest in result['sources'].items():
++    assert hashlib.sha256((root/rel).read_bytes()).hexdigest()==digest,rel
++output=root.parent/'resources';output.mkdir(exist_ok=True)
++board=output/'lab6-arcade-v2-board-source.tgz'
++files=[p for p in sorted(root.rglob('*')) if p.is_file() and p.suffix not in ('.o','.pyc','.ppm') and '__pycache__' not in p.parts and not p.name.startswith('arcade-records-')]
++with tarfile.open(board,'w:gz') as archive:
++    for p in files:
++        if p.relative_to(root).parts[0] not in ('build','preview'):
++            archive.add(p,arcname=root.name+'/'+p.relative_to(root).as_posix())
++offline=output/'lab6-arcade-v2-offline.zip'
++with zipfile.ZipFile(offline,'w',zipfile.ZIP_DEFLATED) as archive:
++    for p in files:archive.write(p,root.name+'/'+p.relative_to(root).as_posix())
++manifest={p.name:{'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in (board,offline)}
++(output/'lab6-arcade-v2-packages.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
++print(json.dumps(manifest,indent=2))
+--- /dev/null
++++ b/tests/simulator.c
+@@ -0,0 +1,126 @@
++/* Windows mouse simulator, not real framebuffer/touch/ARM validation. */
++#include <windows.h>
++#include <windowsx.h>
++#include <shellapi.h>
++#include "fixture.h"
++#include "../arcade/app.h"
++#include "../lab6_gomoku/app.h"
++static arcade_app arcade;
++static gm_app gomoku;
++static int in_gomoku,held;
++static ULONGLONG last;
++static int pixels[1024*600];
++static profile_io records;
++static HANDLE instance_lock;
++static int self_test;
++static void refresh(HWND window) {
++    if(in_gomoku) {gm_render(&gomoku);gomoku.dirty=0;}
++    else {arcade_render(&arcade);arcade.dirty=0;}
++    check_front_matches_back();
++    for(int y=0;y<600;y++)memcpy(pixels+y*1024,LCD_FB_BUF+y*PITCH_WORDS,4096);
++    InvalidateRect(window,NULL,FALSE);
++}
++static void touch(HWND window,int type,int x,int y) {
++    if(in_gomoku){gm_app_set_time(&gomoku,GetTickCount64());gm_app_touch(&gomoku,type,x,y,0);}
++    else arcade_touch(&arcade,type,x,y,0);
++    refresh(window);
++}
++static LRESULT CALLBACK procedure(HWND w,UINT msg,WPARAM wp,LPARAM lp) {
++    switch(msg) {
++    case WM_LBUTTONDOWN:held=1;SetCapture(w);touch(w,1,GET_X_LPARAM(lp),GET_Y_LPARAM(lp));return 0;
++    case WM_MOUSEMOVE:if(held)touch(w,2,GET_X_LPARAM(lp),GET_Y_LPARAM(lp));return 0;
++    case WM_LBUTTONUP:if(held){held=0;ReleaseCapture();touch(w,3,GET_X_LPARAM(lp),GET_Y_LPARAM(lp));}return 0;
++    case WM_CAPTURECHANGED:
++        if(held){held=0;if(in_gomoku)gm_app_touch(&gomoku,3,-1,-1,0);else {arcade.owner=-1;arcade.breaker.paused=1;}}
++        return 0;
++    case WM_KEYDOWN:
++        if(wp==VK_ESCAPE){in_gomoku=0;arcade.mode=0;arcade.owner=-1;held=0;ReleaseCapture();refresh(w);}
++        return 0;
++    case WM_ACTIVATEAPP:
++        if(!wp&&!self_test&&!in_gomoku&&arcade.mode==2){arcade.breaker.paused=1;arcade.dirty=1;}
++        return 0;
++    case WM_TIMER: {
++        ULONGLONG now=GetTickCount64();double dt=(now-last)/1000.0;last=now;
++        if(arcade.quit){DestroyWindow(w);return 0;}
++        if(arcade.launch_gomoku){
++            arcade.launch_gomoku=0;in_gomoku=1;gm_app_init(&gomoku,1);
++            gomoku.save_status=GM_SAVE_PAUSED;gm_app_set_time(&gomoku,now);refresh(w);
++        }
++        if(in_gomoku){
++            gm_app_set_time(&gomoku,now);gm_app_tick(&gomoku);
++            if(gomoku.quit){in_gomoku=0;arcade.dirty=1;}
++            if(gomoku.dirty||arcade.dirty)refresh(w);
++        } else {arcade_tick(&arcade,dt);if(arcade.dirty)refresh(w);}
++        if(!profile_sync(&records,&arcade.profile,dt,0)&&arcade.records_ok){arcade.records_ok=0;refresh(w);}
++        return 0;
++    }
++    case WM_PAINT: {
++        PAINTSTRUCT ps;HDC dc=BeginPaint(w,&ps);BITMAPINFO info={0};
++        info.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);info.bmiHeader.biWidth=1024;
++        info.bmiHeader.biHeight=-600;info.bmiHeader.biPlanes=1;info.bmiHeader.biBitCount=32;
++        info.bmiHeader.biCompression=BI_RGB;
++        SetDIBitsToDevice(dc,0,0,1024,600,0,0,0,600,pixels,&info,DIB_RGB_COLORS);
++        EndPaint(w,&ps);return 0;
++    }
++    case WM_ERASEBKGND:return 1;
++    case WM_DESTROY:
++        arcade_collect(&arcade);profile_sync(&records,&arcade.profile,0,1);
++        KillTimer(w,1);PostQuitMessage(0);return 0;
++    }
++    return DefWindowProc(w,msg,wp,lp);
++}
++static void click(HWND w,int x,int y) {
++    SendMessage(w,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(x,y));
++    SendMessage(w,WM_LBUTTONUP,0,MAKELPARAM(x,y));
++}
++static void window_test(HWND w) {
++    fprintf(stderr,"window-test: start\n");fflush(stderr);
++    click(w,200,250);require(arcade.mode==1,"2048 menu click");
++    arcade.puzzle=(puzzle){.cell={2,2,4},.rng=1};puzzle before=arcade.puzzle;
++    SendMessage(w,WM_LBUTTONDOWN,MK_LBUTTON,MAKELPARAM(450,200));
++    SendMessage(w,WM_MOUSEMOVE,MK_LBUTTON,MAKELPARAM(250,200));
++    SendMessage(w,WM_LBUTTONUP,0,MAKELPARAM(250,200));
++    require(arcade.can_undo,"window swipe");click(w,800,300);
++    require(!memcmp(&before,&arcade.puzzle,sizeof(before)),"window undo");
++    click(w,800,390);require(arcade.hint>=0,"window hint");
++    fprintf(stderr,"window-test: 2048 complete\n");fflush(stderr);
++    click(w,800,120);click(w,200,350);require(arcade.mode==2,"breakout menu click");
++    click(w,400,400);require(arcade.breaker.launched,"window launch");
++    click(w,800,300);require(arcade.breaker.paused,"window pause");
++    SendMessage(w,WM_KEYDOWN,VK_ESCAPE,0);require(!arcade.mode,"escape menu");
++    fprintf(stderr,"window-test: breakout complete\n");fflush(stderr);
++    click(w,200,150);SendMessage(w,WM_TIMER,1,0);require(in_gomoku,"gomoku handoff in simulator");
++    click(w,GM_BOARD_X+7*GM_CELL,GM_BOARD_Y+7*GM_CELL);
++    require(gomoku.game.count==1,"gomoku placement via window");
++    for(int i=0;i<100&&gomoku.game.count==1;i++)SendMessage(w,WM_TIMER,1,0);
++    require(gomoku.game.count==2,"gomoku AI response via window");
++    fprintf(stderr,"window-test: gomoku complete\n");fflush(stderr);
++    SendMessage(w,WM_KEYDOWN,VK_ESCAPE,0);require(!in_gomoku&&!arcade.mode,"gomoku exit");
++    puts("PASS: hidden Win32 window events: menus, swipe, undo, hint, launch, pause, escape, gomoku AI handoff");
++    DestroyWindow(w);
++    fprintf(stderr,"window-test: destroyed\n");fflush(stderr);
++}
++int WINAPI WinMain(HINSTANCE instance,HINSTANCE previous,LPSTR command,int show) {
++    (void)previous;(void)command;
++    int argc=0;LPWSTR *argv=CommandLineToArgvW(GetCommandLineW(),&argc);
++    self_test=argv&&argc==2&&!wcscmp(argv[1],L"--self-test");
++    if(argv)LocalFree(argv);
++    if(self_test){fprintf(stderr,"simulator: scripted window test\n");fflush(stderr);}
++    SetProcessDPIAware();
++    instance_lock=CreateMutexA(NULL,TRUE,"Local\\OrangePiArcadeV2");
++    if(!instance_lock||GetLastError()==ERROR_ALREADY_EXISTS)return 1;
++    reset_surfaces(0);arcade_init(&arcade,(unsigned)GetTickCount64());
++    if(profile_open(&records,self_test?"./test-results/window-test-records.txt":"./arcade-records-v2-simulator.txt",&arcade.profile)<0)arcade.records_ok=0;
++    WNDCLASS wc={0};wc.lpfnWndProc=procedure;wc.hInstance=instance;
++    wc.lpszClassName="OrangePiArcadeSimulator";wc.hCursor=LoadCursor(NULL,IDC_ARROW);
++    if(!RegisterClass(&wc))return 1;
++    DWORD style=WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX;
++    RECT rect={0,0,1024,600};AdjustWindowRect(&rect,style,FALSE);
++    HWND w=CreateWindow(wc.lpszClassName,"OrangePi Arcade v2 - HOST SIMULATION - Mouse: touch / ESC: menu / records saved",style,
++        CW_USEDEFAULT,CW_USEDEFAULT,rect.right-rect.left,rect.bottom-rect.top,NULL,NULL,instance,NULL);
++    if(!w)return 1;
++    refresh(w);if(!self_test)ShowWindow(w,show);last=GetTickCount64();SetTimer(w,1,20,NULL);
++    if(self_test)window_test(w);
++    MSG msg;while(GetMessage(&msg,NULL,0,0)>0){TranslateMessage(&msg);DispatchMessage(&msg);}
++    CloseHandle(instance_lock);free(front_storage);return 0;
++}
+--- /dev/null
++++ b/tests/test_arcade.c
+@@ -0,0 +1,47 @@
++#include "../arcade/app.h"
++#include <assert.h>
++#include <math.h>
++#include <stdio.h>
++#include <string.h>
++static unsigned total(const puzzle *p) {unsigned n=0;for(int i=0;i<16;i++)n+=p->cell[i];return n;}
++static void tap(arcade_app *a,int x,int y) {arcade_touch(a,1,x,y,0);arcade_touch(a,3,x,y,0);}
++int main(void) {
++    puzzle p={.cell={2,2,2,2},.rng=1};assert(puzzle_move(&p,0));
++    assert(p.cell[0]==4&&p.cell[1]==4&&p.score==8);
++    p=(puzzle){.cell={2,2,4,0},.rng=1};puzzle_move(&p,0);assert(p.cell[0]==4&&p.cell[1]==4&&p.score==4);
++    p=(puzzle){.cell={2,0,0,0},.rng=1};puzzle copy=p;assert(!puzzle_move(&p,0));assert(!memcmp(&p,&copy,sizeof(p)));
++    p=(puzzle){.cell={2,4,2,4,4,2,4,2,2,4,2,4,4,2,4,2},.rng=1};assert(puzzle_over(&p));
++    p.cell[0]=4;assert(!puzzle_over(&p));
++    for(int d=0;d<4;d++) {
++        puzzle_init(&p,123);
++        for(int i=0;i<2000;i++) {
++            unsigned before=total(&p);int changed=puzzle_move(&p,(i+d)%4);
++            unsigned delta=total(&p)-before;assert(changed?(delta==2||delta==4):delta==0);
++            for(int j=0;j<16;j++)assert(!p.cell[j]||!(p.cell[j]&(p.cell[j]-1)));
++            if(puzzle_over(&p))puzzle_init(&p,(unsigned)i+1);
++        }
++    }
++    breaker b;breaker_init(&b);assert(b.remaining==50&&b.lives==3);
++    breaker_paddle(&b,-100);assert(b.paddle==95);breaker_paddle(&b,1000);assert(b.paddle==665);
++    breaker_init(&b);breaker_launch(&b);b.paused=1;breaker old=b;breaker_tick(&b,0.1);assert(!memcmp(&b,&old,sizeof(b)));
++    b.paused=0;b.x=48;b.y=350;b.vx=-300;b.vy=0;breaker_tick(&b,0.02);assert(b.vx>0&&b.x>=47);
++    breaker_init(&b);breaker_launch(&b);b.x=b.paddle;b.y=501;b.vy=300;breaker_tick(&b,0.02);assert(b.vy<0);
++    breaker_init(&b);breaker_launch(&b);b.x=75;b.y=100;b.vy=300;b.vx=0;breaker_tick(&b,0.02);assert(b.remaining==49&&b.score==10&&b.vy<0);
++    breaker_init(&b);breaker_launch(&b);b.y=569;b.vy=300;breaker_tick(&b,0.02);assert(b.lives==2&&!b.launched);
++    b.lives=1;breaker_launch(&b);b.y=569;b.vy=300;breaker_tick(&b,0.02);assert(b.result==-1);
++    breaker_init(&b);memset(b.brick,0,sizeof(b.brick));b.brick[0]=1;b.remaining=1;breaker_launch(&b);
++    b.x=75;b.y=100;b.vy=300;b.vx=0;breaker_tick(&b,0.02);assert(b.result==1&&b.remaining==0);
++    breaker_init(&b);breaker_launch(&b);breaker c=b;
++    breaker_tick(&b,0.1);for(int i=0;i<10;i++)breaker_tick(&c,0.01);
++    assert(fabs(b.x-c.x)<0.01&&fabs(b.y-c.y)<0.01);
++    arcade_app a;arcade_init(&a,1);tap(&a,200,250);assert(a.mode==1);
++    copy=a.puzzle;arcade_touch(&a,1,200,200,0);arcade_touch(&a,1,300,300,1);arcade_touch(&a,3,500,300,1);assert(!memcmp(&copy,&a.puzzle,sizeof(copy)));
++    arcade_touch(&a,3,200,200,0);assert(a.owner==-1);
++    tap(&a,800,210);assert(a.confirm);tap(&a,500,300);assert(!a.confirm);
++    tap(&a,800,120);assert(a.mode==0);tap(&a,200,350);assert(a.mode==2);
++    tap(&a,400,400);assert(a.breaker.launched);tap(&a,800,300);assert(a.breaker.paused);
++    tap(&a,800,210);tap(&a,800,300);assert(!a.confirm&&!a.breaker.launched&&a.breaker.lives==3);
++    tap(&a,800,120);tap(&a,200,150);assert(a.launch_gomoku);
++    puts("PASS: 8000 generated 2048 moves; merge rules, no-op RNG, conservation, collisions, win/loss, pause, fixed-step timing, multi-touch ownership, menu and restart");
++    return 0;
++}
+--- /dev/null
++++ b/tests/test_profile.c
+@@ -0,0 +1,24 @@
++#include "../arcade/profile.h"
++#include <assert.h>
++#include <stdio.h>
++#include <string.h>
++int main(void) {
++    const char *path="test-results/profile-test.txt";remove(path);profile_io io;
++    arcade_profile p;assert(profile_open(&io,path,&p)==0);
++    p=(arcade_profile){1234,5678,9,31};assert(profile_sync(&io,&p,0,1));
++    arcade_profile read;assert(profile_open(&io,path,&read)==1&&!memcmp(&p,&read,sizeof(p)));
++    p.puzzle_best=4321;assert(profile_sync(&io,&p,0.5,0));
++    profile_io other;assert(profile_open(&other,path,&read)==1&&read.puzzle_best==1234);
++    assert(profile_sync(&io,&p,0.6,0));assert(profile_open(&other,path,&read)==1&&read.puzzle_best==4321);
++    const char *bad[]={"ARCADE2\n1 2 3 4 5\n","ARCADE2\n-1 2 3 0 0\n","ARCADE2\n4294967296 2 3 0 0\n","broken","ARCADE2\n1 2 3"};
++    for(unsigned i=0;i<sizeof(bad)/sizeof(bad[0]);i++) {
++        FILE *f=fopen(path,"wb");assert(f);fputs(bad[i],f);fclose(f);
++        assert(profile_open(&io,path,&read)==-1&&io.blocked);assert(!profile_sync(&io,&p,10,1));
++        char buf[128]={0};f=fopen(path,"rb");assert(f);
++        size_t count=fread(buf,1,sizeof(buf)-1,f);assert(!ferror(f)&&count==strlen(bad[i]));
++        assert(fclose(f)==0);assert(!strcmp(buf,bad[i]));
++    }
++    assert(profile_open(&io,"test-results/no-such-directory/records.txt",&read)==0);
++    assert(!profile_sync(&io,&p,0,1)&&io.blocked);
++    remove(path);puts("PASS: actual host file round-trip, atomic replacement, delayed writes, malformed/overflow/truncated checksum rejection, corrupt file preserved, I/O failure");return 0;
++}
+--- /dev/null
++++ b/tests/test_render.c
+@@ -0,0 +1,27 @@
++/* Host simulation: production renderer, guarded framebuffer, Pillow glyph masks. */
++#include "fixture.h"
++#include "../arcade/app.h"
++static void save(arcade_app *a,char *name) {
++    char path[256];snprintf(path,sizeof(path),"preview/%s.ppm",name);
++    arcade_render(a);check_front_matches_back();write_preview_ppm(path);
++}
++int main(void) {
++    reset_surfaces(0);arcade_app a;arcade_init(&a,1);
++    save(&a,"menu");a.profile=(arcade_profile){4096,1740,7,15};save(&a,"records");a.mode=1;
++    unsigned cells[16]={2,4,8,16,32,64,128,256,512,1024,2048,0,0,2,4,8};
++    memcpy(a.puzzle.cell,cells,sizeof(cells));a.puzzle.score=4096;a.can_undo=1;a.hint=puzzle_hint(&a.puzzle);a.pulse=0.2;save(&a,"2048");
++    a.mode=2;breaker_launch(&a.breaker);a.breaker.x=300;a.breaker.y=330;save(&a,"breakout");
++    a.breaker.paused=1;save(&a,"paused");a.confirm=1;save(&a,"confirm");
++    a.confirm=0;a.breaker.result=1;a.breaker.remaining=0;memset(a.breaker.brick,0,sizeof(a.breaker.brick));save(&a,"win");
++    breaker_next_level(&a.breaker);save(&a,"level2");
++    a.breaker.result=1;breaker_next_level(&a.breaker);breaker_launch(&a.breaker);
++    a.breaker.x=75;a.breaker.y=100;a.breaker.vx=0;a.breaker.vy=300;
++    breaker_tick(&a.breaker,0.02);a.breaker.combo=5;a.breaker.wide_time=8;a.breaker.slow_time=6;a.breaker.shield=1;
++    a.breaker.drop_type=2;a.breaker.drop_x=410;a.breaker.drop_y=350;
++    a.breaker.trail_count=12;a.breaker.trail_head=0;
++    for(int i=0;i<12;i++){a.breaker.trail_x[i]=300+i*5;a.breaker.trail_y[i]=420-i*5;}
++    a.breaker.x=360;a.breaker.y=360;save(&a,"effects");
++    a.breaker.result=1;memset(a.breaker.brick,0,50);save(&a,"campaign-win");
++    a.mode=0;a.records_ok=0;save(&a,"record-error");
++    free(front_storage);puts("PASS: eleven UI states; framebuffer guard and row-padding checks");return 0;
++}
+--- /dev/null
++++ b/tests/test_v2.c
+@@ -0,0 +1,57 @@
++#include "../arcade/app.h"
++#include <assert.h>
++#include <math.h>
++#include <stdio.h>
++#include <string.h>
++static void tap(arcade_app *a,int x,int y){arcade_touch(a,1,x,y,0);arcade_touch(a,3,x,y,0);}
++static void shot(breaker *b){b->x=75;b->y=100;b->vx=0;b->vy=300;b->launched=1;breaker_tick(b,0.02);}
++int main(void) {
++    arcade_app a;arcade_init(&a,1);a.mode=1;
++    a.puzzle=(puzzle){.cell={2,2,4},.rng=123};puzzle before=a.puzzle;
++    arcade_touch(&a,1,450,200,0);arcade_touch(&a,3,250,200,0);
++    assert(a.can_undo&&a.puzzle.score==4);puzzle after=a.puzzle;
++    tap(&a,800,300);assert(!a.can_undo&&!memcmp(&before,&a.puzzle,sizeof(before)));
++    arcade_touch(&a,1,450,200,0);arcade_touch(&a,3,250,200,0);
++    assert(!memcmp(&after,&a.puzzle,sizeof(after))); /* exact RNG restoration */
++    before=a.puzzle;tap(&a,800,390);assert(a.hint>=0&&a.hint<4&&!memcmp(&before,&a.puzzle,sizeof(before)));
++    for(unsigned seed=1;seed<=200;seed++) {
++        puzzle p;puzzle_init(&p,seed);
++        for(int i=0;i<30;i++)puzzle_move(&p,(int)((seed+i)%4));
++        puzzle old=p;int h=puzzle_hint(&p);assert(!memcmp(&p,&old,sizeof(p)));
++        if(h>=0)assert(puzzle_move(&p,h));else assert(puzzle_over(&p));
++    }
++    breaker b;breaker_init(&b);assert(!breaker_next_level(&b));
++    b.result=1;b.score=456;assert(breaker_next_level(&b)&&b.level==2&&b.remaining==25&&b.score==456);
++    b.result=1;assert(breaker_next_level(&b)&&b.level==3&&b.remaining==50&&b.brick[0]==2);
++    shot(&b);assert(b.brick[0]==1&&b.remaining==50&&b.score==458);
++    shot(&b);assert(b.brick[0]==0&&b.remaining==49&&b.combo==1&&b.score==468);
++    b.result=1;assert(!breaker_next_level(&b));
++    breaker_init(&b);b.destroyed=4;shot(&b);assert(b.drop_type==1&&b.destroyed==5);
++    b.drop_x=b.paddle;b.drop_y=499;breaker_tick(&b,0.02);assert(!b.drop_type&&b.wide_time>9.9&&breaker_half_width(&b)==85);
++    b.wide_time=0.005;b.drop_type=0;breaker_tick(&b,0.02);assert(b.wide_time==0&&breaker_half_width(&b)==55);
++    for(int type=2;type<=3;type++) {
++        breaker_init(&b);b.launched=1;b.drop_type=type;b.drop_x=b.paddle;b.drop_y=499;
++        breaker_tick(&b,0.02);assert(!b.drop_type);
++        if(type==2)assert(b.slow_time>7.9);else assert(b.shield==1);
++    }
++    b.x=50;b.y=542;b.vy=300;b.vx=0;breaker_tick(&b,0.02);assert(!b.shield&&b.vy<0&&b.lives==3);
++    breaker_init(&b);b.launched=1;b.y=400;b.vy=-200;b.vx=0;breaker normal=b;
++    b.slow_time=8;breaker_tick(&b,0.1);breaker_tick(&normal,0.1);assert(b.y>normal.y);
++    breaker_init(&b);b.combo=4;shot(&b);assert(b.combo==5&&b.score==50&&b.best_combo==5);
++    int particles=0;for(int i=0;i<BREAK_PARTICLES;i++)particles+=b.particles[i].life>0;assert(particles>0&&b.trail_count>0);
++    b.paused=1;breaker snapshot=b;breaker_tick(&b,1);assert(!memcmp(&b,&snapshot,sizeof(b)));
++    arcade_init(&a,1);a.puzzle.score=1234;a.puzzle.cell[0]=2048;a.breaker.score=888;a.breaker.best_combo=6;
++    a.breaker.level=3;a.breaker.result=1;arcade_collect(&a);
++    assert(a.profile.puzzle_best==1234&&a.profile.breaker_best==888&&a.profile.best_combo==6&&a.profile.badges==19);
++    a.mode=1;tap(&a,800,210);tap(&a,800,300);assert(a.puzzle.score==0&&a.profile.puzzle_best==1234);
++    /* Long synthetic run: particles, counters and finite physics remain bounded. */
++    breaker_init(&b);
++    for(int i=0;i<100000;i++) {
++        if(b.result<0)breaker_init(&b);
++        if(b.result>0&&!breaker_next_level(&b))breaker_init(&b);
++        breaker_paddle(&b,80+(i*37)%620);breaker_launch(&b);breaker_tick(&b,0.02);
++        assert(isfinite(b.x)&&isfinite(b.y)&&isfinite(b.vx)&&isfinite(b.vy));
++        assert(b.remaining>=0&&b.remaining<=50&&b.trail_count<=BREAK_TRAIL&&b.lives>=0&&b.lives<=3);
++    }
++    puts("PASS: undo+RNG restore, 200 hint positions, three levels, armor, drops, timers, shield, slow, combos, bounded effects, badges, 100000 physics frames");return 0;
++}
+--- /dev/null
++++ b/电脑试玩.cmd
+@@ -0,0 +1,3 @@
++@echo off
++cd /d "%~dp0"
++start "OrangePi Arcade Simulator" "build\arcade-simulator.exe"

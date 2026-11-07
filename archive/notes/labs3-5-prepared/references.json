@@ -1,0 +1,60 @@
+{
+  "checkedOn": "2026-10-09",
+  "currentMaterials": {
+    "deck": "/example/user/Downloads/4.实验-Orangepi-20250815-V25.pptx",
+    "sourceArchive": "resources/lab-st-2026.tgz",
+    "lab3Pages": [
+      53,
+      63
+    ],
+    "lab4Pages": [
+      65,
+      72
+    ],
+    "lab5Pages": [
+      73,
+      87
+    ]
+  },
+  "historicalRepository": "https://github.com/Oliver-242/HUST-Embedded-System",
+  "historicalFilesActuallyRead": [
+    {
+      "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/main/lab3/main.c",
+      "gitBlobSHA": "32c22ed71a0d0136021bf3b616a825698769e30f",
+      "saved": "references/hust-2020/lab3-main.c"
+    },
+    {
+      "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/main/lab4/main.c",
+      "gitBlobSHA": "67876c7dee4d704c29e722cddd5e985f64c25115",
+      "saved": "references/hust-2020/lab4-main.c"
+    },
+    {
+      "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/main/lab5/main.c",
+      "gitBlobSHA": "16dece709ab0768eea84990af14829fc32f123e3",
+      "saved": "references/hust-2020/lab5-main.c"
+    },
+    {
+      "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/main/common/touch.c",
+      "gitBlobSHA": "e15d436dfe8cb7211c00ee2ad15cfb18c95638ab",
+      "saved": "references/hust-2020/common-touch.c"
+    },
+    {
+      "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/main/common/graphic.c",
+      "gitBlobSHA": "7d28b6a4a2df75ae004ca2938ada0c3bf8aff9ce",
+      "saved": "references/hust-2020/common-graphic.c"
+    },
+    {
+      "url": "https://github.com/Oliver-242/HUST-Embedded-System/blob/main/lab5/%E5%AE%9E%E9%AA%8C%E6%8C%87%E5%AF%BC.md",
+      "saved": "references/hust-2020/lab5-guide.txt"
+    }
+  ],
+  "technicalPrimarySources": [
+    "https://www.kernel.org/doc/html/latest/input/multi-touch-protocol.html",
+    "https://github.com/bluez/bluez/blob/master/tools/rfcomm.c"
+  ],
+  "wiki": {
+    "url": "https://1037.wiki/",
+    "status": "Web open returned Internal Error; no page content read"
+  },
+  "use": "Historical code was read to understand interfaces and pitfalls. Current PPT and 2026 source take precedence. No other student's measurements or acceptance results are attributed to this user."
+}

@@ -1,0 +1,99 @@
+{
+  "measurement_type": "Python correctness PoC and operation counts; not timed",
+  "framebuffer": [
+    1024,
+    600
+  ],
+  "dsu": "union-by-size + path compression + component maximum end",
+  "extra_edge_cases": 100,
+  "analytic_line_cases": {
+    "cases": 7364,
+    "compared_visible_pixels": 66688,
+    "dimensions": [
+      64,
+      48
+    ],
+    "all_equal": true,
+    "included": "eight octants, reverse endpoints, clipping, horizontal/vertical/point, signed int32 extremes"
+  },
+  "workloads": {
+    "course_rectangles": {
+      "input_commands": 13334,
+      "visible_commands": 12731,
+      "point_generation_steps": 0,
+      "original_pixel_writes": 1849440,
+      "unique_pixels": 614400,
+      "equal_32bit_pixels": 614400,
+      "both_sha256": "08a70bccdce1fc60c89111660fe2c8010fbcfd50e7cd77f22536cff0f2a31dfb",
+      "stats": {
+        "initialized_nodes": 615000,
+        "input_spans": 156725,
+        "successor_calls": 771125,
+        "find_calls": 1999925,
+        "unique_pixel_writes": 614400,
+        "union_calls": 614400,
+        "successful_unions": 614400,
+        "find_parent_hops": 1289415,
+        "compression_assignments": 1289415
+      }
+    },
+    "course_lines": {
+      "input_commands": 802,
+      "visible_commands": 802,
+      "closed_form_raster_phase_checks": 802,
+      "point_generation_steps": 401802,
+      "original_pixel_writes": 401802,
+      "unique_pixels": 201797,
+      "equal_32bit_pixels": 614400,
+      "both_sha256": "755287b4ba93f1ce7040c55b2235e9dc4bbc7dce56e89a276bdcbaaef11c7a40",
+      "stats": {
+        "initialized_nodes": 615000,
+        "input_spans": 241602,
+        "successor_calls": 443399,
+        "find_calls": 846993,
+        "unique_pixel_writes": 201797,
+        "union_calls": 201797,
+        "successful_unions": 201797,
+        "find_parent_hops": 567521,
+        "compression_assignments": 567521
+      }
+    },
+    "course_lines_analytic": {
+      "input_commands": 802,
+      "visible_commands": 802,
+      "closed_form_raster_phase_checks": 802,
+      "point_generation_steps": 401802,
+      "enumeration_is_reference_only": true,
+      "candidate_point_generation_steps": 0,
+      "analytic_generation": {
+        "input_lines": 802,
+        "target_row_evaluations": 241602,
+        "integer_divisions": 322802,
+        "output_spans": 241602,
+        "horizontal_or_point_lines": 1
+      },
+      "original_pixel_writes": 401802,
+      "unique_pixels": 201797,
+      "equal_32bit_pixels": 614400,
+      "both_sha256": "755287b4ba93f1ce7040c55b2235e9dc4bbc7dce56e89a276bdcbaaef11c7a40",
+      "stats": {
+        "initialized_nodes": 615000,
+        "input_spans": 241602,
+        "successor_calls": 443399,
+        "find_calls": 846993,
+        "unique_pixel_writes": 201797,
+        "union_calls": 201797,
+        "successful_unions": 201797,
+        "find_parent_hops": 567521,
+        "compression_assignments": 567521
+      }
+    }
+  },
+  "complexity": {
+    "span_stage": "O(HW + N + K + (K+U)*alpha(W)), memory O(H+K+W) excluding output frame",
+    "enumerated_line_generation": "The retained enumerated comparison version costs O(L), where L=sum major-axis lengths+1.",
+    "analytic_line_generation": "O(N+K) generation after exact clipping of BOTH major and minor ranges; every iterated row yields a valid span. Combine with DSU: O(HW+N+K+(K+U)*alpha(W)).",
+    "rect_generation": "O(N+K), where K=sum clipped row spans.",
+    "warning": "DSU reduces writes, not necessarily runtime; Python counts are not ARM performance."
+  }
+}

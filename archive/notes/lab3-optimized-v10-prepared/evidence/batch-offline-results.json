@@ -1,0 +1,55 @@
+{
+  "logs": {
+    "serial-compile": "",
+    "serial": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "serial-course-jpeg": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "parallel-2-compile": "",
+    "parallel-2": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "parallel-2-course-jpeg": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "parallel-4-compile": "",
+    "parallel-4": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "parallel-4-course-jpeg": "COURSE submitted_pixels=16413045 copied_pixels=614400 row_checks=56070 interval_comparisons=24000 spans=12600 flushes=1\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "capacity-3-compile": "",
+    "capacity-3": "COURSE submitted_pixels=16413045 copied_pixels=6372465 row_checks=38115 interval_comparisons=50820 spans=38115 flushes=49\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n",
+    "capacity-3-course-jpeg": "COURSE submitted_pixels=16413045 copied_pixels=6372465 row_checks=38115 interval_comparisons=50820 spans=38115 flushes=49\nPASS: 69 opaque-batch full-frame comparisons (random ordering, clipping, padding, disjoint spans, queue spill)\n"
+  },
+  "courseWorkload": {
+    "serial": {
+      "submitted_pixels": 16413045,
+      "copied_pixels": 614400,
+      "row_checks": 56070,
+      "interval_comparisons": 24000,
+      "spans": 12600,
+      "flushes": 1
+    },
+    "parallel-2": {
+      "submitted_pixels": 16413045,
+      "copied_pixels": 614400,
+      "row_checks": 56070,
+      "interval_comparisons": 24000,
+      "spans": 12600,
+      "flushes": 1
+    },
+    "parallel-4": {
+      "submitted_pixels": 16413045,
+      "copied_pixels": 614400,
+      "row_checks": 56070,
+      "interval_comparisons": 24000,
+      "spans": 12600,
+      "flushes": 1
+    },
+    "capacity-3": {
+      "submitted_pixels": 16413045,
+      "copied_pixels": 6372465,
+      "row_checks": 38115,
+      "interval_comparisons": 50820,
+      "spans": 38115,
+      "flushes": 49
+    }
+  },
+  "hardwareValidated": false,
+  "armNativeCompileValidated": false,
+  "performanceMeasured": false,
+  "sourcePixelsCompared": "synthetic padded RGB and actual course JPEG decoded by host Pillow, not ARM libjpeg",
+  "batchInterfaceChangesSemantics": "explicit final-frame API; original immediate API preserved"
+}
