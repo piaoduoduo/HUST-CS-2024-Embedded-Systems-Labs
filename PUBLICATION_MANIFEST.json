@@ -8169,10 +8169,11 @@
       "publicSHA256": "58c1ed433aad7a6cc3dbc389d6fa51a81f1ef672818e1867645bf37693f5bcc6"
     },
     {
-      "source": "lab6-arcade-v1/common/task.c",
+      "source": "course-source/lab-st-2026/common/task.c",
       "profile": "arcade-v1",
       "originalSHA256": "3d9ae3f951bed5ebb527ba451fcbfadd611fe7cdeae8f39bc46348a485122966",
-      "publicSHA256": "3d9ae3f951bed5ebb527ba451fcbfadd611fe7cdeae8f39bc46348a485122966"
+      "publicSHA256": "3d9ae3f951bed5ebb527ba451fcbfadd611fe7cdeae8f39bc46348a485122966",
+      "provenanceNote": "Shared course task scheduler used by both game profiles."
     },
     {
       "source": "lab6-arcade-v1/common/touch.c",
@@ -8493,10 +8494,11 @@
       "publicSHA256": "58c1ed433aad7a6cc3dbc389d6fa51a81f1ef672818e1867645bf37693f5bcc6"
     },
     {
-      "source": "lab6-arcade-v2/common/task.c",
+      "source": "course-source/lab-st-2026/common/task.c",
       "profile": "arcade-v2",
       "originalSHA256": "3d9ae3f951bed5ebb527ba451fcbfadd611fe7cdeae8f39bc46348a485122966",
-      "publicSHA256": "3d9ae3f951bed5ebb527ba451fcbfadd611fe7cdeae8f39bc46348a485122966"
+      "publicSHA256": "3d9ae3f951bed5ebb527ba451fcbfadd611fe7cdeae8f39bc46348a485122966",
+      "provenanceNote": "Shared course task scheduler used by both game profiles."
     },
     {
       "source": "lab6-arcade-v2/common/touch.c",
@@ -12204,7 +12206,8 @@
       "source": "tools/prepare_report_materials_20261106.py",
       "publicPath": "archive/workspace-tools/prepare_report_materials_20261106.py",
       "originalSHA256": "cc6c0ea86095ed3fb98e11a230a4832428574c1379f96b460c3d38cfe5ce8f48",
-      "publicSHA256": "fe0542ffefa976cb6ccf60634be602845110572fd97f2c8480a0ccf92d19f915"
+      "publicSHA256": "4c018aad82551c9451e4fe337ec964c9f2d89af9e97fb48629215dc322f73b7b",
+      "publicUpdate": "2026-11-10: use generic identity checks instead of reference-author personal literals"
     },
     {
       "source": "tools/record-lab3-results.py",
@@ -12378,7 +12381,8 @@
       "source": "reports/manual-materials-20261106/实验六验证状态.csv",
       "publicPath": "reports/materials/实验六验证状态.csv",
       "originalSHA256": "8b71a4375a677fa4725d0adf2d83e27c2dcaef67c54542dad6b2cd721d5fe833",
-      "publicSHA256": "c1735322a5aeef425330f66045b000a5647cbbf1c11d41b397f1f322c31da4fa"
+      "publicSHA256": "ea1b3fae2ae0a478089880e8619d45beca41a62f3c8503aab692cac0087121a7",
+      "publicUpdate": "2026-11-10: final lab acceptance confirmed"
     },
     {
       "source": "reports/manual-materials-20261106/材料总览.html",

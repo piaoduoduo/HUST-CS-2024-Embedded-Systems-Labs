@@ -1,0 +1,49 @@
+{
+  "checkedOn": "2026-11-10",
+  "sixLabsFormallyAccepted": true,
+  "acceptanceConfirmation": "项目作者确认实验三至六均已正式验收；实验一、二已有确认记录。",
+  "sourceProfiles": 35,
+  "reconstructedSourceFiles": 1581,
+  "publicationManifestEntries": 2100,
+  "sourceAndPublicHashesMatch": true,
+  "repositoryUnitTests": {
+    "passed": 6,
+    "failed": 0
+  },
+  "gameCoreHostTests": [
+    {
+      "test": "rules",
+      "exitCode": 0,
+      "output": "PASS: 8000 generated 2048 moves; merge rules, no-op RNG, conservation, collisions, win/loss, pause, fixed-step timing, multi-touch ownership, menu and restart\n"
+    },
+    {
+      "test": "v2",
+      "exitCode": 0,
+      "output": "PASS: undo+RNG restore, 200 hint positions, three levels, armor, drops, timers, shield, slow, combos, bounded effects, badges, 100000 physics frames\n"
+    },
+    {
+      "test": "storage",
+      "exitCode": 0,
+      "output": "PASS: actual host file round-trip, atomic replacement, delayed writes, malformed/overflow/truncated checksum rejection, corrupt file preserved, I/O failure\n"
+    }
+  ],
+  "newBoardTestPerformed": false,
+  "report": {
+    "physicalPages": 22,
+    "bodyPages": 20,
+    "tocEntriesMatched": 29,
+    "unchangedVerifiedReport": true
+  },
+  "publicReportSHA256": {
+    "embedded-systems-report.pdf": "e1f9d419dd6f58fe20a890e6176a64a9dd25c3070885ef57d66d0516075839dc",
+    "embedded-systems-report.docx": "1cb8e8fdb937231826185bbcc3543d4fe960d5ce7949db380a00268a03472105"
+  },
+  "privacy": {
+    "projectAuthorCoverFieldsFoundInPublicFiles": false,
+    "projectAuthorCoverFieldsFoundInScannedGitHistory": false,
+    "tokenOrPrivateKeyPatternFound": false,
+    "uniqueCurrentImagesVisuallyReviewed": 29,
+    "referenceAuthorLiteralCleanup": "当前归档脚本已用通用检查替换参考报告作者的具体信息；旧提交保留原校验文本，未改写历史。",
+    "scope": "扫描姓名、学号、班级、电话、邮箱、文档元数据和常见凭据标记；截图另外目视核对。公开 GitHub 用户名和正常来源署名保留。"
+  }
+}

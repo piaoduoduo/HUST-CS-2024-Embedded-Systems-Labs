@@ -33,8 +33,11 @@ def main():
     status=json.loads((ROOT/'STATUS.json').read_text(encoding='utf-8'))
     trial=json.loads((ROOT/'results/board/trial-20261019.json').read_text(encoding='utf-8'))
     assert trial['lab3']['runsMs']==[22,21,17] and trial['lab3']['medianMs']==21
-    for name in ('v10','lab5','lab6'):
-        assert status[name]['boardTested'] and not status[name]['taAccepted']
+    assert status['allSixLabsAccepted']
+    for name in ('lab1','lab2','lab3','lab4','lab5','lab6'):
+        assert status[name]['taAccepted'] and status[name]['acceptanceConfirmedOn']=='2026-11-10'
+    for name in ('v10','lab5','lab6','arcade-v2'):
+        assert status[name]['boardTested'] and status[name]['taAccepted']
     results=json.loads((ROOT/'results/board/lab3-20261015.json').read_text(encoding='utf-8'))
     totals=[r['total'] for r in results['variants']['o3']['runs']]
     assert totals==[160,155,173] and results['variants']['o3']['medianMs']==160
@@ -46,6 +49,6 @@ def main():
                 source=''.join(line for edit in entry['edits'] for line in edit['lines'])
                 ast.parse(source,feature_version=(3,8))
     if errors:raise SystemExit('\n'.join(errors))
-    print('PASS: %d repository files; %d local documentation links; JSON, Python 3.8 syntax, source-only scope and pending statuses'%(checked,links))
+    print('PASS: %d repository files; %d local documentation links; JSON, Python 3.8 syntax, source-only scope and confirmed acceptance statuses'%(checked,links))
 
 if __name__=='__main__':main()

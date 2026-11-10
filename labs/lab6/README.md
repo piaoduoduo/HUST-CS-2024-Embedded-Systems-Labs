@@ -1,6 +1,6 @@
 # 触屏五子棋
 
-2026-10-19 已完成真实开发板试运行，尚待助教验收。代码含实际板测采用的 FreeType MONO 字模转换修复。
+2026-10-19 已完成真实开发板试运行；2026-11-10 已确认对应实验通过助教正式验收。代码含实际板测采用的 FreeType MONO 字模转换修复。
 
 ```sh
 python3 tools/materialize.py --profile lab6 --course /path/to/original-course --output .work/lab6 --include-assets

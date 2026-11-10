@@ -565,7 +565,7 @@ for entry in manifest:
 body=(OUT/'01-报告正文-按模板逐节粘贴.txt').read_text(encoding='utf-8-sig')
 assert all(f'{n}.{k} ' in body for n in range(1,7) for k in range(1,4))
 assert all(x in body for x in ['7.1 实验总结','7.2 实验建议','橙派游戏工坊 v2','58、19、20','17 ms'])
-assert not any(x in body for x in ['U202115285','计卓2101','18518472108','761768812'])
+assert not re.search(r'\b[UMD]20\d{7,10}\b|\b1[3-9]\d{9}\b', body)
 class Links(HTMLParser):
     def handle_starttag(self,tag,attrs):
         for key,value in attrs:
